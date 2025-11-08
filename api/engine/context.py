@@ -7,41 +7,7 @@ from typing import Any
 from ..db import SupabaseClient
 
 
-
-def _summarize_execution_search_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'execution'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_execution_search_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-
 @dataclass
-
-def _parse_execution_history_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_execution_history_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
 class ExecutionContext:
     user_id: str
     run_id: str
@@ -95,20 +61,3 @@ class ExecutionContext:
             broadcast_body["duration_ms"] = int(duration_ms)
         await self.db.insert("run_events", db_body, returning=False)
         await realtime_broadcast(f"run:{self.run_id}", kind, broadcast_body)
-
-def _merge_execution_storage_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_execution_storage_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
-
