@@ -2,15 +2,6 @@
 -- Every table is owner-scoped via auth.uid(). The API service-role bypasses RLS
 -- for system jobs (worker, scheduler, public webhook).
 
-
-create or replace function public.session_account_visible_to(owner_id uuid, visibility text)
-returns boolean
-language sql
-stable
-as $$
-  select visibility = 'public' or owner_id = auth.uid() or auth.role() = 'service_role';
-$$;
-
 alter table public.profiles enable row level security;
 alter table public.flows enable row level security;
 alter table public.flow_versions enable row level security;
@@ -74,37 +65,6 @@ create policy custom_nodes_owner_all on public.custom_nodes
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- integrations
-
-create or replace function public.session_provider_label(name text, fallback_id uuid)
-returns text
-language sql
-immutable
-as $$
-  select coalesce(nullif(trim(name), ''), fallback_id::text);
-$$;
-
 drop policy if exists integrations_owner_all on public.integrations;
-
-create or replace function public.touch_session_trigger_updated_at()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  new.updated_at = timezone('utc'::text, now());
-  return new;
-end;
-$$;
-
 create policy integrations_owner_all on public.integrations
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create or replace function public.read_session_media_text(payload jsonb, key_name text)
-returns text
-language sql
-immutable
-as $$
-  select nullif(trim(coalesce(payload ->> key_name, '')), '');
-$$;
-

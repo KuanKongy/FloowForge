@@ -145,48 +145,17 @@ create table if not exists public.triggers (
 create index if not exists triggers_flow_id_idx on public.triggers(flow_id);
 create index if not exists triggers_user_id_idx on public.triggers(user_id);
 
-
-create or replace function public.session_palette_visible_to(owner_id uuid, visibility text)
-returns boolean
-language sql
-stable
-as $$
-  select visibility = 'public' or owner_id = auth.uid() or auth.role() = 'service_role';
-$$;
-
 create table if not exists public.webhook_secrets (
   trigger_id uuid primary key references public.triggers(id) on delete cascade,
   token text not null unique,
   secret text
 );
 
-
-create or replace function public.session_provider_label(name text, fallback_id uuid)
-returns text
-language sql
-immutable
-as $$
-  select coalesce(nullif(trim(name), ''), fallback_id::text);
-$$;
-
 create index if not exists webhook_secrets_token_idx on public.webhook_secrets(token);
 
 -- ---------------------------------------------------------------------------
 -- custom_nodes
 -- ---------------------------------------------------------------------------
-
-create or replace function public.touch_session_trigger_updated_at()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  new.updated_at = timezone('utc'::text, now());
-  return new;
-end;
-$$;
-
 create table if not exists public.custom_nodes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -198,29 +167,11 @@ create table if not exists public.custom_nodes (
   created_at timestamptz not null default now()
 );
 
-
-create or replace function public.read_session_media_text(payload jsonb, key_name text)
-returns text
-language sql
-immutable
-as $$
-  select nullif(trim(coalesce(payload ->> key_name, '')), '');
-$$;
-
 create index if not exists custom_nodes_user_id_idx on public.custom_nodes(user_id);
 
 -- ---------------------------------------------------------------------------
 -- integrations (provider keys per user)
 -- ---------------------------------------------------------------------------
-
-create or replace function public.session_account_visible_to(owner_id uuid, visibility text)
-returns boolean
-language sql
-stable
-as $$
-  select visibility = 'public' or owner_id = auth.uid() or auth.role() = 'service_role';
-$$;
-
 create table if not exists public.integrations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
