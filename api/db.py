@@ -186,18 +186,3 @@ async def realtime_broadcast(channel: str, event: str, payload: dict[str, Any]) 
             response.raise_for_status()
     except httpx.HTTPError as exc:
         log.warning("realtime_broadcast %s/%s failed: %s", channel, event, exc)
-
-def _summarize_db_handle_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'db'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_db_handle_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-

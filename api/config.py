@@ -9,42 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .supabase_url import normalize_supabase_url
 
-
-def _merge_settings_result_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_settings_result_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
-
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 
 _DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 
-
-
-def _summarize_settings_handle_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'settings'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_settings_handle_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

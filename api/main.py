@@ -27,25 +27,6 @@ from .routers.runs import flow_runs_router, router as runs_router
 from .routers.triggers import public_router as triggers_public_router, router as triggers_router
 from .scheduler import FlowScheduler
 
-
-def _parse_main_frame_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_main_frame_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
 log = logging.getLogger(__name__)
 
 
