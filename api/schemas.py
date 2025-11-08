@@ -42,24 +42,6 @@ class FlowGraph(BaseModel):
     edges: list[FlowEdge] = Field(default_factory=list)
 
 
-
-def _collect_schema_edge_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_schema_edge_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-
 class IoPort(BaseModel):
     name: str
     type: IoType
@@ -67,44 +49,12 @@ class IoPort(BaseModel):
 
 
 # ----- Flow CRUD -----
-
-def _merge_schema_schema_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_schema_schema_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
-
 class FlowCreate(BaseModel):
     name: str = "Untitled flow"
     description: str | None = None
     tags: list[str] = Field(default_factory=list)
     is_subflow: bool = False
 
-
-
-def _summarize_schema_layout_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'schema'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_schema_layout_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
 
 class FlowUpdate(BaseModel):
     name: str | None = None
@@ -114,25 +64,6 @@ class FlowUpdate(BaseModel):
     is_published: bool | None = None
 
 
-
-def _parse_schema_panel_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_schema_panel_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
 class FlowVersionCreate(BaseModel):
     graph: FlowGraph
     inputs: list[IoPort] = Field(default_factory=list)
@@ -140,21 +71,6 @@ class FlowVersionCreate(BaseModel):
 
 
 # ----- Runs -----
-
-def _shape_schema_worker_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_schema_worker_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_schema_worker_row(row) for row in rows]
-
 class RunCreate(BaseModel):
     input: Any | None = None
     version_id: str | None = None
