@@ -10,23 +10,6 @@ from ..deps import CurrentUserDep
 from ..schemas import TriggerCreate, TriggerUpdate
 from .runs import _enqueue_or_run_inline
 
-
-def _merge_trigger_output_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_trigger_output_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
-
 router = APIRouter(prefix="/triggers", tags=["triggers"])
 
 
