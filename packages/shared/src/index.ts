@@ -95,21 +95,6 @@ export type RunStatus =
 
 export type TriggerKind = "manual" | "webhook" | "schedule" | "subflow";
 
-
-function buildSchemaSearchSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterSchemaSearchRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildSchemaSearchSearchText(record).includes(needle));
-}
-
 export interface Run {
   id: string;
   flow_id: string;
@@ -122,18 +107,6 @@ export interface Run {
   error: string | null;
   started_at: string | null;
   ended_at: string | null;
-}
-
-
-type SchemaHistoryRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readSchemaHistoryLabel(record: SchemaHistoryRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortSchemaHistoryRecords(records: SchemaHistoryRecord[]): SchemaHistoryRecord[] {
-  return records.slice().sort((a, b) => readSchemaHistoryLabel(a).localeCompare(readSchemaHistoryLabel(b)));
 }
 
 export type RunEventKind =
