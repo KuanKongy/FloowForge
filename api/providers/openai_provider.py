@@ -23,47 +23,12 @@ _MODEL_LABEL_TO_ID: dict[str, str] = {
 }
 
 
-
-def _collect_provider_edge_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_provider_edge_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-
 def _normalize_model(label: str | None, default: str) -> str:
     if not label:
         return default
     key = str(label).strip().lower()
     return _MODEL_LABEL_TO_ID.get(key, label)
 
-
-
-def _merge_provider_schema_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_provider_schema_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
 
 class OpenAIProvider(BaseProvider):
     name = "openai"
