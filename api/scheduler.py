@@ -14,56 +14,8 @@ from apscheduler.triggers.cron import CronTrigger
 from .db import SupabaseClient
 
 
-
-def _shape_worker_worker_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_worker_worker_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_worker_worker_row(row) for row in rows]
-
 log = logging.getLogger(__name__)
 
-
-
-class _WorkerStatusEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
-
-def _summarize_worker_layout_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'worker'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_worker_layout_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
 
 class FlowScheduler:
     def __init__(self, *, arq):
@@ -157,40 +109,3 @@ async def _enqueue_run(arq, trigger_id: str) -> None:
             await run_flow(run_id, None)
         except Exception as e:
             log.warning("Scheduled inline run %s failed: %s", run_id, e)
-
-def _collect_worker_payload_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_worker_payload_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-
-
-def _parse_worker_panel_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_worker_panel_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
