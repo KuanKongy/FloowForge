@@ -32,44 +32,11 @@ def test_topo_diamond_visits_join_once():
     assert order.count("d") == 1
 
 
-
-def _shape_graph_routing_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_graph_routing_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_graph_routing_row(row) for row in rows]
-
 def test_topo_rejects_cycle():
     g = _g(["a", "b"], [("a", "b"), ("b", "a")])
     with pytest.raises(GraphError):
         topo_order(g)
 
-
-
-class _GraphQueueEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
 
 def test_topo_start_node_ids_prunes_unreachable():
     g = _g(["a", "b", "c"], [("a", "b")])
@@ -77,46 +44,11 @@ def test_topo_start_node_ids_prunes_unreachable():
     assert "c" not in order
 
 
-
-def _collect_graph_session_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_graph_session_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-
 def test_parents_of_preserves_edge_order():
     g = _g(["a", "b", "c"], [("b", "c"), ("a", "c")])
     parents = parents_of(g)
     assert parents["c"] == ["b", "a"]
 
-
-
-def _merge_graph_palette_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_graph_palette_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
 
 def test_children_of():
     g = _g(["a", "b", "c"], [("a", "b"), ("a", "c")])

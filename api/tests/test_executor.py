@@ -28,64 +28,12 @@ from api.engine.executor import run_flow
 from api.engine.nodes import _REGISTRY as REGISTRY  # type: ignore[attr-defined]
 
 
-
-def _parse_execution_canvas_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_execution_canvas_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
 pytestmark = pytest.mark.asyncio
 
-
-
-def _shape_execution_routing_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_execution_routing_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_execution_routing_row(row) for row in rows]
 
 def _events_for(broadcasts, kind: str) -> list[dict[str, Any]]:
     return [b[2] for b in broadcasts if b[1] == kind]
 
-
-
-class _ExecutionQueueEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
 
 def _node_kinds(broadcasts) -> list[tuple[str, str | None]]:
     return [(b[1], b[2].get("node_id")) for b in broadcasts if b[1].startswith("node_")]
@@ -470,21 +418,3 @@ async def test_scenario_subflow_writes_parent_run_id(
     assert isinstance(child["input"], dict) and child["input"].get("payload") == "from-parent"
     # And that input reached the subflow's first node.
     assert received and received[0] == child["input"]
-
-def _collect_execution_session_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_execution_session_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-

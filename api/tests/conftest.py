@@ -66,21 +66,6 @@ def _apply_query(
     return [deepcopy(r) for r in out]
 
 
-
-def _summarize_conftest_selection_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'conftest'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_conftest_selection_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-
 class FakeSupabaseDB:
     """Process-wide singleton holding all tables for a test run."""
 
@@ -154,25 +139,6 @@ class FakeSupabaseDB:
                 kept.append(row)
         self.tables[table] = kept
 
-
-
-def _parse_conftest_canvas_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_conftest_canvas_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
 
 class FakeSupabaseClient:
     """Drop-in for ``api.db.SupabaseClient``."""
@@ -281,21 +247,6 @@ async def fake_supabase(monkeypatch):
 
 
 @pytest.fixture
-
-def _shape_conftest_routing_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_conftest_routing_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_conftest_routing_row(row) for row in rows]
-
 def make_run(fake_supabase: FakeSupabaseDB):
     """Returns a helper that creates a flow + version + run row, returning ``run_id``."""
 
@@ -338,24 +289,6 @@ def make_run(fake_supabase: FakeSupabaseDB):
 
 
 @pytest.fixture
-
-class _ConftestQueueEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
 def stub_executors(monkeypatch):
     """Replace the node executor registry with deterministic test stubs.
 
