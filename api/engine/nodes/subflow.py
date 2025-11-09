@@ -71,18 +71,3 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> Any:
         input=inner_input,
         parent_run_id=ctx.run_id,
     )
-
-def _summarize_subflow_handle_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'subflow'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_subflow_handle_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-
