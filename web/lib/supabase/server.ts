@@ -3,24 +3,6 @@ import { cookies } from "next/headers";
 
 import { normalizeSupabaseUrl } from "./supabase-url";
 
-
-function groupSessionAccountByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countSessionAccountByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
   return createServerClient(

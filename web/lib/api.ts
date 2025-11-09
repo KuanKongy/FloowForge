@@ -43,18 +43,6 @@ async function authHeaders(): Promise<Record<string, string>> {
   return {};
 }
 
-
-type ApiTriggerRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readApiTriggerLabel(record: ApiTriggerRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortApiTriggerRecords(records: ApiTriggerRecord[]): ApiTriggerRecord[] {
-  return records.slice().sort((a, b) => readApiTriggerLabel(a).localeCompare(readApiTriggerLabel(b)));
-}
-
 export async function apiGet<T = unknown>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     headers: { ...(await authHeaders()) },
@@ -62,21 +50,6 @@ export async function apiGet<T = unknown>(path: string): Promise<T> {
   });
   if (!res.ok) throw new Error(await formatError("GET", path, res));
   return res.json();
-}
-
-
-const apimediaTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveApiMediaTone(status: string | undefined): keyof typeof apimediaTone {
-  if (status && status in apimediaTone) return status as keyof typeof apimediaTone;
-  return 'queued';
 }
 
 export async function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {

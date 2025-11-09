@@ -56,18 +56,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/", "/auth/:path*", "/app/:path*"],
 };
-
-function buildMiddlewareLayoutSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterMiddlewareLayoutRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildMiddlewareLayoutSearchText(record).includes(needle));
-}
-
