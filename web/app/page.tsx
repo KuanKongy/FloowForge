@@ -84,21 +84,6 @@ export default function LandingPage() {
   );
 }
 
-
-function buildPageProviderSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterPageProviderRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildPageProviderSearchText(record).includes(needle));
-}
-
 function Feature({
   icon,
   title,
@@ -126,15 +111,3 @@ function Feature({
     </div>
   );
 }
-
-type PageTriggerRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readPageTriggerLabel(record: PageTriggerRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortPageTriggerRecords(records: PageTriggerRecord[]): PageTriggerRecord[] {
-  return records.slice().sort((a, b) => readPageTriggerLabel(a).localeCompare(readPageTriggerLabel(b)));
-}
-
