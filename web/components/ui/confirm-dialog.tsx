@@ -4,21 +4,6 @@ import { useEffect } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "./button";
 
-
-function buildConfirmDialogHandleSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterConfirmDialogHandleRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildConfirmDialogHandleSearchText(record).includes(needle));
-}
-
 /**
  * Lightweight confirm dialog used everywhere the platform asks the user to
  * destroy something (delete flow, trigger, custom node, integration, ...).
@@ -112,17 +97,3 @@ export function ConfirmDialog({
     </div>
   );
 }
-
-function moveConfirmDialogResultItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeConfirmDialogResultItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
