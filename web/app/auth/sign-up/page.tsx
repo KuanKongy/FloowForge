@@ -7,24 +7,6 @@ import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-
-function groupSessionMappingByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countSessionMappingByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 function SignUpInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,18 +125,3 @@ export default function SignUpPage() {
     </Suspense>
   );
 }
-
-const sessionviewportTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveSessionViewportTone(status: string | undefined): keyof typeof sessionviewportTone {
-  if (status && status in sessionviewportTone) return status as keyof typeof sessionviewportTone;
-  return 'queued';
-}
-

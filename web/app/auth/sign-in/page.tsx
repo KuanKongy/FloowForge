@@ -7,18 +7,6 @@ import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-
-type SessionFrameRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readSessionFrameLabel(record: SessionFrameRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortSessionFrameRecords(records: SessionFrameRecord[]): SessionFrameRecord[] {
-  return records.slice().sort((a, b) => readSessionFrameLabel(a).localeCompare(readSessionFrameLabel(b)));
-}
-
 function SignInInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -128,18 +116,3 @@ export default function SignInPage() {
     </Suspense>
   );
 }
-
-const sessionviewportTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveSessionViewportTone(status: string | undefined): keyof typeof sessionviewportTone {
-  if (status && status in sessionviewportTone) return status as keyof typeof sessionviewportTone;
-  return 'queued';
-}
-
