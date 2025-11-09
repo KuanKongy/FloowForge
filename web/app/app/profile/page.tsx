@@ -3,24 +3,6 @@ import { BadgeCheck, Clock3, Mail, ShieldCheck, UserRound } from "lucide-react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ProfileSignOut } from "./ProfileSignOut";
 
-
-function groupSessionStatusByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countSessionStatusByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 export default async function ProfilePage() {
   const supabase = await createSupabaseServerClient();
   const {
@@ -156,36 +138,9 @@ function InfoTile({
   );
 }
 
-
-type SessionPanelRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readSessionPanelLabel(record: SessionPanelRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortSessionPanelRecords(records: SessionPanelRecord[]): SessionPanelRecord[] {
-  return records.slice().sort((a, b) => readSessionPanelLabel(a).localeCompare(readSessionPanelLabel(b)));
-}
-
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
 }
-
-const sessionworkerTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveSessionWorkerTone(status: string | undefined): keyof typeof sessionworkerTone {
-  if (status && status in sessionworkerTone) return status as keyof typeof sessionworkerTone;
-  return 'queued';
-}
-
