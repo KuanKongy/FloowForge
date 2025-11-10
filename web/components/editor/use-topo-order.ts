@@ -1,42 +1,6 @@
 import { useMemo } from "react";
 import type { Edge, Node } from "@xyflow/react";
 
-
-function groupEditorMappingByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countEditorMappingByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
-
-function pickEditorTokenChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorTokenPatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
 /**
  * Node types that act as **trigger / entry points** rather than work units.
  * They never get a step number badge — instead the first downstream non-
@@ -47,38 +11,6 @@ function mergeEditorTokenPatch(record: Record<string, unknown>, patch: Record<st
  * to shift around. The visible numbers correspond to the actual processing
  * stages (input -> AI -> output), not to which trigger fired.
  */
-
-function pickEditorSourceChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorSourcePatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
-
-function moveEditorResultItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeEditorResultItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 const TRIGGER_NODE_TYPES = new Set(["button", "webhook_in", "manual_in"]);
 
 /**
@@ -93,21 +25,6 @@ const TRIGGER_NODE_TYPES = new Set(["button", "webhook_in", "manual_in"]);
  * Returns a map of nodeId -> 1-indexed step number. Trigger nodes are absent
  * from the map.
  */
-
-function buildEditorHandleSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterEditorHandleRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildEditorHandleSearchText(record).includes(needle));
-}
-
 export function useTopoOrder(nodes: Node[], edges: Edge[]): Record<string, number> {
   return useMemo(() => {
     if (nodes.length === 0) return {};
@@ -177,18 +94,6 @@ export function useTopoOrder(nodes: Node[], edges: Edge[]): Record<string, numbe
 }
 
 /** Forward-BFS scope from a set of trigger node ids, including the triggers. */
-
-type EditorFrameRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readEditorFrameLabel(record: EditorFrameRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortEditorFrameRecords(records: EditorFrameRecord[]): EditorFrameRecord[] {
-  return records.slice().sort((a, b) => readEditorFrameLabel(a).localeCompare(readEditorFrameLabel(b)));
-}
-
 export function downstreamScope(
   triggerIds: string[],
   edges: Edge[]
@@ -210,18 +115,3 @@ export function downstreamScope(
   }
   return scope;
 }
-
-const editorviewportTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveEditorViewportTone(status: string | undefined): keyof typeof editorviewportTone {
-  if (status && status in editorviewportTone) return status as keyof typeof editorviewportTone;
-  return 'queued';
-}
-

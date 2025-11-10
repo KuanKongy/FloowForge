@@ -1,0 +1,655 @@
+.text-box,
+.image-box,
+.audio-box,
+.file-box,
+.chat-box,
+.node-card {
+  box-shadow: 0 3px 10px 0 rgba(201, 201, 209, 0.18);
+  border-radius: 18px;
+  font-size: 0.9rem;
+  background: var(--surface-2);
+}
+
+.node-card__container {
+  border: 1px solid var(--border--container);
+  padding: 0.5em;
+  border-radius: 18px;
+  background: var(--surface-2);
+}
+
+.node-card__backend {
+  border: 1px solid rgba(var(--text__font-rgb), 0.2);
+  background: rgba(var(--text__background-rgb), 0.15);
+  border-radius: 18px;
+  padding: 0.5em;
+}
+
+.node-card__backend--image {
+  border-color: rgba(var(--image__font-rgb), 0.2);
+  background: rgba(var(--image__background-rgb), 0.15);
+}
+.node-card__backend--audio {
+  border-color: rgba(var(--audio__font-rgb), 0.2);
+  background: rgba(var(--audio__background-rgb), 0.15);
+}
+.node-card__backend--file {
+  border-color: rgba(var(--file__font-rgb), 0.2);
+  background: rgba(var(--file__background-rgb), 0.15);
+}
+.node-card__backend--chat {
+  border-color: rgba(var(--chat__font-rgb), 0.2);
+  background: rgba(var(--chat__background-rgb), 0.15);
+}
+
+/* "3D pillowy" button — Gumloop-style highlight + drop shadow that makes the
+   button feel like it's sitting above the canvas. Used by Click Me, Run, and
+   the palette open "+". */
+.button-node,
+.btn-3d {
+  background: linear-gradient(180deg, #ff378b 0%, var(--primary) 60%, #d40764 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 6px 14px rgba(217, 18, 124, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: box-shadow 0.18s ease, transform 0.15s ease, filter 0.18s ease;
+}
+.button-node:hover,
+.btn-3d:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 10px 22px rgba(217, 18, 124, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+.button-node:active,
+.btn-3d:active {
+  transform: translateY(1px);
+  filter: brightness(0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(217, 18, 124, 0.28);
+}
+
+.run-state-running {
+  outline: 2px solid rgba(var(--audio__font-rgb), 0.7);
+  outline-offset: 4px;
+  border-radius: 22px;
+}
+.run-state-succeeded {
+  outline: 2px solid rgba(var(--image__font-rgb), 0.7);
+  outline-offset: 4px;
+  border-radius: 22px;
+}
+.run-state-failed {
+  outline: 2px solid #ef4444;
+  outline-offset: 4px;
+  border-radius: 22px;
+}
+
+.editor-component-menu {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 0.55em 0.4em;
+  box-shadow: 0 1px 4px rgba(172, 172, 172, 0.15), 0 2px 10px rgba(201, 201, 209, 0.15);
+}
+
+/* === Floowbox palette parity (ported from frontend/app/custom-flow/TopMenu.css)
+   The palette is a vertical column of pink-bordered icon buttons; on hover
+   each button gets a soft pink background and a tooltip pill slides in to
+   the right. */
+.top-menu__component-menu {
+  background: white;
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 4px rgba(172, 172, 172, 0.15),
+    0 2px 10px rgba(201, 201, 209, 0.15);
+  border-radius: 15px;
+  width: 3.5em;
+  pointer-events: auto;
+  overflow: visible;
+  position: relative;
+  z-index: 50;
+}
+.component-menu__wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 0.5em;
+}
+.component-menu__divider {
+  width: 70%;
+  height: 2px;
+  background: var(--border);
+  border-radius: 999px;
+}
+.component-menu__section {
+  display: flex;
+  flex-direction: column;
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  gap: 0.7em;
+  align-items: center;
+  justify-content: center;
+  color: rgba(0, 0, 0, 0.75);
+}
+/* Palette open "+" — pillowy 3D pink badge so the affordance reads as
+   "raised, click me". Mirrors the Run button's lift + shadow on hover. */
+.component-menu__button {
+  padding: 0.5em;
+  border-radius: 12px;
+  margin: 0.3em 0;
+  color: white;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ff378b 0%, var(--primary) 60%, #d40764 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 5px 12px rgba(217, 18, 124, 0.28),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  border: 1px solid transparent;
+  transition: box-shadow 0.18s ease, transform 0.15s ease, filter 0.15s ease;
+}
+.component-menu__button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 9px 20px rgba(217, 18, 124, 0.42);
+}
+.component-menu__button:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 6px rgba(217, 18, 124, 0.3);
+}
+.component-menu__button--component {
+  aspect-ratio: 1 / 1;
+  width: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  border-radius: 5px;
+  color: var(--primary);
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+.component-menu__button--component:active { cursor: grabbing; }
+.component-menu__button--component:hover {
+  background-color: var(--hover-bg);
+  transform: translateY(-1px);
+}
+.component-menu__button--collapse {
+  width: 2.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50em;
+  cursor: pointer;
+  color: var(--muted-foreground);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.component-menu__button--collapse:hover {
+  background-color: var(--hover-bg);
+  color: var(--primary);
+}
+
+/* In-use direction indicators on each node side. The colored dot tells the
+   user "this side already has connections". Distinct from the proximity
+   handle reveal, which is the larger ring. */
+.direction-indicator {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  pointer-events: none;
+  box-shadow: 0 0 0 2px var(--surface-2);
+  z-index: 2;
+}
+.direction-indicator--source {
+  background: var(--indicator-source);
+}
+.direction-indicator--target {
+  background: var(--indicator-target);
+}
+.direction-indicator--top {
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.direction-indicator--bottom {
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.direction-indicator--left {
+  left: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.direction-indicator--right {
+  right: -4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* NodeFrame card — the visible "box" around every node. Header, body, badge
+   and wait chip all live inside this card so the controls feel attached to
+   the node, not floating in space. */
+
+.editor-account-surface {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.editor-account-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.node-frame__card {
+  position: relative;
+  background: var(--surface-2);
+  border: 1px solid var(--border--container);
+  border-radius: 18px;
+  box-shadow: 0 3px 10px 0 rgba(201, 201, 209, 0.18);
+  overflow: visible;
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.editor-edge-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.editor-edge-stack[data-tight='true'] {
+  gap: 0.25rem;
+}
+
+.node-frame__card:hover {
+  box-shadow: 0 6px 16px 0 rgba(201, 201, 209, 0.32);
+  border-color: rgba(255, 0, 114, 0.18);
+}
+
+.editor-schema-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-schema-label[data-muted='true'] {
+  opacity: 0.64;
+}
+
+.node-frame__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.editor-layout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.editor-layout-grid[data-expanded='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.node-frame__body {
+  padding: 0.4rem;
+}
+
+.editor-panel-surface {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.editor-panel-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.node-frame__collapsed-body {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  border-radius: 0 0 18px 18px;
+  transition: background-color 0.14s ease;
+}
+
+.editor-worker-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.editor-worker-stack[data-tight='true'] {
+  gap: 0.25rem;
+}
+
+.node-frame__collapsed-body:hover {
+  background: var(--muted);
+}
+
+.editor-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-status-label[data-muted='true'] {
+  opacity: 0.64;
+}
+
+.node-frame__icon-btn {
+  color: var(--muted-foreground);
+  background: transparent;
+  border-radius: 6px;
+  padding: 2px;
+  transition: color 0.14s ease, background-color 0.14s ease;
+}
+
+.editor-payload-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.editor-payload-grid[data-expanded='true'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.node-frame__icon-btn:hover {
+  color: var(--primary);
+  background: var(--secondary);
+}
+
+.editor-storage-surface {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.editor-storage-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.node-frame__icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* Numbered topo order badge (Gumloop-style "step number"). Shows the order
+   the executor will fire each node; nodes that share a number run in
+   parallel (no path between them). Anchored to the **output side** (bottom
+   right) so it sits near where downstream edges leave the box. */
+.topo-badge {
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--primary);
+  color: white;
+  border: 2px solid var(--surface-2);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgba(255, 0, 114, 0.35);
+}
+
+/* Custom edge X delete button. Hidden by default; shown on edge hover. */
+.edge-delete-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: white;
+  border: 1px solid var(--border--container);
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s ease, color 0.18s ease, border-color 0.18s ease,
+    transform 0.18s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+.react-flow__edge:hover .edge-delete-btn,
+.edge-delete-btn:hover {
+  opacity: 1;
+}
+.edge-delete-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: scale(1.1);
+}
+
+/* Trigger node "configured" glow — applied when a Webhook In has an active
+   webhook URL or a Manual In has been wired up. The pink ring tells the user
+   "this entry point is live" so they don't keep wondering why the canvas is
+   gray. */
+.trigger-configured .node-frame__card {
+  border-color: rgba(255, 0, 114, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(255, 0, 114, 0.18),
+    0 6px 18px rgba(255, 0, 114, 0.18);
+}
+
+/* "Resume from this node" overlay. Painted above each non-trigger node's
+   card while the editor is in resume mode. Soft black scrim + central pink
+   pill so the click target is huge and obvious. */
+.resume-overlay {
+  position: absolute;
+  inset: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 18px;
+  cursor: pointer;
+  z-index: 6;
+  transition: background-color 0.18s ease;
+}
+.resume-overlay:hover {
+  background: rgba(15, 23, 42, 0.55);
+}
+.resume-overlay__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ff378b 0%, var(--primary) 60%, #d40764 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 6px 18px rgba(217, 18, 124, 0.4);
+  transition: transform 0.15s ease;
+}
+.resume-overlay:hover .resume-overlay__chip {
+  transform: scale(1.04);
+}
+
+/* Run history toggle button (sits below the Run pill). Intentionally a flat
+   chip with just a hairline border + hover lift — no drop shadow, so it
+   doesn't look like it's "floating" away from the canvas. */
+.history-btn {
+  border: 1px solid var(--border);
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+}
+.history-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 0, 114, 0.45);
+  color: var(--primary);
+}
+.history-btn:active {
+  transform: translateY(1px);
+}
+
+/* Run sidebar (right edge floating panel). */
+.run-sidebar {
+  position: absolute;
+  right: 16px;
+  top: 80px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+  z-index: 5;
+}
+.run-sidebar__header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.run-sidebar__row {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 0.14s ease;
+}
+.run-sidebar__row:hover {
+  background: var(--muted);
+}
+.run-sidebar__io-btn {
+  margin-left: 6px;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--primary);
+  background: var(--secondary);
+  border-radius: 999px;
+  padding: 2px 8px;
+  opacity: 0;
+  transition: opacity 0.14s ease, background-color 0.14s ease;
+}
+.run-sidebar__row:hover .run-sidebar__io-btn,
+.run-sidebar__io-btn:focus-visible {
+  opacity: 1;
+}
+.run-sidebar__io-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+.run-sidebar__chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.run-sidebar__chip--running {
+  background: rgba(var(--audio__font-rgb), 0.15);
+  color: var(--audio__font);
+}
+.run-sidebar__chip--succeeded {
+  background: rgba(var(--image__font-rgb), 0.15);
+  color: var(--image__font);
+}
+.run-sidebar__chip--failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+.run-sidebar__chip--idle,
+.run-sidebar__chip--skipped {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.run-sidebar__time {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+
+/* When the editor is in Frontend mode (`editor--frontend` on the wrapper),
+   edges are visually hidden (handles are also hidden via NodeHandleWrapper).
+   The state stays intact in React Flow so toggling back to Backend reveals
+   them again. */
+.editor--frontend .react-flow__edges {
+  display: none;
+}
+.editor--frontend .react-flow__connectionline,
+.editor--frontend .react-flow__edgeupdater {
+  display: none;
+}
+
+/* Wait strategy chip on input nodes.
+   - default (`.wait-chip`): absolute, top-right corner of the card. Used by
+     the "top" header variant.
+   - `.wait-chip--inline`: rendered inline inside the card body next to the
+     model name. AI Model uses this so the chip sits beside the rename input
+     (Floowbox layout). */
+.wait-chip {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  z-index: 4;
+  transition: background-color 0.14s ease, border-color 0.14s ease, transform 0.14s ease;
+}
+.wait-chip:hover {
+  transform: scale(1.05);
+}
+.wait-chip--inline {
+  position: static;
+}
+.wait-chip[data-strategy="race"] {
+  color: var(--audio__font);
+  background: rgba(var(--audio__background-rgb), 0.6);
+  border-color: rgba(var(--audio__font-rgb), 0.3);
+}
+.wait-chip[data-strategy="barrier"] {
+  color: var(--text__font);
+  background: rgba(var(--text__background-rgb), 0.4);
+  border-color: rgba(var(--text__font-rgb), 0.3);
+}
