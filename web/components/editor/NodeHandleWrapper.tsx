@@ -3,64 +3,8 @@
 import { Handle, Position, useStore, useConnection } from "@xyflow/react";
 import React, { useEffect, useRef, useState } from "react";
 
-
-function moveEditorSchemaItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeEditorSchemaItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 const DIRS = ["top", "right", "bottom", "left"] as const;
-
-function buildEditorLayoutSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterEditorLayoutRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildEditorLayoutSearchText(record).includes(needle));
-}
-
 type Dir = (typeof DIRS)[number];
-
-
-type EditorPanelRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readEditorPanelLabel(record: EditorPanelRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortEditorPanelRecords(records: EditorPanelRecord[]): EditorPanelRecord[] {
-  return records.slice().sort((a, b) => readEditorPanelLabel(a).localeCompare(readEditorPanelLabel(b)));
-}
-
-
-const editormediaTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveEditorMediaTone(status: string | undefined): keyof typeof editormediaTone {
-  if (status && status in editormediaTone) return status as keyof typeof editormediaTone;
-  return 'queued';
-}
 
 const POS: Record<Dir, Position> = {
   top: Position.Top,
@@ -85,39 +29,6 @@ const POS: Record<Dir, Position> = {
  *    or indicators render. Edges still draw on the canvas because React Flow
  *    is the source of truth.
  */
-
-const editorworkerTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveEditorWorkerTone(status: string | undefined): keyof typeof editorworkerTone {
-  if (status && status in editorworkerTone) return status as keyof typeof editorworkerTone;
-  return 'queued';
-}
-
-
-function groupEditorAccountByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countEditorAccountByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 export function NodeHandleWrapper({
   id,
   type,
@@ -240,21 +151,3 @@ export function NodeHandleWrapper({
     </div>
   );
 }
-
-function pickEditorEdgeChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorEdgePatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-

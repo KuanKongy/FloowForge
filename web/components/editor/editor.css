@@ -243,20 +243,6 @@
 /* NodeFrame card — the visible "box" around every node. Header, body, badge
    and wait chip all live inside this card so the controls feel attached to
    the node, not floating in space. */
-
-.editor-account-surface {
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-
-.editor-account-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .node-frame__card {
   position: relative;
   background: var(--surface-2);
@@ -266,33 +252,10 @@
   overflow: visible;
   transition: box-shadow 0.18s ease, border-color 0.18s ease;
 }
-
-.editor-edge-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.editor-edge-stack[data-tight='true'] {
-  gap: 0.25rem;
-}
-
 .node-frame__card:hover {
   box-shadow: 0 6px 16px 0 rgba(201, 201, 209, 0.32);
   border-color: rgba(255, 0, 114, 0.18);
 }
-
-.editor-schema-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.editor-schema-label[data-muted='true'] {
-  opacity: 0.64;
-}
-
 .node-frame__header {
   display: flex;
   align-items: center;
@@ -300,34 +263,9 @@
   padding: 0.45rem 0.7rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.04);
 }
-
-.editor-layout-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.editor-layout-grid[data-expanded='true'] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .node-frame__body {
   padding: 0.4rem;
 }
-
-.editor-panel-surface {
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-
-.editor-panel-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .node-frame__collapsed-body {
   display: flex;
   align-items: center;
@@ -337,32 +275,9 @@
   border-radius: 0 0 18px 18px;
   transition: background-color 0.14s ease;
 }
-
-.editor-worker-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.editor-worker-stack[data-tight='true'] {
-  gap: 0.25rem;
-}
-
 .node-frame__collapsed-body:hover {
   background: var(--muted);
 }
-
-.editor-status-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.editor-status-label[data-muted='true'] {
-  opacity: 0.64;
-}
-
 .node-frame__icon-btn {
   color: var(--muted-foreground);
   background: transparent;
@@ -370,35 +285,10 @@
   padding: 2px;
   transition: color 0.14s ease, background-color 0.14s ease;
 }
-
-.editor-payload-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-}
-
-.editor-payload-grid[data-expanded='true'] {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .node-frame__icon-btn:hover {
   color: var(--primary);
   background: var(--secondary);
 }
-
-.editor-storage-surface {
-  display: grid;
-  gap: 0.75rem;
-  align-content: start;
-}
-
-.editor-storage-row {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .node-frame__icon-btn:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 1px;
