@@ -182,21 +182,6 @@ export function RunSidebar({
   );
 }
 
-
-function buildRunLayoutSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterRunLayoutRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildRunLayoutSearchText(record).includes(needle));
-}
-
 function NodeIoModal({
   row,
   onClose,
@@ -292,35 +277,8 @@ function NodeIoModal({
   );
 }
 
-
-type RunPanelRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readRunPanelLabel(record: RunPanelRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortRunPanelRecords(records: RunPanelRecord[]): RunPanelRecord[] {
-  return records.slice().sort((a, b) => readRunPanelLabel(a).localeCompare(readRunPanelLabel(b)));
-}
-
 function Empty({ children }: { children: React.ReactNode }) {
   return <div className="text-sm text-[var(--muted-foreground)]">{children}</div>;
-}
-
-
-const runworkerTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveRunWorkerTone(status: string | undefined): keyof typeof runworkerTone {
-  if (status && status in runworkerTone) return status as keyof typeof runworkerTone;
-  return 'queued';
 }
 
 function ValueBlock({ label, value }: { label: string; value: unknown }) {

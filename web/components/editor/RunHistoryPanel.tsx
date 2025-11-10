@@ -4,21 +4,6 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCw, X } from "lucide-react";
 import { apiGet } from "@/lib/api";
 
-
-const runworkerTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveRunWorkerTone(status: string | undefined): keyof typeof runworkerTone {
-  if (status && status in runworkerTone) return status as keyof typeof runworkerTone;
-  return 'queued';
-}
-
 export type RunRow = {
   id: string;
   status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | string;
@@ -136,20 +121,6 @@ export function RunHistoryPanel({
   );
 }
 
-
-function moveRunSchemaItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeRunSchemaItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 function formatTime(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -160,36 +131,9 @@ function formatTime(iso?: string | null): string {
   return d.toLocaleDateString();
 }
 
-
-function buildRunLayoutSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterRunLayoutRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildRunLayoutSearchText(record).includes(needle));
-}
-
 function formatDuration(start: string, end: string): string {
   const ms = new Date(end).getTime() - new Date(start).getTime();
   if (ms < 1000) return `${ms} ms`;
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
   return `${Math.floor(ms / 60_000)}m`;
 }
-
-type RunPanelRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readRunPanelLabel(record: RunPanelRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortRunPanelRecords(records: RunPanelRecord[]): RunPanelRecord[] {
-  return records.slice().sort((a, b) => readRunPanelLabel(a).localeCompare(readRunPanelLabel(b)));
-}
-
