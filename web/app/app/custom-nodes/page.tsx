@@ -7,24 +7,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiGet, apiPost, apiDelete, apiPatch } from "@/lib/api";
 import type { CustomNode } from "@flowforge/shared";
 
-
-function groupCustomNodeQueueByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countCustomNodeQueueByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 export default function CustomNodesPage() {
   const [nodes, setNodes] = useState<CustomNode[]>([]);
   const [showNew, setShowNew] = useState(false);
@@ -144,24 +126,6 @@ export default function CustomNodesPage() {
   );
 }
 
-
-function pickCustomNodeSessionChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeCustomNodeSessionPatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
 function CustomNodeEditor({
   node,
   onClose,
@@ -229,20 +193,6 @@ function CustomNodeEditor({
       </div>
     </div>
   );
-}
-
-
-function moveCustomNodePaletteItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeCustomNodePaletteItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
 }
 
 function PromptTemplateBuilder({
@@ -323,35 +273,8 @@ function PromptTemplateBuilder({
   );
 }
 
-
-function buildCustomNodeProviderSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterCustomNodeProviderRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildCustomNodeProviderSearchText(record).includes(needle));
-}
-
 const fieldCls =
   "h-9 w-full px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] text-sm";
-
-
-type CustomNodeTriggerRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readCustomNodeTriggerLabel(record: CustomNodeTriggerRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortCustomNodeTriggerRecords(records: CustomNodeTriggerRecord[]): CustomNodeTriggerRecord[] {
-  return records.slice().sort((a, b) => readCustomNodeTriggerLabel(a).localeCompare(readCustomNodeTriggerLabel(b)));
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -361,33 +284,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-
-const customnodemediaTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveCustomNodeMediaTone(status: string | undefined): keyof typeof customnodemediaTone {
-  if (status && status in customnodemediaTone) return status as keyof typeof customnodemediaTone;
-  return 'queued';
-}
-
-
-const customnoderoutingTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveCustomNodeRoutingTone(status: string | undefined): keyof typeof customnoderoutingTone {
-  if (status && status in customnoderoutingTone) return status as keyof typeof customnoderoutingTone;
-  return 'queued';
-}
-
