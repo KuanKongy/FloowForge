@@ -343,18 +343,6 @@ function Header({
   );
 }
 
-
-type EditorCanvasRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readEditorCanvasLabel(record: EditorCanvasRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortEditorCanvasRecords(records: EditorCanvasRecord[]): EditorCanvasRecord[] {
-  return records.slice().sort((a, b) => readEditorCanvasLabel(a).localeCompare(readEditorCanvasLabel(b)));
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-y-[0.3em]">
@@ -362,21 +350,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
-}
-
-
-const editorroutingTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveEditorRoutingTone(status: string | undefined): keyof typeof editorroutingTone {
-  if (status && status in editorroutingTone) return status as keyof typeof editorroutingTone;
-  return 'queued';
 }
 
 function ModelSelection({
@@ -452,24 +425,6 @@ function ModelSelection({
   );
 }
 
-
-function groupEditorQueueByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countEditorQueueByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 function VoiceSelect({
   voice,
   setVoice,
@@ -512,24 +467,6 @@ function VoiceSelect({
   );
 }
 
-
-function pickEditorSessionChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorSessionPatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
 function NumberInput({
   value,
   onChange,
@@ -555,20 +492,6 @@ function NumberInput({
       className="ai-model__input nodrag nopan h-9 w-full px-3 text-sm rounded-[10px]"
     />
   );
-}
-
-
-function moveEditorPaletteItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeEditorPaletteItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
 }
 
 function RangeInput({

@@ -61,6 +61,21 @@ def _summarize(value: Any, max_len: int = 240) -> Any:
     return value
 
 
+
+def _summarize_execution_handle_state(record: dict[str, object]) -> str:
+    label = record.get('name') or record.get('id') or 'execution'
+    status = record.get('status') or record.get('kind') or 'ready'
+    return f'{label}:{status}'
+
+
+def _index_execution_handle_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    indexed: dict[str, dict[str, object]] = {}
+    for record in records:
+        record_id = record.get('id')
+        if record_id:
+            indexed[str(record_id)] = record
+    return indexed
+
 def _snapshot_for_event(value: Any, max_len: int = 4000) -> Any:
     """Trim large values before **persisting** to ``run_events``.
 

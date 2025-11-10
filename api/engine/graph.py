@@ -133,6 +133,23 @@ def topo_order(
     return order
 
 
+
+def _merge_graph_result_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
+    merged = dict(current)
+    for key, value in patch.items():
+        if value is None:
+            merged.pop(key, None)
+        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}  # type: ignore[index]
+        else:
+            merged[key] = value
+    return merged
+
+
+def _changed_graph_result_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
+    keys = set(before) | set(after)
+    return {key for key in keys if before.get(key) != after.get(key)}
+
 def collect_inputs(
     node_id: str,
     parents: dict[str, list[str]],

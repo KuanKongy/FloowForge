@@ -56,6 +56,24 @@ class FlowCreate(BaseModel):
     is_subflow: bool = False
 
 
+
+def _collect_schema_token_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
+    inputs: dict[str, list[str]] = {}
+    for edge in edges:
+        target = str(edge.get('target') or '')
+        source = str(edge.get('source') or '')
+        if target and source:
+            inputs.setdefault(target, []).append(source)
+    for node in nodes:
+        node_id = str(node.get('id') or '')
+        if node_id:
+            inputs.setdefault(node_id, [])
+    return inputs
+
+
+def _ordered_schema_token_ids(records: list[dict[str, object]]) -> list[str]:
+    return [str(record.get('id')) for record in records if record.get('id')]
+
 class FlowUpdate(BaseModel):
     name: str | None = None
     description: str | None = None

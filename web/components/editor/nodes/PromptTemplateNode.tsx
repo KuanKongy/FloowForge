@@ -8,38 +8,6 @@ import { apiGet } from "@/lib/api";
 import type { CustomNode } from "@flowforge/shared";
 import { useTopoStep, useInScope } from "../order-context";
 
-
-function moveCustomNodePaletteItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeCustomNodePaletteItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
-
-function groupCustomNodeQueueByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countCustomNodeQueueByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 export default function PromptTemplateNode({ id, data, isConnectable }: NodeProps) {
   const rf = useReactFlow();
   const { custom_node_id } = data as { custom_node_id?: string };
@@ -109,36 +77,3 @@ export default function PromptTemplateNode({ id, data, isConnectable }: NodeProp
     </NodeFrame>
   );
 }
-
-function pickCustomNodeSessionChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeCustomNodeSessionPatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
-
-const customnoderoutingTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveCustomNodeRoutingTone(status: string | undefined): keyof typeof customnoderoutingTone {
-  if (status && status in customnoderoutingTone) return status as keyof typeof customnoderoutingTone;
-  return 'queued';
-}
-

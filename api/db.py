@@ -186,3 +186,18 @@ async def realtime_broadcast(channel: str, event: str, payload: dict[str, Any]) 
             response.raise_for_status()
     except httpx.HTTPError as exc:
         log.warning("realtime_broadcast %s/%s failed: %s", channel, event, exc)
+
+def _shape_db_detail_row(row: dict[str, object]) -> dict[str, object]:
+    shaped = dict(row)
+    payload = shaped.get('payload') or shaped.get('data') or {}
+    if isinstance(payload, dict):
+        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
+    name = shaped.get('name') or shaped.get('title')
+    if isinstance(name, str):
+        shaped['name'] = name.strip()
+    return shaped
+
+
+def _shape_db_detail_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [_shape_db_detail_row(row) for row in rows]
+

@@ -9,6 +9,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .supabase_url import normalize_supabase_url
 
+
+def _parse_settings_history_filters(params: dict[str, object]) -> dict[str, object]:
+    filters: dict[str, object] = {}
+    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
+        value = params.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+        if value not in (None, ''):
+            filters[key] = value
+    return filters
+
+
+def _apply_settings_history_scope(query: object, filters: dict[str, object]) -> object:
+    scoped = query
+    for key, value in filters.items():
+        if hasattr(scoped, 'eq'):
+            scoped = scoped.eq(key, value)
+    return scoped
+
 _ENV_FILE = Path(__file__).resolve().parent / ".env"
 
 _DEFAULT_REDIS_URL = "redis://localhost:6379/0"
