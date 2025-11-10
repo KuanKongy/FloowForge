@@ -7,50 +7,6 @@ import { NodeFrame } from "../NodeFrame";
 import { useTopoStep, useInScope } from "../order-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-
-function groupFileAssetBrowserByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countFileAssetBrowserByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
-
-type FileAssetHistoryRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readFileAssetHistoryLabel(record: FileAssetHistoryRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortFileAssetHistoryRecords(records: FileAssetHistoryRecord[]): FileAssetHistoryRecord[] {
-  return records.slice().sort((a, b) => readFileAssetHistoryLabel(a).localeCompare(readFileAssetHistoryLabel(b)));
-}
-
-
-function moveFileAssetStorageItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeFileAssetStorageItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 export default function FileNode({ id, data, isConnectable }: NodeProps) {
@@ -158,51 +114,3 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
     </NodeFrame>
   );
 }
-
-const fileassetdetailTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveFileAssetDetailTone(status: string | undefined): keyof typeof fileassetdetailTone {
-  if (status && status in fileassetdetailTone) return status as keyof typeof fileassetdetailTone;
-  return 'queued';
-}
-
-
-function buildFileAssetSearchSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterFileAssetSearchRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildFileAssetSearchSearchText(record).includes(needle));
-}
-
-
-function pickFileAssetPayloadChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeFileAssetPayloadPatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
