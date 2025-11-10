@@ -8,21 +8,6 @@ import { useTopoStep, useInScope } from "../order-context";
 import { apiGet, apiPost } from "@/lib/api";
 import type { Trigger } from "@flowforge/shared";
 
-
-const triggerroutingTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveTriggerRoutingTone(status: string | undefined): keyof typeof triggerroutingTone {
-  if (status && status in triggerroutingTone) return status as keyof typeof triggerroutingTone;
-  return 'queued';
-}
-
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 type TriggerWithWebhook = Trigger & {
@@ -211,15 +196,3 @@ export default function TriggerNode({ id, type, data, isConnectable }: NodeProps
     </NodeFrame>
   );
 }
-
-type TriggerCanvasRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readTriggerCanvasLabel(record: TriggerCanvasRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortTriggerCanvasRecords(records: TriggerCanvasRecord[]): TriggerCanvasRecord[] {
-  return records.slice().sort((a, b) => readTriggerCanvasLabel(a).localeCompare(readTriggerCanvasLabel(b)));
-}
-

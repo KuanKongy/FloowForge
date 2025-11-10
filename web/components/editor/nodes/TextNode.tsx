@@ -5,18 +5,6 @@ import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame } from "../NodeFrame";
 import { useTopoStep, useInScope } from "../order-context";
 
-
-type EditorCanvasRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readEditorCanvasLabel(record: EditorCanvasRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortEditorCanvasRecords(records: EditorCanvasRecord[]): EditorCanvasRecord[] {
-  return records.slice().sort((a, b) => readEditorCanvasLabel(a).localeCompare(readEditorCanvasLabel(b)));
-}
-
 /**
  * Floowbox-style Text Box. The textarea is **uncontrolled-ish**: we keep the
  * latest text in component-local state so React Flow's frequent re-renders
@@ -88,18 +76,3 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
     </NodeFrame>
   );
 }
-
-function buildEditorSelectionSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterEditorSelectionRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildEditorSelectionSearchText(record).includes(needle));
-}
-

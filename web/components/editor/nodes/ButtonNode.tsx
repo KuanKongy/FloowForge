@@ -5,24 +5,6 @@ import { NodeHandleWrapper } from "../NodeHandleWrapper";
 import { useNodeRunState, runStateClass } from "../run-state-context";
 import { useInScope } from "../order-context";
 
-
-function groupEditorMappingByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countEditorMappingByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 /**
  * Direct port of Floowbox's `ButtonNode`. Just a round pink "Click Me" button
  * — no surrounding card.
@@ -72,21 +54,3 @@ export default function ButtonNode({ id, data, isConnectable }: NodeProps) {
     </div>
   );
 }
-
-function pickEditorSourceChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorSourcePatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
