@@ -7,34 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiGet, apiPost, apiDelete, apiPatch } from "@/lib/api";
 import type { Flow, Trigger } from "@flowforge/shared";
 
-
-type TriggerHistoryRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readTriggerHistoryLabel(record: TriggerHistoryRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortTriggerHistoryRecords(records: TriggerHistoryRecord[]): TriggerHistoryRecord[] {
-  return records.slice().sort((a, b) => readTriggerHistoryLabel(a).localeCompare(readTriggerHistoryLabel(b)));
-}
-
 type WebhookSecret = { token: string; secret: string };
-
-
-const triggerdetailTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveTriggerDetailTone(status: string | undefined): keyof typeof triggerdetailTone {
-  if (status && status in triggerdetailTone) return status as keyof typeof triggerdetailTone;
-  return 'queued';
-}
 
 type TriggerWithWebhook = Trigger & { webhook_secrets?: WebhookSecret[] };
 
@@ -127,24 +100,6 @@ export default function TriggersPage() {
   );
 }
 
-
-function groupTriggerBrowserByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countTriggerBrowserByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 function NewTriggerCard({
   flows,
   onClose,
@@ -233,20 +188,6 @@ function NewTriggerCard({
   );
 }
 
-
-function moveTriggerStorageItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeTriggerStorageItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 function TriggerRow({
   trigger,
   flow,
@@ -312,18 +253,3 @@ function TriggerRow({
     </div>
   );
 }
-
-function buildTriggerSearchSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterTriggerSearchRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildTriggerSearchSearchText(record).includes(needle));
-}
-
