@@ -19,53 +19,12 @@ import {
   Zap,
 } from "lucide-react";
 
-
-function moveEditorOutputItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeEditorOutputItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
-
-type EditorFrameRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readEditorFrameLabel(record: EditorFrameRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortEditorFrameRecords(records: EditorFrameRecord[]): EditorFrameRecord[] {
-  return records.slice().sort((a, b) => readEditorFrameLabel(a).localeCompare(readEditorFrameLabel(b)));
-}
-
 /**
  * Floating top bar — left pill (home, name, frontend toggle, status) and a
  * right pill (Save, Add Button, Run / Stop / Resume). Below the right pill
  * sits a small History button for opening the run history panel. Visual
  * style matches Floowbox's `TopMenu`.
  */
-
-const editorviewportTone = {
-  queued: 'muted',
-  running: 'accent',
-  completed: 'success',
-  failed: 'danger',
-  private: 'muted',
-  public: 'accent',
-} as const;
-
-function resolveEditorViewportTone(status: string | undefined): keyof typeof editorviewportTone {
-  if (status && status in editorviewportTone) return status as keyof typeof editorviewportTone;
-  return 'queued';
-}
-
 export function EditorTopBar({
   flowName,
   onRenameFlow,
@@ -283,24 +242,6 @@ export function EditorTopBar({
   );
 }
 
-
-function groupEditorMappingByType<T extends { type?: string }>(items: T[]): Map<string, T[]> {
-  const groups = new Map<string, T[]>();
-  for (const item of items) {
-    const key = item.type || 'default';
-    groups.set(key, [...(groups.get(key) ?? []), item]);
-  }
-  return groups;
-}
-
-function countEditorMappingByStatus<T extends { status?: string }>(items: T[]): Record<string, number> {
-  return items.reduce<Record<string, number>>((counts, item) => {
-    const key = item.status || 'unknown';
-    counts[key] = (counts[key] ?? 0) + 1;
-    return counts;
-  }, {});
-}
-
 function SystemStatus({ status }: { status: "idle" | "running" | "succeeded" | "failed" | "cancelled" }) {
   const map: Record<string, { label: string; bg: string; color: string }> = {
     idle: { label: "Ready", bg: "var(--muted)", color: "var(--muted-foreground)" },
@@ -331,21 +272,3 @@ function SystemStatus({ status }: { status: "idle" | "running" | "succeeded" | "
 }
 
 export { ArrowLeft, MoveLeft }; // re-export for any callers using these icons
-
-function pickEditorSourceChanges(before: Record<string, unknown>, after: Record<string, unknown>): Record<string, unknown> {
-  const changed: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(after)) {
-    if (before[key] !== value) changed[key] = value;
-  }
-  return changed;
-}
-
-function mergeEditorSourcePatch(record: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
-  const next = { ...record };
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined || value === null) delete next[key];
-    else next[key] = value;
-  }
-  return next;
-}
-
