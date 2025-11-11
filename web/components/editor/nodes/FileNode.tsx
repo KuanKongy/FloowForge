@@ -64,7 +64,7 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="file" isConnectable={isConnectable} hidden={false}>
-          <div className="backend-shell backend-shell--file" style={{ width: "450px", height: "200px" }}>
+          <div className="backend-shell backend-shell--file" style={{ width: "450px", height: "172px" }}>
             <BackendBox kind="file" icon={<Upload size={20} strokeWidth={1.5} />} label={ctrl.name} />
           </div>
         </NodeHandleWrapper>

@@ -18,6 +18,24 @@ from ..deps import CurrentUser, CurrentUserDep
 from ..schemas import RunCreate
 from ..utils.rate_limit import rate_limit
 
+
+class _RunStatusEnvelope:
+    def __init__(self, record: dict[str, object]) -> None:
+        self.record = dict(record)
+        self.errors: list[str] = []
+
+    def require(self, key: str) -> object:
+        value = self.record.get(key)
+        if value in (None, ''):
+            self.errors.append(f'missing {key}')
+        return value
+
+    def to_response(self) -> dict[str, object]:
+        response = dict(self.record)
+        if self.errors:
+            response['errors'] = list(self.errors)
+        return response
+
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -114,12 +132,13 @@ async def enqueue_run(
     if not version_id:
         raise HTTPException(400, "Flow has no current version")
 
+    trigger_kind = "manual" if body.start_node_ids else "whole"
     insert_body: dict[str, Any] = {
         "flow_id": flow_id,
         "flow_version_id": version_id,
         "user_id": user.id,
         "status": "queued",
-        "trigger_kind": "manual",
+        "trigger_kind": trigger_kind,
         "input": body.input,
     }
     if body.start_node_ids:

@@ -23,6 +23,7 @@ venv/
 # OS / editor
 .DS_Store
 .vscode/
+.cursor/
 .idea/
 
 # Build artefacts / runtime

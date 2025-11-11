@@ -35,7 +35,7 @@ export default function ButtonNode({ id, data, isConnectable }: NodeProps) {
     <div
       className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}
     >
-      <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={false}>
+      <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={isFrontend}>
         <button
           type="button"
           onClick={interactive ? () => onTrigger?.(id) : undefined}

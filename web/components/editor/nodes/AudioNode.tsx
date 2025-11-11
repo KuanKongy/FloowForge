@@ -53,7 +53,7 @@ export default function AudioNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="audio" isConnectable={isConnectable} hidden={false}>
-          <div className="backend-shell backend-shell--audio" style={{ width: "450px", height: "130px" }}>
+          <div className="backend-shell backend-shell--audio" style={{ width: "450px", height: "114px" }}>
             <BackendBox kind="audio" icon={<AudioLines size={20} strokeWidth={1.5} />} label={ctrl.name} />
           </div>
         </NodeHandleWrapper>
@@ -77,7 +77,7 @@ export default function AudioNode({ id, data, isConnectable }: NodeProps) {
       className={inScope ? "scope-active" : "scope-dimmed"}
       cardClassName="w-[450px]"
     >
-      <div className="h-[64px] flex items-center px-2 gap-3">
+      <div className="h-[68px] flex items-center px-2 gap-3">
         {value ? (
           <button
             type="button"

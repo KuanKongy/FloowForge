@@ -94,7 +94,7 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
-export type TriggerKind = "manual" | "webhook" | "schedule" | "subflow" | "incoming_webhook" | "outgoing_webhook" | "public_form";
+export type TriggerKind = "whole" | "manual" | "webhook" | "schedule" | "subflow" | "incoming_webhook" | "outgoing_webhook" | "public_form" | "public";
 
 export interface Run {
   id: string;

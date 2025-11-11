@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import secrets
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 
@@ -35,10 +36,21 @@ async def list_triggers(user: CurrentUserDep, flow_id: str | None = None):
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_trigger(body: TriggerCreate, user: CurrentUserDep, request: Request):
-    rows = await user.db.insert(
-        "triggers",
-        {**body.model_dump(), "user_id": user.id},
-    )
+    insert: dict[str, Any] = {
+        "flow_id": body.flow_id,
+        "kind": body.kind,
+        "config": body.config,
+        "user_id": user.id,
+    }
+    if body.callback_url is not None:
+        insert["callback_url"] = body.callback_url
+    if body.entry_node_id is not None:
+        insert["entry_node_id"] = body.entry_node_id
+    if body.show_outputs:
+        insert["show_outputs"] = body.show_outputs
+    if body.output_node_ids:
+        insert["output_node_ids"] = body.output_node_ids
+    rows = await user.db.insert("triggers", insert)
     trigger = rows[0]
     if body.kind in _WEBHOOK_KINDS:
         token = secrets.token_urlsafe(24)
@@ -82,6 +94,20 @@ async def update_trigger(
         if trigger.get("is_active"):
             scheduler.add_trigger(trigger)
     return trigger
+
+
+@router.get("/{trigger_id}/webhook-info")
+async def get_webhook_info(trigger_id: str, user: CurrentUserDep, request: Request):
+    """Return the webhook token/URL for a trigger that has one."""
+    sc = SupabaseClient.as_service()
+    rows = await sc.select(
+        "webhook_secrets", params={"trigger_id": f"eq.{trigger_id}", "select": "token,secret"}
+    )
+    if not rows:
+        raise HTTPException(404, "No webhook secret for this trigger")
+    token = rows[0]["token"]
+    api_url = getattr(request.app.state, "public_api_url", str(request.base_url).rstrip("/"))
+    return {"token": token, "url": f"{api_url}/t/webhook/{token}"}
 
 
 @router.delete("/{trigger_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -155,7 +181,11 @@ async def list_flow_entry_nodes(
 
 @router.get("/flow/{flow_id}/entry-nodes/{node_id}/inputs")
 async def list_entry_node_inputs(flow_id: str, node_id: str, user: CurrentUserDep):
-    """Return input fields downstream of a given entry node (BFS)."""
+    """Return input boxes that are direct children of the given entry node.
+
+    Only direct children count as "inputs to the branch". Deeper descendants
+    are intermediate processing nodes, not user-facing inputs.
+    """
     flow = await user.db.select(
         "flows",
         params={"id": f"eq.{flow_id}", "select": "current_version_id"},
@@ -173,28 +203,20 @@ async def list_entry_node_inputs(flow_id: str, node_id: str, user: CurrentUserDe
     graph = version.get("graph") or {}
     nodes = graph.get("nodes", [])
     edges = graph.get("edges", [])
-    children_map: dict[str, list[str]] = {}
-    for e in edges:
-        children_map.setdefault(e["source"], []).append(e["target"])
-    visited: set[str] = set()
-    queue = [node_id]
+    child_ids = [e["target"] for e in edges if e["source"] == node_id]
+    nodes_by_id = {n["id"]: n for n in nodes}
     result = []
-    while queue:
-        nid = queue.pop(0)
-        if nid in visited:
+    for cid in child_ids:
+        node = nodes_by_id.get(cid)
+        if not node or node.get("type") not in _INPUT_NODE_TYPES:
             continue
-        visited.add(nid)
-        node = next((n for n in nodes if n["id"] == nid), None)
-        if node and node.get("type") in _INPUT_NODE_TYPES:
-            data = node.get("data") or {}
-            result.append({
-                "id": node["id"],
-                "type": node["type"],
-                "name": data.get("name", node["type"]),
-                "default_value": data.get("value"),
-            })
-        for child_id in children_map.get(nid, []):
-            queue.append(child_id)
+        data = node.get("data") or {}
+        result.append({
+            "id": node["id"],
+            "type": node["type"],
+            "name": data.get("name", node["type"]),
+            "default_value": data.get("value"),
+        })
     return result
 
 
@@ -293,6 +315,22 @@ async def webhook_info(token: str):
     inputs = (version or {}).get("inputs") or []
     if not inputs:
         inputs = _derive_form_fields(graph, trigger.get("entry_node_id"))
+
+    config = trigger.get("config") or {}
+    input_modes: dict[str, str] = config.get("input_modes") or {}
+
+    # Filter inputs based on input_modes: only include fields where mode is
+    # "dynamic" (user should fill them in). "default" fields use the saved
+    # workflow value and shouldn't be rendered as form inputs.
+    if input_modes:
+        filtered: list[dict] = []
+        for field in inputs:
+            field_id = field.get("node_id") or field.get("id") or ""
+            mode = input_modes.get(field_id, "default")
+            if mode == "dynamic":
+                filtered.append(field)
+        inputs = filtered
+
     header_text = _derive_header_text(graph)
     return {
         "flow_id": flow_row["id"],
@@ -338,6 +376,15 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
     if entry_node_id:
         start_node_ids = [entry_node_id]
 
+    _TRIGGER_KIND_TO_RUN_KIND: dict[str, str] = {
+        "incoming_webhook": "webhook",
+        "webhook": "webhook",
+        "public_form": "public",
+    }
+    run_trigger_kind = _TRIGGER_KIND_TO_RUN_KIND.get(
+        trigger.get("kind", "webhook"), trigger.get("kind", "webhook")
+    )
+
     runs = await sc.insert(
         "runs",
         {
@@ -345,7 +392,7 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
             "flow_version_id": flow_rows["current_version_id"],
             "user_id": trigger["user_id"],
             "status": "queued",
-            "trigger_kind": trigger.get("kind", "webhook"),
+            "trigger_kind": run_trigger_kind,
             "input": payload,
         },
     )
@@ -406,3 +453,21 @@ async def webhook_run_result(token: str, run_id: str):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
+
+def _collect_trigger_payload_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
+    inputs: dict[str, list[str]] = {}
+    for edge in edges:
+        target = str(edge.get('target') or '')
+        source = str(edge.get('source') or '')
+        if target and source:
+            inputs.setdefault(target, []).append(source)
+    for node in nodes:
+        node_id = str(node.get('id') or '')
+        if node_id:
+            inputs.setdefault(node_id, [])
+    return inputs
+
+
+def _ordered_trigger_payload_ids(records: list[dict[str, object]]) -> list[str]:
+    return [str(record.get('id')) for record in records if record.get('id')]
+

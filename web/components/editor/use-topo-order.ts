@@ -6,7 +6,7 @@ import type { Edge, Node } from "@xyflow/react";
  * They never get a step number badge — instead the first downstream non-
  * trigger node is "Step 1".
  *
- * Rationale: when a flow is launched via a webhook, manual API call, or by
+ * Rationale: when a flow is launched via a webhook, public form, or by
  * clicking a different button, the user doesn't want the canvas numbering
  * to shift around. The visible numbers correspond to the actual processing
  * stages (input -> AI -> output), not to which trigger fired.

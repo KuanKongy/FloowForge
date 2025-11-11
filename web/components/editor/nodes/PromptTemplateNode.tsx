@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Maximize2, Minimize2, PencilLine, Sparkles } from "lucide-react";
+import { Maximize2, Minimize2, PencilLine, Boxes } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { apiGet } from "@/lib/api";
@@ -70,7 +70,7 @@ export default function PromptTemplateNode({ id, data, isConnectable }: NodeProp
                 color: "rgba(var(--text__font-rgb), 1)",
               }}
             >
-              <Sparkles size={24} />
+              <Boxes size={24} />
             </div>
           </div>
           <div className="flex flex-col justify-center gap-y-[0.15em]">

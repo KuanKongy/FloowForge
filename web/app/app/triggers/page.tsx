@@ -36,23 +36,19 @@ const TRIGGER_KINDS = [
   { kind: "public_form", label: "Public Form", desc: "Share a form link for non-technical users", icon: <FileText size={20} /> },
 ] as const;
 
-const TIMEZONES = [
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Moscow",
-  "Asia/Tokyo",
-  "Asia/Shanghai",
-  "Asia/Kolkata",
-  "Asia/Dubai",
-  "Australia/Sydney",
-  "Pacific/Auckland",
-];
+const TIMEZONES = ["UTC", "America/Los_Angeles"];
+const TZ_LABELS: Record<string, string> = {
+  "UTC": "UTC",
+  "America/Los_Angeles": "GMT-7 (Pacific)",
+};
+
+const SCHEDULE_MODE_LABELS: Record<string, string> = {
+  cron: "Custom (cron)",
+  daily: "Every day at a specific time",
+  interval: "Every X hours / minutes / seconds",
+  delay: "Run once, in X time from now",
+  once: "Run once, at a specific date and time",
+};
 
 const fieldCls = "h-9 w-full px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] text-sm";
 
@@ -158,6 +154,78 @@ export default function TriggersPage() {
   );
 }
 
+/* ---------- helpers ---------- */
+
+function describeSchedule(config: Record<string, unknown> | null | undefined): string {
+  if (!config) return "Not configured";
+  const mode = (config.schedule_mode as string) || "cron";
+  const tzLabel = TZ_LABELS[config.timezone as string] || (config.timezone as string) || "UTC";
+
+  if (mode === "cron") return `Cron: ${config.cron || "not set"} (${tzLabel})`;
+  if (mode === "daily") {
+    const cronStr = config.cron as string;
+    if (cronStr) {
+      const parts = cronStr.split(" ");
+      const h = (parts[1] || "9").padStart(2, "0");
+      const m = (parts[0] || "0").padStart(2, "0");
+      return `Every day at ${h}:${m} (${tzLabel})`;
+    }
+    return `Every day (${tzLabel})`;
+  }
+  if (mode === "interval") {
+    const h = Number(config.interval_hours) || 0;
+    const m = Number(config.interval_minutes) || 0;
+    const s = Number(config.interval_seconds) || 0;
+    const parts: string[] = [];
+    if (h) parts.push(`${h}h`);
+    if (m) parts.push(`${m}m`);
+    if (s) parts.push(`${s}s`);
+    return `Every ${parts.join(" ") || "0s"} (${tzLabel})`;
+  }
+  if (mode === "delay") {
+    const dh = Number(config.delay_hours) || 0;
+    const dm = Number(config.delay_minutes) || 0;
+    const ds = Number(config.delay_seconds) || 0;
+    const parts: string[] = [];
+    if (dh) parts.push(`${dh}h`);
+    if (dm) parts.push(`${dm}m`);
+    if (ds) parts.push(`${ds}s`);
+    return `Run once, ${parts.join(" ") || "immediately"} after creation`;
+  }
+  if (mode === "once") {
+    const at = config.once_at as string;
+    if (at) {
+      try {
+        return `Run once at ${new Date(at).toLocaleString()} (${tzLabel})`;
+      } catch { /* fallthrough */ }
+    }
+    return `Run once at scheduled time (${tzLabel})`;
+  }
+  return `${mode}: ${config.cron || "unknown"} (${tzLabel})`;
+}
+
+function buildExampleCurl(url: string, fields: InputField[]): string {
+  if (!fields.length) {
+    return `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '{"input": "your text here"}'`;
+  }
+  if (fields.length === 1) {
+    const f = fields[0];
+    const placeholder = f.type === "textbox" || f.type === "chatbox"
+      ? "your text here"
+      : `<${f.type} base64>`;
+    const json = JSON.stringify({ [f.name || f.id]: placeholder }, null, 2);
+    return `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${json}'`;
+  }
+  const obj: Record<string, string> = {};
+  for (const f of fields) {
+    obj[f.name || f.id] = f.type === "textbox" || f.type === "chatbox"
+      ? `your ${f.name || "text"} here`
+      : `<${f.type} base64>`;
+  }
+  const json = JSON.stringify(obj, null, 2);
+  return `curl -X POST ${url} \\\n  -H "Content-Type: application/json" \\\n  -d '${json}'`;
+}
+
 /* ---------- Creation Wizard ---------- */
 
 type WizardStep = "kind" | "configure";
@@ -179,27 +247,40 @@ function CreateTriggerWizard({
   const [sinkNodes, setSinkNodes] = useState<SinkNode[]>([]);
   const [inputFields, setInputFields] = useState<InputField[]>([]);
   const [inputModes, setInputModes] = useState<Record<string, "default" | "dynamic">>({});
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   const [callbackUrl, setCallbackUrl] = useState("");
   const [showOutputs, setShowOutputs] = useState(false);
   const [outputNodeIds, setOutputNodeIds] = useState<string[]>([]);
-  const [scheduleMode, setScheduleMode] = useState<"cron" | "delay" | "daily" | "once">("cron");
+  const [scheduleMode, setScheduleMode] = useState<"cron" | "daily" | "once" | "delay" | "interval">("cron");
   const [cron, setCron] = useState("0 9 * * *");
-  const [delayHours, setDelayHours] = useState("1");
   const [dailyTime, setDailyTime] = useState("09:00");
   const [onceAt, setOnceAt] = useState("");
-  const [tz, setTz] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+  // delay = one-shot h/m/s
+  const [delayHours, setDelayHours] = useState("0");
+  const [delayMinutes, setDelayMinutes] = useState("30");
+  const [delaySeconds, setDelaySeconds] = useState("0");
+  // interval = repeating h/m/s
+  const [intervalHours, setIntervalHours] = useState("0");
+  const [intervalMinutes, setIntervalMinutes] = useState("30");
+  const [intervalSeconds, setIntervalSeconds] = useState("0");
+  const [tz, setTz] = useState("UTC");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!flowId || !kind) return;
-    apiGet<EntryNode[]>(`/triggers/flow/${flowId}/entry-nodes?kind=${kind}`)
-      .then((n) => {
-        setEntryNodes(n);
-        if (n.length === 1) setEntryNodeId(n[0].id);
-        else setEntryNodeId("");
-      })
-      .catch(() => setEntryNodes([]));
+    if (kind !== "outgoing_webhook") {
+      apiGet<EntryNode[]>(`/triggers/flow/${flowId}/entry-nodes?kind=${kind}`)
+        .then((n) => {
+          setEntryNodes(n);
+          if (n.length === 1) setEntryNodeId(n[0].id);
+          else setEntryNodeId("");
+        })
+        .catch(() => setEntryNodes([]));
+    } else {
+      setEntryNodes([]);
+      setEntryNodeId("");
+    }
     apiGet<SinkNode[]>(`/triggers/flow/${flowId}/sink-nodes`)
       .then(setSinkNodes)
       .catch(() => setSinkNodes([]));
@@ -216,43 +297,66 @@ function CreateTriggerWizard({
         const modes: Record<string, "default" | "dynamic"> = {};
         fields.forEach((f) => { modes[f.id] = "default"; });
         setInputModes(modes);
+        setInputValues({});
       })
       .catch(() => setInputFields([]));
   }, [flowId, entryNodeId]);
 
   function selectKind(k: string) {
     setKind(k);
+    setShowOutputs(false);
+    setOutputNodeIds([]);
+    setCallbackUrl("");
+    setEntryNodeId("");
     setStep("configure");
   }
 
-  function buildCron(): string {
-    if (scheduleMode === "cron") return cron;
-    if (scheduleMode === "daily") {
+  function buildScheduleConfig(): Record<string, unknown> {
+    const cfg: Record<string, unknown> = {
+      schedule_mode: scheduleMode,
+      timezone: tz,
+    };
+    if (scheduleMode === "cron") cfg.cron = cron;
+    else if (scheduleMode === "daily") {
       const [h, m] = dailyTime.split(":");
-      return `${m || "0"} ${h || "9"} * * *`;
+      cfg.cron = `${m || "0"} ${h || "9"} * * *`;
+    } else if (scheduleMode === "delay") {
+      cfg.delay_hours = Math.max(0, Number(delayHours) || 0);
+      cfg.delay_minutes = Math.min(60, Math.max(0, Number(delayMinutes) || 0));
+      cfg.delay_seconds = Math.min(60, Math.max(0, Number(delaySeconds) || 0));
+    } else if (scheduleMode === "once") cfg.once_at = onceAt;
+    else if (scheduleMode === "interval") {
+      cfg.interval_hours = Math.max(0, Number(intervalHours) || 0);
+      cfg.interval_minutes = Math.min(60, Math.max(0, Number(intervalMinutes) || 0));
+      cfg.interval_seconds = Math.min(60, Math.max(0, Number(intervalSeconds) || 0));
     }
-    if (scheduleMode === "delay") return `in_${delayHours}h`;
-    if (scheduleMode === "once" && onceAt) return `at_${onceAt}`;
-    return cron;
+
+    const dynamicInputs: Record<string, string> = {};
+    for (const [fid, mode] of Object.entries(inputModes)) {
+      if (mode === "dynamic" && inputValues[fid]) {
+        dynamicInputs[fid] = inputValues[fid];
+      }
+    }
+    if (Object.keys(dynamicInputs).length) cfg.input = dynamicInputs;
+    cfg.input_modes = inputModes;
+
+    return cfg;
   }
 
   async function submit() {
     if (!flowId) return;
     setBusy(true);
     try {
-      const config: Record<string, unknown> = {};
-      if (kind === "schedule") {
-        config.cron = buildCron();
-        config.timezone = tz;
-        config.schedule_mode = scheduleMode;
-      }
-      config.input_modes = inputModes;
+      const config: Record<string, unknown> = kind === "schedule"
+        ? buildScheduleConfig()
+        : { input_modes: inputModes };
+
       const created = await apiPost<TriggerWithWebhook>("/triggers", {
         flow_id: flowId,
         kind,
         config,
         callback_url: kind === "outgoing_webhook" ? callbackUrl : undefined,
-        entry_node_id: entryNodeId || undefined,
+        entry_node_id: (kind !== "outgoing_webhook" && entryNodeId) ? entryNodeId : undefined,
         show_outputs: showOutputs,
         output_node_ids: outputNodeIds.length ? outputNodeIds : undefined,
       });
@@ -263,6 +367,7 @@ function CreateTriggerWizard({
   }
 
   const needsEntryNode = kind !== "outgoing_webhook";
+  const showOutputConfig = kind === "public_form" || kind === "outgoing_webhook";
 
   return (
     <div className="card-surface p-5 mb-6">
@@ -324,7 +429,7 @@ function CreateTriggerWizard({
             {needsEntryNode && entryNodes.length === 0 && flowId && (
               <div className="md:col-span-2 text-xs text-[var(--muted-foreground)] bg-[var(--surface-2)] rounded-lg p-3">
                 No matching entry nodes found. Add a{" "}
-                {kind === "incoming_webhook" ? "Webhook In" : kind === "schedule" ? "Schedule In" : "Manual In"}{" "}
+                {kind === "incoming_webhook" ? "Webhook In" : kind === "schedule" ? "Schedule In" : "Public In"}{" "}
                 node to your flow first.
               </div>
             )}
@@ -341,7 +446,8 @@ function CreateTriggerWizard({
                   <select className={fieldCls} value={scheduleMode} onChange={(e) => setScheduleMode(e.target.value as typeof scheduleMode)}>
                     <option value="cron">Custom (cron expression)</option>
                     <option value="daily">Every day at a specific time</option>
-                    <option value="delay">Run once, in X hours from now</option>
+                    <option value="interval">Every X hours / minutes / seconds</option>
+                    <option value="delay">Run once, in X hours / minutes / seconds from now</option>
                     <option value="once">Run once, at a specific date and time</option>
                   </select>
                 </Field>
@@ -355,10 +461,42 @@ function CreateTriggerWizard({
                     <input type="time" className={fieldCls} value={dailyTime} onChange={(e) => setDailyTime(e.target.value)} />
                   </Field>
                 )}
-                {scheduleMode === "delay" && (
-                  <Field label="Hours from now">
-                    <input type="number" min="1" className={fieldCls} value={delayHours} onChange={(e) => setDelayHours(e.target.value)} />
-                  </Field>
+                {(scheduleMode === "interval" || scheduleMode === "delay") && (
+                  <div className="flex items-end gap-2">
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="999"
+                        className={`${fieldCls} !w-16`}
+                        value={scheduleMode === "interval" ? intervalHours : delayHours}
+                        onChange={(e) => scheduleMode === "interval" ? setIntervalHours(e.target.value) : setDelayHours(e.target.value)}
+                      />
+                      <span className="text-sm text-[var(--muted-foreground)]">h</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="60"
+                        className={`${fieldCls} !w-16`}
+                        value={scheduleMode === "interval" ? intervalMinutes : delayMinutes}
+                        onChange={(e) => {
+                          const v = Math.min(60, Math.max(0, Number(e.target.value) || 0));
+                          scheduleMode === "interval" ? setIntervalMinutes(String(v)) : setDelayMinutes(String(v));
+                        }}
+                      />
+                      <span className="text-sm text-[var(--muted-foreground)]">m</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="60"
+                        className={`${fieldCls} !w-16`}
+                        value={scheduleMode === "interval" ? intervalSeconds : delaySeconds}
+                        onChange={(e) => {
+                          const v = Math.min(60, Math.max(0, Number(e.target.value) || 0));
+                          scheduleMode === "interval" ? setIntervalSeconds(String(v)) : setDelaySeconds(String(v));
+                        }}
+                      />
+                      <span className="text-sm text-[var(--muted-foreground)]">s</span>
+                    </div>
+                  </div>
                 )}
                 {scheduleMode === "once" && (
                   <Field label="Date and time">
@@ -367,13 +505,13 @@ function CreateTriggerWizard({
                 )}
                 <Field label="Timezone">
                   <select className={fieldCls} value={tz} onChange={(e) => setTz(e.target.value)}>
-                    {TIMEZONES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+                    {TIMEZONES.map((t) => <option key={t} value={t}>{TZ_LABELS[t] || t}</option>)}
                   </select>
                 </Field>
               </>
             )}
 
-            {(kind === "public_form" || kind === "outgoing_webhook") && (
+            {showOutputConfig && (
               <Field label="Show outputs">
                 <label className="flex items-center gap-2 mt-1">
                   <input type="checkbox" checked={showOutputs} onChange={(e) => setShowOutputs(e.target.checked)} />
@@ -409,18 +547,29 @@ function CreateTriggerWizard({
                 <Field label="Input configuration">
                   <div className="space-y-2 mt-1">
                     {inputFields.map((f) => (
-                      <div key={f.id} className="flex items-center gap-3 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
-                        <span className="text-sm font-medium flex-1">{f.name} <span className="text-xs text-[var(--muted-foreground)]">({f.type})</span></span>
-                        <select
-                          className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-white"
-                          value={inputModes[f.id] || "default"}
-                          onChange={(e) => setInputModes({ ...inputModes, [f.id]: e.target.value as "default" | "dynamic" })}
-                        >
-                          <option value="default">
-                            Use default{f.default_value ? ` ("${String(f.default_value).slice(0, 20)}${String(f.default_value).length > 20 ? "…" : ""}")` : " (empty)"}
-                          </option>
-                          <option value="dynamic">Allow user input</option>
-                        </select>
+                      <div key={f.id} className="flex flex-col gap-2 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium flex-1">{f.name} <span className="text-xs text-[var(--muted-foreground)]">({f.type})</span></span>
+                          <select
+                            className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-white"
+                            value={inputModes[f.id] || "default"}
+                            onChange={(e) => setInputModes({ ...inputModes, [f.id]: e.target.value as "default" | "dynamic" })}
+                          >
+                            <option value="default">
+                              Use default{f.default_value ? ` ("${String(f.default_value).slice(0, 20)}${String(f.default_value).length > 20 ? "…" : ""}")` : " (empty)"}
+                            </option>
+                            <option value="dynamic">{kind === "schedule" ? "Custom value" : "Allow user input"}</option>
+                          </select>
+                        </div>
+                        {kind === "schedule" && inputModes[f.id] === "dynamic" && (
+                          <input
+                            type="text"
+                            className={fieldCls}
+                            placeholder={`Value for ${f.name}`}
+                            value={inputValues[f.id] || ""}
+                            onChange={(e) => setInputValues({ ...inputValues, [f.id]: e.target.value })}
+                          />
+                        )}
                       </div>
                     ))}
                   </div>
@@ -453,25 +602,89 @@ function TriggerDetailsPanel({
   onSaved: () => void;
 }) {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
-  const ws = trigger.webhook_secrets?.[0];
-  const webhookToken = ws?.token || trigger.webhook?.token;
-  const webhookUrl = webhookToken ? `${apiBase}/t/webhook/${webhookToken}` : null;
+  const hasWebhook = trigger.kind === "incoming_webhook" || trigger.kind === "webhook" || trigger.kind === "public_form";
+
+  const [webhookUrl, setWebhookUrl] = useState<string | null>(null);
+  const [webhookToken, setWebhookToken] = useState<string | null>(null);
+  const [inputFields, setInputFields] = useState<InputField[]>([]);
+
+  useEffect(() => {
+    if (!hasWebhook) return;
+    // Immediately try from existing data
+    const ws = trigger.webhook_secrets?.[0];
+    const tkn = ws?.token || trigger.webhook?.token;
+    if (tkn) {
+      setWebhookToken(tkn);
+      setWebhookUrl(`${apiBase}/t/webhook/${tkn}`);
+      return;
+    }
+    // Fallback: fetch from dedicated endpoint
+    apiGet<{ token: string; url: string }>(`/triggers/${trigger.id}/webhook-info`)
+      .then((info) => {
+        setWebhookToken(info.token);
+        setWebhookUrl(info.url);
+      })
+      .catch(() => { /* no webhook info available */ });
+  }, [trigger.id, hasWebhook, apiBase, trigger.webhook_secrets, trigger.webhook]);
+
   const formUrl = webhookToken && typeof window !== "undefined" ? `${window.location.origin}/p/${webhookToken}` : null;
 
   const [copied, setCopied] = useState<string | null>(null);
   const [callbackUrl, setCallbackUrl] = useState(trigger.callback_url || "");
   const [showOutputs, setShowOutputs] = useState(trigger.show_outputs || false);
+  const [outputNodeIds, setOutputNodeIds] = useState<string[]>(trigger.output_node_ids || []);
   const [entryNodeId, setEntryNodeId] = useState(trigger.entry_node_id || "");
   const [entryNodes, setEntryNodes] = useState<EntryNode[]>([]);
-  const [cron, setCron] = useState((trigger.config?.cron as string) || "0 9 * * *");
+  const [sinkNodes, setSinkNodes] = useState<SinkNode[]>([]);
+  const [cron, setCron] = useState((trigger.config?.cron as string) || "");
   const [tz, setTz] = useState((trigger.config?.timezone as string) || "UTC");
   const [busy, setBusy] = useState(false);
 
+  const savedInputModes = (trigger.config as Record<string, unknown>)?.input_modes as Record<string, string> | undefined;
+  const savedInput = (trigger.config as Record<string, unknown>)?.input as Record<string, string> | undefined;
+  const [inputModes, setInputModes] = useState<Record<string, "default" | "dynamic">>(
+    (savedInputModes as Record<string, "default" | "dynamic">) || {}
+  );
+  const [inputValues, setInputValues] = useState<Record<string, string>>(savedInput || {});
+
+  const isOutgoing = trigger.kind === "outgoing_webhook";
+  const isSchedule = trigger.kind === "schedule";
+  const showOutputConfig = trigger.kind === "public_form" || isOutgoing;
+  const showInputConfig = !isOutgoing;
+
   useEffect(() => {
+    if (isOutgoing) {
+      setEntryNodes([]);
+      return;
+    }
     apiGet<EntryNode[]>(`/triggers/flow/${trigger.flow_id}/entry-nodes?kind=${trigger.kind}`)
       .then(setEntryNodes)
       .catch(() => setEntryNodes([]));
-  }, [trigger.flow_id, trigger.kind]);
+  }, [trigger.flow_id, trigger.kind, isOutgoing]);
+
+  useEffect(() => {
+    apiGet<SinkNode[]>(`/triggers/flow/${trigger.flow_id}/sink-nodes`)
+      .then(setSinkNodes)
+      .catch(() => setSinkNodes([]));
+  }, [trigger.flow_id]);
+
+  const activeEntryNodeId = entryNodeId || trigger.entry_node_id || "";
+  useEffect(() => {
+    if (!activeEntryNodeId || !trigger.flow_id) {
+      setInputFields([]);
+      return;
+    }
+    apiGet<InputField[]>(`/triggers/flow/${trigger.flow_id}/entry-nodes/${activeEntryNodeId}/inputs`)
+      .then((fields) => {
+        setInputFields(fields);
+        if (!savedInputModes) {
+          const modes: Record<string, "default" | "dynamic"> = {};
+          fields.forEach((f) => { modes[f.id] = "default"; });
+          setInputModes(modes);
+        }
+      })
+      .catch(() => setInputFields([]));
+  }, [trigger.flow_id, activeEntryNodeId, savedInputModes]);
 
   function copyText(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -483,12 +696,28 @@ function TriggerDetailsPanel({
     setBusy(true);
     try {
       const payload: Record<string, unknown> = {};
-      if (trigger.kind === "outgoing_webhook") payload.callback_url = callbackUrl || null;
-      payload.show_outputs = showOutputs;
-      payload.entry_node_id = entryNodeId || null;
-      if (trigger.kind === "schedule") {
-        payload.config = { ...trigger.config, cron, timezone: tz };
+      if (isOutgoing) payload.callback_url = callbackUrl || null;
+      if (showOutputConfig) {
+        payload.show_outputs = showOutputs;
+        payload.output_node_ids = outputNodeIds.length ? outputNodeIds : null;
       }
+      if (!isOutgoing) payload.entry_node_id = entryNodeId || null;
+
+      const newConfig = { ...(trigger.config as Record<string, unknown>) };
+      if (isSchedule) {
+        newConfig.cron = cron || newConfig.cron;
+        newConfig.timezone = tz;
+      }
+      newConfig.input_modes = inputModes;
+      const dynamicInputs: Record<string, string> = {};
+      for (const [fid, mode] of Object.entries(inputModes)) {
+        if (mode === "dynamic" && inputValues[fid]) {
+          dynamicInputs[fid] = inputValues[fid];
+        }
+      }
+      newConfig.input = Object.keys(dynamicInputs).length ? dynamicInputs : undefined;
+      payload.config = newConfig;
+
       await apiPatch(`/triggers/${trigger.id}`, payload);
       onSaved();
     } finally {
@@ -497,6 +726,7 @@ function TriggerDetailsPanel({
   }
 
   const kindMeta = TRIGGER_KINDS.find((k) => k.kind === trigger.kind);
+  const curlText = webhookUrl ? buildExampleCurl(webhookUrl, inputFields) : "";
 
   return (
     <div className="card-surface p-5 mb-6">
@@ -511,7 +741,7 @@ function TriggerDetailsPanel({
         <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
       </div>
 
-      {/* Webhook-specific details */}
+      {/* Incoming webhook URL + dynamic cURL */}
       {(trigger.kind === "incoming_webhook" || trigger.kind === "webhook") && webhookUrl && (
         <div className="space-y-3 mb-4">
           <div>
@@ -526,12 +756,10 @@ function TriggerDetailsPanel({
           <div>
             <div className="text-xs text-[var(--muted-foreground)] font-medium mb-1">Example cURL</div>
             <div className="relative p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
-              <pre className="text-[11px] whitespace-pre-wrap break-all">{`curl -X POST ${webhookUrl} \\
-  -H "Content-Type: application/json" \\
-  -d '{"input": {"key": "value"}}'`}</pre>
+              <pre className="text-[11px] whitespace-pre-wrap break-all">{curlText}</pre>
               <button
                 type="button"
-                onClick={() => copyText(`curl -X POST ${webhookUrl} -H "Content-Type: application/json" -d '{"input": {"key": "value"}}'`, "curl")}
+                onClick={() => copyText(curlText.replace(/\\\n\s*/g, " "), "curl")}
                 className="absolute top-2 right-2 text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors"
               >
                 {copied === "curl" ? <Check size={14} /> : <Copy size={14} />}
@@ -541,7 +769,7 @@ function TriggerDetailsPanel({
         </div>
       )}
 
-      {/* Public form details */}
+      {/* Public form URL */}
       {trigger.kind === "public_form" && formUrl && (
         <div className="space-y-3 mb-4">
           <div>
@@ -559,18 +787,19 @@ function TriggerDetailsPanel({
         </div>
       )}
 
-      {/* Schedule details */}
+      {/* Schedule details — human-readable */}
       {trigger.kind === "schedule" && (
-        <div className="space-y-3 mb-4">
-          <div className="text-xs text-[var(--muted-foreground)]">
-            Schedule: <span className="font-medium text-[var(--foreground)]">{trigger.config?.cron as string || "not set"}</span>
-            {" "}({trigger.config?.timezone as string || "UTC"})
+        <div className="space-y-2 mb-4">
+          <div className="text-xs text-[var(--muted-foreground)] font-medium">Schedule</div>
+          <div className="p-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
+            <div className="text-sm font-medium">{SCHEDULE_MODE_LABELS[(trigger.config?.schedule_mode as string)] || "Custom"}</div>
+            <div className="text-xs text-[var(--muted-foreground)] mt-1">{describeSchedule(trigger.config as Record<string, unknown>)}</div>
           </div>
         </div>
       )}
 
       {/* Outgoing webhook details */}
-      {trigger.kind === "outgoing_webhook" && (
+      {isOutgoing && (
         <div className="space-y-3 mb-4">
           <div className="text-xs text-[var(--muted-foreground)]">
             Callback: <span className="font-medium text-[var(--foreground)]">{trigger.callback_url || "not set"}</span>
@@ -582,7 +811,7 @@ function TriggerDetailsPanel({
       <div className="border-t border-[var(--border)] pt-4 mt-4">
         <h4 className="text-sm font-medium mb-3">Settings</h4>
         <div className="grid gap-3 md:grid-cols-2">
-          {entryNodes.length > 0 && (
+          {!isOutgoing && entryNodes.length > 0 && (
             <Field label="Entry node">
               <select className={fieldCls} value={entryNodeId} onChange={(e) => setEntryNodeId(e.target.value)}>
                 <option value="">Default (whole flow)</option>
@@ -590,7 +819,7 @@ function TriggerDetailsPanel({
               </select>
             </Field>
           )}
-          {trigger.kind === "outgoing_webhook" && (
+          {isOutgoing && (
             <Field label="Callback URL">
               <input className={fieldCls} value={callbackUrl} onChange={(e) => setCallbackUrl(e.target.value)} placeholder="https://..." />
             </Field>
@@ -598,22 +827,77 @@ function TriggerDetailsPanel({
           {trigger.kind === "schedule" && (
             <>
               <Field label="Cron expression">
-                <input className={fieldCls} value={cron} onChange={(e) => setCron(e.target.value)} />
+                <input className={fieldCls} value={cron} onChange={(e) => setCron(e.target.value)} placeholder="Not applicable for this schedule type" />
               </Field>
               <Field label="Timezone">
                 <select className={fieldCls} value={tz} onChange={(e) => setTz(e.target.value)}>
-                  {TIMEZONES.map((t) => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+                  {TIMEZONES.map((t) => <option key={t} value={t}>{TZ_LABELS[t] || t}</option>)}
                 </select>
               </Field>
             </>
           )}
-          {(trigger.kind === "public_form" || trigger.kind === "outgoing_webhook") && (
+          {showOutputConfig && (
             <Field label="Show outputs">
               <label className="flex items-center gap-2 mt-1">
                 <input type="checkbox" checked={showOutputs} onChange={(e) => setShowOutputs(e.target.checked)} />
                 <span className="text-sm">Display results to the user</span>
               </label>
             </Field>
+          )}
+          {showOutputs && sinkNodes.length > 0 && (
+            <div className="md:col-span-2">
+              <Field label="Output nodes to include">
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {sinkNodes.map((n) => (
+                    <label key={n.id} className="flex items-center gap-1.5 text-sm bg-[var(--surface-2)] rounded-lg px-2 py-1 border border-[var(--border)]">
+                      <input
+                        type="checkbox"
+                        checked={outputNodeIds.includes(n.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) setOutputNodeIds([...outputNodeIds, n.id]);
+                          else setOutputNodeIds(outputNodeIds.filter((x) => x !== n.id));
+                        }}
+                      />
+                      {n.name}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+            </div>
+          )}
+          {showInputConfig && inputFields.length > 0 && (
+            <div className="md:col-span-2">
+              <Field label="Input configuration">
+                <div className="space-y-2 mt-1">
+                  {inputFields.map((f) => (
+                    <div key={f.id} className="flex flex-col gap-2 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium flex-1">{f.name} <span className="text-xs text-[var(--muted-foreground)]">({f.type})</span></span>
+                        <select
+                          className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-white"
+                          value={inputModes[f.id] || "default"}
+                          onChange={(e) => setInputModes({ ...inputModes, [f.id]: e.target.value as "default" | "dynamic" })}
+                        >
+                          <option value="default">
+                            Use default{f.default_value ? ` ("${String(f.default_value).slice(0, 20)}${String(f.default_value).length > 20 ? "…" : ""}")` : " (empty)"}
+                          </option>
+                          <option value="dynamic">{isSchedule ? "Custom value" : "Allow user input"}</option>
+                        </select>
+                      </div>
+                      {isSchedule && inputModes[f.id] === "dynamic" && (
+                        <input
+                          type="text"
+                          className={fieldCls}
+                          placeholder={`Value for ${f.name}`}
+                          value={inputValues[f.id] || ""}
+                          onChange={(e) => setInputValues({ ...inputValues, [f.id]: e.target.value })}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Field>
+            </div>
           )}
         </div>
         <div className="flex justify-end gap-2 mt-4">
@@ -649,6 +933,16 @@ function TriggerRow({
     icon: <Globe size={18} />,
   };
 
+  const rowDesc = trigger.kind === "schedule"
+    ? describeSchedule(trigger.config as Record<string, unknown>)
+    : trigger.kind === "incoming_webhook" || trigger.kind === "webhook"
+      ? webhookUrl || "webhook"
+      : trigger.kind === "outgoing_webhook"
+        ? `→ ${trigger.callback_url || "no URL"}`
+        : trigger.kind === "public_form"
+          ? formUrl ? `Form: ${formUrl}` : "public form"
+          : "";
+
   return (
     <div className="px-5 py-4 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
@@ -659,10 +953,7 @@ function TriggerRow({
             <span className="pill bg-[var(--secondary)] text-[var(--primary)]">{kindMeta.label}</span>
           </div>
           <div className="text-xs text-[var(--muted-foreground)] truncate mt-0.5">
-            {trigger.kind === "schedule" && `cron: ${(trigger.config?.cron as string) || ""}`}
-            {(trigger.kind === "webhook" || trigger.kind === "incoming_webhook") && (webhookUrl || "webhook")}
-            {trigger.kind === "outgoing_webhook" && `→ ${trigger.callback_url || "no URL"}`}
-            {trigger.kind === "public_form" && (formUrl ? `Form: ${formUrl}` : "public form")}
+            {rowDesc}
           </div>
         </div>
       </div>

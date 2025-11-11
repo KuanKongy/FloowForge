@@ -39,7 +39,7 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={false}>
-          <div className="backend-shell backend-shell--text" style={{ width: "36em", height: "270px" }}>
+          <div className="backend-shell backend-shell--text" style={{ width: "36em", height: "252px" }}>
             <BackendBox kind="text" icon={<Type size={20} strokeWidth={1.5} />} label={ctrl.name} />
           </div>
         </NodeHandleWrapper>

@@ -8,16 +8,17 @@ import {
   CalendarClock,
   ChevronUp,
   FileAudio,
+  FileText,
   Heading,
   Image as ImageIcon,
   MessagesSquare,
   Palette,
   Plus,
-  Share2,
-  Sparkles,
+  Boxes,
   Type,
   Upload,
   Webhook,
+  Workflow,
   Zap,
 } from "lucide-react";
 import { type NodeType } from "@flowforge/shared";
@@ -65,14 +66,14 @@ const SECTIONS: Section[] = [
     items: [
       { icon: <Zap size={22} strokeWidth={1.65} />, label: "Run Button", type: "button" },
       { icon: <Webhook size={22} strokeWidth={1.65} />, label: "Webhook In", type: "webhook_in" },
-      { icon: <Plus size={22} strokeWidth={1.65} />, label: "Manual In", type: "manual_in" },
+      { icon: <FileText size={22} strokeWidth={1.65} />, label: "Public In", type: "manual_in" },
       { icon: <CalendarClock size={22} strokeWidth={1.65} />, label: "Schedule In", type: "schedule_in" },
     ],
   },
   {
     items: [
-      { icon: <Share2 size={22} strokeWidth={1.65} />, label: "Subflow", type: "subflow" },
-      { icon: <Sparkles size={22} strokeWidth={1.65} />, label: "Custom Node", type: "prompt_template" },
+      { icon: <Workflow size={22} strokeWidth={1.65} />, label: "Subflow", type: "subflow" },
+      { icon: <Boxes size={22} strokeWidth={1.65} />, label: "Custom Node", type: "prompt_template" },
     ],
   },
 ];

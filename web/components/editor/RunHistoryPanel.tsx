@@ -103,7 +103,14 @@ export function RunHistoryPanel({
           </span>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium truncate">
-              {(r.trigger_kind || "manual").replace("_", " ")}
+              {({
+                whole: "Whole workflow",
+                manual: "Manual",
+                webhook: "Webhook",
+                schedule: "Schedule",
+                public: "Public form",
+                subflow: "Subflow",
+              } as Record<string, string>)[r.trigger_kind ?? ""] || (r.trigger_kind || "manual").replace("_", " ")}
             </div>
             <div className="text-[11px] text-[var(--muted-foreground)] truncate">
               {formatTime(r.created_at)} · {r.status}

@@ -62,10 +62,9 @@ export default function PublicFormPage() {
     setSubmitting(true);
     setError(null);
     try {
+      // Dynamic fields only (defaults-only forms send `{}` so the engine uses node snapshots).
       const body =
-        info && info.inputs.length > 0
-          ? values
-          : { value: values.__free__ || "" };
+        info && info.inputs.length > 0 ? values : {};
       const res = await fetch(`${API}/t/webhook/${token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,27 +117,19 @@ export default function PublicFormPage() {
               <div>
                 <h1 className="text-xl font-semibold">{pageTitle}</h1>
                 <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                  Fill out the form below and submit.
+                  {info.inputs.length === 0
+                    ? "Submit to run this workflow using the saved defaults from your canvas."
+                    : "Fill out the form below and submit."}
                 </p>
               </div>
-              {info.inputs.length === 0 ? (
-                <FormField label="Input" type="textbox">
-                  <textarea
-                    value={values.__free__ || ""}
-                    onChange={(e) => setValues((v) => ({ ...v, __free__: e.target.value }))}
-                    className="h-28 w-full p-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] text-sm resize-none"
-                    placeholder="Enter your input…"
-                  />
-                </FormField>
-              ) : (
+              {info.inputs.length > 0 &&
                 info.inputs.map((p) => (
                   <FormField key={p.node_id || p.name} label={p.name} type={p.type || "textbox"}>
-                    {renderInput(p, values[p.name] || "", (v) =>
+                    {renderInput(p, values[p.name] ?? "", (v) =>
                       setValues((prev) => ({ ...prev, [p.name]: v }))
                     )}
                   </FormField>
-                ))
-              )}
+                ))}
               {error && <div className="text-sm text-red-500">{error}</div>}
               <div className="flex justify-end">
                 <Button onClick={submit} disabled={submitting}>
@@ -194,7 +185,7 @@ function renderInput(
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={`h-20 ${cls} resize-none`}
-          placeholder={field.default_value ? `Default: ${field.default_value}` : `Enter ${field.name}…`}
+          placeholder={`Enter ${field.name}…`}
         />
       );
   }

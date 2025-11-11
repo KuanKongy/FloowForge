@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Boxes,
-  CalendarClock,
+  Webhook,
   CircleUserRound,
   KeyRound,
   LogOut,
@@ -16,9 +16,9 @@ import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const NAV = [
-  { href: "/app/flows", label: "Flows", icon: Workflow },
+  { href: "/app/flows", label: "Workflows", icon: Workflow },
   { href: "/app/runs", label: "Runs", icon: PlayCircle },
-  { href: "/app/triggers", label: "Triggers", icon: CalendarClock },
+  { href: "/app/triggers", label: "Triggers", icon: Webhook },
   { href: "/app/custom-nodes", label: "Custom Nodes", icon: Boxes },
   { href: "/app/integrations", label: "Integrations", icon: KeyRound },
 ];

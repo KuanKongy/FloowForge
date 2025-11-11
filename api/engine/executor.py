@@ -327,7 +327,7 @@ async def run_flow(
             else:
                 if p in overrides:
                     node_inputs.append(overrides[p])
-                elif p in nodes_by_id:
+                elif not explicit_start and p in nodes_by_id:
                     node_inputs.append(_snapshot_value(nodes_by_id[p]))
 
         # When the user runs the WHOLE flow (no explicit starts), root nodes
@@ -579,3 +579,22 @@ async def run_flow_inline(
     if not result.get("ok"):
         raise RuntimeError(f"Subflow {flow_id} failed: {result.get('error')}")
     return result.get("output")
+
+def _parse_execution_panel_filters(params: dict[str, object]) -> dict[str, object]:
+    filters: dict[str, object] = {}
+    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
+        value = params.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+        if value not in (None, ''):
+            filters[key] = value
+    return filters
+
+
+def _apply_execution_panel_scope(query: object, filters: dict[str, object]) -> object:
+    scoped = query
+    for key, value in filters.items():
+        if hasattr(scoped, 'eq'):
+            scoped = scoped.eq(key, value)
+    return scoped
+

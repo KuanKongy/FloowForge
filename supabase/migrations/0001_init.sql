@@ -1,5 +1,6 @@
--- FlowForge: initial schema.
+-- FlowForge: consolidated schema (merges 0001–0008).
 -- Apply via Supabase SQL editor or `supabase db push`.
+-- If resetting, run 000_nuke.sql first.
 
 create extension if not exists "pgcrypto";
 
@@ -11,13 +12,17 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type trigger_kind as enum ('manual', 'webhook', 'schedule', 'subflow');
+  create type trigger_kind as enum (
+    'manual', 'webhook', 'schedule', 'subflow',
+    'incoming_webhook', 'outgoing_webhook', 'public_form',
+    'whole', 'public'
+  );
 exception when duplicate_object then null; end $$;
 
 do $$ begin
   create type run_event_kind as enum (
-    'run_started', 'run_succeeded', 'run_failed',
-    'node_started', 'node_succeeded', 'node_failed',
+    'run_started', 'run_succeeded', 'run_failed', 'run_cancelled',
+    'node_started', 'node_succeeded', 'node_failed', 'node_skipped',
     'log'
   );
 exception when duplicate_object then null; end $$;
@@ -111,12 +116,15 @@ create table if not exists public.runs (
   error text,
   started_at timestamptz,
   ended_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  start_node_ids jsonb,
+  parent_run_id uuid references public.runs(id) on delete set null
 );
 
 create index if not exists runs_user_id_idx on public.runs(user_id);
 create index if not exists runs_flow_id_idx on public.runs(flow_id);
 create index if not exists runs_status_idx on public.runs(status);
+create index if not exists runs_parent_run_id_idx on public.runs(parent_run_id);
 
 create table if not exists public.run_events (
   id uuid primary key default gen_random_uuid(),
@@ -124,6 +132,7 @@ create table if not exists public.run_events (
   node_id text,
   kind run_event_kind not null,
   payload jsonb not null default '{}'::jsonb,
+  duration_ms integer,
   ts timestamptz not null default now()
 );
 
@@ -136,10 +145,17 @@ create table if not exists public.triggers (
   id uuid primary key default gen_random_uuid(),
   flow_id uuid not null references public.flows(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  kind text not null check (kind in ('webhook', 'schedule', 'manual')),
+  kind text not null check (kind in (
+    'webhook', 'schedule', 'manual',
+    'incoming_webhook', 'outgoing_webhook', 'public_form'
+  )),
   config jsonb not null default '{}'::jsonb,
   is_active boolean not null default true,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  callback_url text,
+  entry_node_id text,
+  show_outputs boolean not null default false,
+  output_node_ids text[]
 );
 
 create index if not exists triggers_flow_id_idx on public.triggers(flow_id);
@@ -177,7 +193,7 @@ create table if not exists public.integrations (
   user_id uuid not null references auth.users(id) on delete cascade,
   provider provider_kind not null,
   label text not null default '',
-  encrypted_credentials text,  -- pgsodium / Vault encrypted blob
+  encrypted_credentials text,
   created_at timestamptz not null default now()
 );
 
@@ -199,3 +215,69 @@ drop trigger if exists flows_touch_updated_at on public.flows;
 create trigger flows_touch_updated_at
   before update on public.flows
   for each row execute function public.touch_updated_at();
+
+-- ---------------------------------------------------------------------------
+-- row-level security
+-- ---------------------------------------------------------------------------
+alter table public.profiles enable row level security;
+alter table public.flows enable row level security;
+alter table public.flow_versions enable row level security;
+alter table public.runs enable row level security;
+alter table public.run_events enable row level security;
+alter table public.triggers enable row level security;
+alter table public.webhook_secrets enable row level security;
+alter table public.custom_nodes enable row level security;
+alter table public.integrations enable row level security;
+
+drop policy if exists profiles_self_read on public.profiles;
+create policy profiles_self_read on public.profiles
+  for select using (auth.uid() = id);
+
+drop policy if exists profiles_self_write on public.profiles;
+create policy profiles_self_write on public.profiles
+  for update using (auth.uid() = id);
+
+drop policy if exists flows_owner_all on public.flows;
+create policy flows_owner_all on public.flows
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists flow_versions_owner_all on public.flow_versions;
+create policy flow_versions_owner_all on public.flow_versions
+  for all using (
+    exists (select 1 from public.flows f where f.id = flow_versions.flow_id and f.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.flows f where f.id = flow_versions.flow_id and f.user_id = auth.uid())
+  );
+
+drop policy if exists runs_owner_all on public.runs;
+create policy runs_owner_all on public.runs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists run_events_owner_read on public.run_events;
+create policy run_events_owner_read on public.run_events
+  for select using (
+    exists (select 1 from public.runs r where r.id = run_events.run_id and r.user_id = auth.uid())
+  );
+
+drop policy if exists triggers_owner_all on public.triggers;
+create policy triggers_owner_all on public.triggers
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists webhook_secrets_owner_read on public.webhook_secrets;
+create policy webhook_secrets_owner_read on public.webhook_secrets
+  for select using (
+    exists (select 1 from public.triggers t where t.id = webhook_secrets.trigger_id and t.user_id = auth.uid())
+  );
+
+drop policy if exists custom_nodes_owner_all on public.custom_nodes;
+create policy custom_nodes_owner_all on public.custom_nodes
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists integrations_owner_all on public.integrations;
+create policy integrations_owner_all on public.integrations
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- realtime
+-- ---------------------------------------------------------------------------
+alter publication supabase_realtime add table public.run_events;
