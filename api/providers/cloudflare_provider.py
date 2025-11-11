@@ -99,15 +99,24 @@ def _raise_cloudflare_friendly(r: httpx.Response, model: str) -> None:
 class CloudflareProvider(BaseProvider):
     name = "cloudflare"
 
-    def _gateway_url(self) -> str:
+    def _credentials(self, options: dict[str, Any]) -> dict[str, Any]:
+        credentials = options.get("provider_credentials")
+        return credentials if isinstance(credentials, dict) else {}
+
+    def _gateway_url(self, options: dict[str, Any]) -> str:
         s = get_settings()
+        credentials = self._credentials(options)
+        account_id = credentials.get("account_id") or s.CLOUDFLARE_ID
+        gateway_slug = credentials.get("gateway_slug") or s.CLOUDFLARE_GATEWAY_SLUG
         return (
-            f"https://gateway.ai.cloudflare.com/v1/{s.CLOUDFLARE_ID}/"
-            f"{s.CLOUDFLARE_GATEWAY_SLUG}/workers-ai/"
+            f"https://gateway.ai.cloudflare.com/v1/{account_id}/"
+            f"{gateway_slug}/workers-ai/"
         )
 
-    def _headers(self) -> dict[str, str]:
-        return {"Authorization": f"Bearer {get_settings().CLOUDFLARE_KEY}"}
+    def _headers(self, options: dict[str, Any]) -> dict[str, str]:
+        credentials = self._credentials(options)
+        token = credentials.get("api_key") or credentials.get("token") or get_settings().CLOUDFLARE_KEY
+        return {"Authorization": f"Bearer {token}"}
 
     async def generate(
         self,
@@ -147,8 +156,8 @@ class CloudflareProvider(BaseProvider):
         model = _normalize_text_model(options.get("model"), "@cf/meta/llama-3-8b-instruct")
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
-                f"{self._gateway_url()}{model}",
-                headers=self._headers(),
+                f"{self._gateway_url(options)}{model}",
+                headers=self._headers(options),
                 json=body,
             )
             _raise_cloudflare_friendly(r, model)
@@ -174,8 +183,8 @@ class CloudflareProvider(BaseProvider):
             body["negative_prompt"] = options["negativePrompt"]
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
-                f"{self._gateway_url()}{model}",
-                headers=self._headers(),
+                f"{self._gateway_url(options)}{model}",
+                headers=self._headers(options),
                 json=body,
             )
             _raise_cloudflare_friendly(r, model)

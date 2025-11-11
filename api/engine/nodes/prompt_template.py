@@ -15,6 +15,7 @@ from jinja2 import Environment, StrictUndefined, TemplateError
 
 from ...providers import get_provider
 from .llm import MODEL_TO_PROVIDER
+from .integrations import apply_integration_options
 from ..context import ExecutionContext
 
 
@@ -25,13 +26,19 @@ _jinja = Environment(
 )
 
 
-async def _load_body(node: dict, ctx: ExecutionContext) -> dict[str, Any]:
+def _binding_key(name: str) -> str:
+    key = "".join(ch.lower() if ch.isalnum() else "_" for ch in name.strip())
+    key = "_".join(part for part in key.split("_") if part)
+    return key or "input"
+
+
+async def _load_definition(node: dict, ctx: ExecutionContext) -> dict[str, Any]:
     body = node.get("data", {}).get("body")
     if body:
-        return body
+        return {"body": body, "schema": node.get("data", {}).get("schema") or {}}
     custom_node_id = node.get("data", {}).get("custom_node_id")
     if not custom_node_id:
-        return {}
+        return {"body": {}, "schema": {}}
     from ...db import SupabaseClient
     sc = SupabaseClient.as_service()
     rows = await sc.select(
@@ -45,21 +52,34 @@ async def _load_body(node: dict, ctx: ExecutionContext) -> dict[str, Any]:
     )
     if not rows or not isinstance(rows, dict):
         raise ValueError("Custom node not found or not owned by this user")
-    return rows.get("body", {})
+    return {"body": rows.get("body", {}) or {}, "schema": rows.get("schema", {}) or {}}
 
 
 async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     data = node.get("data", {}) or {}
-    body = await _load_body(node, ctx)
+    definition = await _load_definition(node, ctx)
+    body = definition["body"]
+    schema = definition["schema"]
     template_str: str = body.get("prompt") or data.get("prompt") or ""
-    declared_inputs: list[dict[str, Any]] = body.get("inputs") or data.get("inputs") or []
+    declared_inputs: list[dict[str, Any]] = (
+        schema.get("inputs")
+        or body.get("inputs")
+        or data.get("inputs")
+        or []
+    )
     model_label: str = body.get("model") or data.get("model") or "GPT o3-mini"
     params: dict[str, Any] = body.get("params") or data.get("params") or {}
+    params = await apply_integration_options(data, ctx, params)
 
-    bindings: dict[str, Any] = {}
+    bindings: dict[str, Any] = dict(ctx.cache.get(f"__input_bindings__:{node.get('id')}") or {})
     for i, spec in enumerate(declared_inputs):
         name = spec.get("name") or f"input{i + 1}"
-        bindings[name] = inputs[i] if i < len(inputs) else None
+        value = bindings.get(_binding_key(name), inputs[i] if i < len(inputs) else spec.get("default"))
+        bindings[_binding_key(name)] = value
+        if str(name).isidentifier():
+            bindings[str(name)] = value
+    for i, value in enumerate(inputs):
+        bindings.setdefault(f"input{i + 1}", value)
 
     try:
         rendered = _jinja.from_string(template_str).render(**bindings)
@@ -75,6 +95,6 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         input=rendered,
         input_type="text",
         output_type="text",
-        options={**params, "model": params.get("model")},
+        options={**params, "model": model_label},
     )
     return result.text or ""

@@ -86,6 +86,12 @@ class GeminiProvider(BaseProvider):
             self._client = genai.Client(api_key=get_settings().GEMINI_KEY)
         return self._client
 
+    def _client_for(self, options: dict[str, Any]) -> genai.Client:
+        credentials = options.get("provider_credentials")
+        if isinstance(credentials, dict) and credentials.get("api_key"):
+            return genai.Client(api_key=str(credentials["api_key"]))
+        return self.client
+
     async def generate(
         self,
         *,
@@ -102,7 +108,7 @@ class GeminiProvider(BaseProvider):
 
         # google-genai is sync; offload to a thread.
         def _run() -> str:
-            response = self.client.models.generate_content(model=model, contents=contents)
+            response = self._client_for(options).models.generate_content(model=model, contents=contents)
             return response.text or ""
 
         text = await asyncio.to_thread(_run)

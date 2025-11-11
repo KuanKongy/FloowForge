@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, KeyRound, Pencil, Trash2 } from "lucide-react";
+import { Plus, KeyRound, Pencil, Trash2, ShieldCheck, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiGet, apiPost, apiDelete, apiPatch } from "@/lib/api";
@@ -21,18 +21,14 @@ export default function IntegrationsPage() {
   }, []);
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold">Integrations</h1>
           <p className="text-sm text-[var(--muted-foreground)] mt-1 max-w-2xl">
-            <strong>Bring your own AI keys.</strong> Save an OpenAI / Gemini /
-            Cloudflare / Anthropic API key here and your flows will use it
-            instead of the platform default — that lets you pick newer or
-            paid models the platform does not ship by default (e.g. GPT-5.4,
-            Claude Sonnet, custom Cloudflare Workers AI models). Keys are
-            encrypted at rest and only the metadata (label, provider) is
-            shown back.
+            Bring your own AI provider keys for the models FlowForge already supports.
+            Platform-paid AI calls count toward workflow cost limits; calls made with your
+            own key do not consume FlowForge AI budget.
           </p>
         </div>
         <Button onClick={() => setShowNew(true)}>
@@ -49,6 +45,12 @@ export default function IntegrationsPage() {
           }}
         />
       )}
+
+      <div className="grid gap-3 md:grid-cols-3 mb-6">
+        <InfoCard title="Platform default" body="Uses FlowForge credentials and counts AI calls toward workflow cost limits." />
+        <InfoCard title="User-paid calls" body="Your key pays the provider directly, so those AI calls are not limited by FlowForge AI spend." />
+        <InfoCard title="Implemented models" body="Keys unlock supported providers only: OpenAI, Gemini, and Cloudflare Workers AI." />
+      </div>
 
       <div className="card-surface divide-y divide-[var(--border)] overflow-hidden">
         {items.length === 0 ? (
@@ -68,7 +70,7 @@ export default function IntegrationsPage() {
                     </span>
                   </div>
                   <div className="text-xs text-[var(--muted-foreground)]">
-                    Key on file • used automatically when a flow runs
+                    Key on file • selectable by supported AI nodes
                   </div>
                 </div>
               </div>
@@ -79,7 +81,7 @@ export default function IntegrationsPage() {
                   className="text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:bg-[var(--secondary)] transition-colors px-2 py-1 rounded-md flex items-center gap-1 text-xs"
                   aria-label="Rename"
                 >
-                  <Pencil size={14} /> Rename
+                  <Pencil size={14} /> Manage
                 </button>
                 <button
                   type="button"
@@ -133,12 +135,21 @@ function RenameIntegrationDialog({
   onSaved: () => void;
 }) {
   const [label, setLabel] = useState(integration.label || "default");
+  const [key, setKey] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [gatewaySlug, setGatewaySlug] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
     try {
-      await apiPatch(`/integrations/${integration.id}`, { label });
+      const credentials: Record<string, string> | undefined = key
+        ? {
+            api_key: key,
+            ...(integration.provider === "cloudflare" ? { account_id: accountId, gateway_slug: gatewaySlug } : {}),
+          }
+        : undefined;
+      await apiPatch(`/integrations/${integration.id}`, { label, ...(credentials ? { credentials } : {}) });
       onSaved();
     } finally {
       setBusy(false);
@@ -149,11 +160,11 @@ function RenameIntegrationDialog({
     <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-6" onClick={onCancel}>
       <div className="card-surface w-[min(420px,100%)]" onClick={(e) => e.stopPropagation()}>
         <header className="px-5 py-3 border-b border-[var(--border)]">
-          <h2 className="font-semibold capitalize">Rename {integration.provider} integration</h2>
+          <h2 className="font-semibold capitalize">Manage {integration.provider} integration</h2>
         </header>
         <div className="p-5">
           <label className="flex flex-col gap-1 text-sm">
-            Label
+            <span className="text-xs text-[var(--muted-foreground)]">Label</span>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
@@ -161,10 +172,38 @@ function RenameIntegrationDialog({
               className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
             />
           </label>
+          <div className="mt-4 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] p-3 text-xs text-[var(--muted-foreground)] flex gap-2">
+            <ShieldCheck size={15} className="text-[var(--primary)] shrink-0" />
+            Existing keys are masked. Enter a new key only when rotating credentials.
+          </div>
+          <label className="flex flex-col gap-1 text-sm mt-4">
+            <span className="text-xs text-[var(--muted-foreground)]">New API key</span>
+            <input
+              type="password"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Leave blank to keep current key"
+              className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
+            />
+          </label>
+          {integration.provider === "cloudflare" && key && (
+            <div className="grid gap-3 md:grid-cols-2 mt-4">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-xs text-[var(--muted-foreground)]">Account ID</span>
+                <input value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]" />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="text-xs text-[var(--muted-foreground)]">Gateway slug</span>
+                <input value={gatewaySlug} onChange={(e) => setGatewaySlug(e.target.value)} className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]" />
+              </label>
+            </div>
+          )}
         </div>
         <footer className="px-5 py-3 border-t border-[var(--border)] flex justify-end gap-2">
           <Button variant="outline" onClick={onCancel}>Cancel</Button>
-          <Button onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</Button>
+          <Button onClick={save} disabled={busy}>
+            {busy ? "Saving…" : <><RotateCw size={14} /> Save</>}
+          </Button>
         </footer>
       </div>
     </div>
@@ -176,12 +215,16 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
   const [label, setLabel] = useState("default");
   const [key, setKey] = useState("");
   const [accountId, setAccountId] = useState("");
+  const [gatewaySlug, setGatewaySlug] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit() {
     setBusy(true);
     const credentials: Record<string, string> = { api_key: key };
-    if (provider === "cloudflare") credentials.account_id = accountId;
+    if (provider === "cloudflare") {
+      credentials.account_id = accountId;
+      credentials.gateway_slug = gatewaySlug;
+    }
     await apiPost("/integrations", { provider, label, credentials });
     setBusy(false);
     onCreated();
@@ -210,7 +253,7 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
         />
       </label>
       <label className="flex flex-col gap-1 text-sm md:col-span-2">
-        API key
+        API key / token
         <input
           type="password"
           value={key}
@@ -219,14 +262,24 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
         />
       </label>
       {provider === "cloudflare" && (
-        <label className="flex flex-col gap-1 text-sm md:col-span-2">
-          Cloudflare account ID
-          <input
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
-          />
-        </label>
+        <>
+          <label className="flex flex-col gap-1 text-sm">
+            Cloudflare account ID
+            <input
+              value={accountId}
+              onChange={(e) => setAccountId(e.target.value)}
+              className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Gateway slug
+            <input
+              value={gatewaySlug}
+              onChange={(e) => setGatewaySlug(e.target.value)}
+              className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
+            />
+          </label>
+        </>
       )}
       <div className="flex justify-end gap-2 md:col-span-2">
         <Button variant="outline" onClick={onClose}>
@@ -236,6 +289,15 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
           {busy ? "Saving…" : "Save"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function InfoCard({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="card-surface p-4">
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="text-xs text-[var(--muted-foreground)] mt-1">{body}</div>
     </div>
   );
 }

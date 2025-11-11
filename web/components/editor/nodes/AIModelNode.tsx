@@ -18,6 +18,8 @@ import { ResumeOverlay } from "../ResumeOverlay";
 import { useNodeFrameControls } from "../NodeFrame";
 import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
+import { apiGet } from "@/lib/api";
+import type { Integration } from "@flowforge/shared";
 
 /**
  * Direct port of the original Floowbox `AIModel` component (see
@@ -59,7 +61,7 @@ const MODELS_BY_TYPE: Record<ModelType, string[]> = {
 const MODEL_ICON: Record<string, string> = {
   "GPT o3-mini": "/images/openai-icon-text.svg",
   "GPT-4o-mini": "/images/openai-icon-text.svg",
-  "Llama 3 (Cloudflare)": "/images/cloudflare-icon.svg",
+  "Llama 3 (Cloudflare)": "/images/ollama-icon.svg",
   Ollama: "/images/ollama-icon.svg",
   Gemini: "/images/gemini-icon.svg",
   "Gemini 2.5 Flash": "/images/gemini-icon.svg",
@@ -71,6 +73,18 @@ const MODEL_ICON: Record<string, string> = {
   "Flux Schnell": "/images/cloudflare-icon.svg",
   "TTS-1": "/images/openai-icon-audio.svg",
   PDF: "/images/pdf-icon.svg",
+};
+
+const MODEL_PROVIDER: Record<string, Integration["provider"]> = {
+  "GPT o3-mini": "openai",
+  "GPT-4o-mini": "openai",
+  "DALLE 3": "openai",
+  "TTS-1": "openai",
+  "Gemini 2.5 Flash": "gemini",
+  "Gemini 1.5 Flash": "gemini",
+  "Llama 3 (Cloudflare)": "cloudflare",
+  DreamShaper: "cloudflare",
+  "Flux Schnell": "cloudflare",
 };
 
 export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
@@ -90,6 +104,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
     voice = "alloy",
     speed = 1,
     name,
+    integration_id,
   } = (data as {
     type?: ModelType;
     model?: string;
@@ -101,6 +116,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
     voice?: string;
     speed?: number;
     name?: string;
+    integration_id?: string;
   }) || {};
 
   const meta = TYPE_META[type as ModelType] || TYPE_META.text;
@@ -119,6 +135,12 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(name || "Double Click to Edit");
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
+
+  useEffect(() => {
+    if (type === "file") return;
+    apiGet<Integration[]>("/integrations").then(setIntegrations).catch(() => setIntegrations([]));
+  }, [type]);
 
   useEffect(() => {
     if (!editingName) setDraftName(name || "Double Click to Edit");
@@ -164,6 +186,25 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                 type={type as ModelType}
                 models={models}
               />
+              {type !== "file" && (
+                <Field label="Credential source">
+                  <select
+                    value={integration_id || ""}
+                    onChange={(e) => set("integration_id", e.target.value || undefined)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="ai-model__input nodrag nopan w-full h-9 text-[0.85rem]"
+                  >
+                    <option value="">FlowForge credits</option>
+                    {integrations
+                      .filter((it) => it.provider === MODEL_PROVIDER[currentModel])
+                      .map((it) => (
+                        <option key={it.id} value={it.id}>
+                          {it.label || it.provider} ({it.provider})
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              )}
               {type !== "file" && (
                 <Field label="Context">
                   <textarea

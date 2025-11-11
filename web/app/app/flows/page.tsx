@@ -67,8 +67,14 @@ export default function FlowsPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Workflows</h1>
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Workflows</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1 max-w-2xl">
+            Create, search, and manage the flows that power your automations. Open a workflow
+            to edit its canvas, run it manually, or connect it to triggers.
+          </p>
+        </div>
         <Button onClick={createFlow} disabled={creating}>
           {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
           {creating ? "Creating…" : "New flow"}

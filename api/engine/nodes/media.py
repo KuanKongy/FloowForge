@@ -11,6 +11,7 @@ from typing import Any
 from ...providers import get_provider
 from ..context import ExecutionContext
 from .inputs import merge_inputs
+from .integrations import apply_integration_options
 
 
 # Image / audio model label maps.
@@ -36,6 +37,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         options.setdefault("prompt", data.get("prompt"))
     if data.get("model") is not None:
         options.setdefault("model", data.get("model"))
+    options = await apply_integration_options(data, ctx, options)
 
     node_type = node.get("type")
     label = data.get("model") or ("DALLE 3" if node_type == "imagegen" else "TTS-1")

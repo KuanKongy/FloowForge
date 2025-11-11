@@ -11,7 +11,7 @@ router = APIRouter(prefix="/custom-nodes", tags=["custom-nodes"])
 
 @router.get("")
 async def list_custom_nodes(user: CurrentUserDep, kind: str | None = None):
-    params: dict[str, str] = {"select": "*", "order": "created_at.desc"}
+    params: dict[str, str] = {"user_id": f"eq.{user.id}", "select": "*", "order": "created_at.desc"}
     if kind:
         params["kind"] = f"eq.{kind}"
     return await user.db.select("custom_nodes", params=params)
@@ -35,14 +35,14 @@ async def create_custom_node(body: CustomNodeCreate, user: CurrentUserDep):
 async def get_custom_node(node_id: str, user: CurrentUserDep):
     return await user.db.select(
         "custom_nodes",
-        params={"id": f"eq.{node_id}", "select": "*"},
+        params={"id": f"eq.{node_id}", "user_id": f"eq.{user.id}", "select": "*"},
         single=True,
     )
 
 
 @router.delete("/{node_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_custom_node(node_id: str, user: CurrentUserDep):
-    await user.db.delete("custom_nodes", params={"id": f"eq.{node_id}"})
+    await user.db.delete("custom_nodes", params={"id": f"eq.{node_id}", "user_id": f"eq.{user.id}"})
 
 
 @router.patch("/{node_id}")
@@ -58,7 +58,7 @@ async def update_custom_node(node_id: str, body: CustomNodeUpdate, user: Current
         payload["body"] = body.body
     if not payload:
         raise HTTPException(400, "Empty update")
-    rows = await user.db.update("custom_nodes", payload, params={"id": f"eq.{node_id}"})
+    rows = await user.db.update("custom_nodes", payload, params={"id": f"eq.{node_id}", "user_id": f"eq.{user.id}"})
     if not rows:
         raise HTTPException(404, "Custom node not found")
     return rows[0]

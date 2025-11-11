@@ -98,6 +98,10 @@ export function RunSidebar({
   }, [events, states, nodeMeta]);
 
   const ioRow = ioFor ? rows.find((r) => r.id === ioFor) : null;
+  const runFailureValue = [...events]
+    .reverse()
+    .find((e) => e.kind === "run_failed" && !e.node_id)?.payload?.error;
+  const runFailure = typeof runFailureValue === "string" ? runFailureValue : null;
 
   return (
     <>
@@ -116,8 +120,14 @@ export function RunSidebar({
             <X size={16} />
           </button>
         </header>
-        {rows.length === 0 && (
-          <div className="px-4 py-6 text-xs text-[var(--muted-foreground)]">Waiting for events…</div>
+        {rows.length === 0 && runFailure && (
+          <div className="m-4 rounded-[8px] bg-[rgba(239,68,68,0.08)] p-3 text-xs text-[#b91c1c]">
+            <div className="font-semibold mb-1">Run failed before node execution</div>
+            <div className="whitespace-pre-wrap break-words">{String(runFailure)}</div>
+          </div>
+        )}
+        {rows.length === 0 && !runFailure && (
+          <div className="px-4 py-6 text-xs text-[var(--muted-foreground)]">Waiting for events...</div>
         )}
         {rows.map((row) => {
           const isOpen = expanded[row.id];

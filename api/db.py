@@ -70,23 +70,6 @@ def _user_headers(access_token: str) -> dict[str, str]:
     }
 
 
-
-def _merge_db_storage_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
-    merged = dict(current)
-    for key, value in patch.items():
-        if value is None:
-            merged.pop(key, None)
-        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = {**merged[key], **value}  # type: ignore[index]
-        else:
-            merged[key] = value
-    return merged
-
-
-def _changed_db_storage_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
-    keys = set(before) | set(after)
-    return {key for key in keys if before.get(key) != after.get(key)}
-
 def _supabase_root() -> str:
     settings = get_settings()
     return normalize_supabase_url(settings.SUPABASE_URL)

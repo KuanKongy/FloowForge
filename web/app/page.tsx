@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { Button } from "@/components/ui/button";
-import { Workflow, Webhook, CalendarClock, Boxes, Zap } from "lucide-react";
+import { Workflow, Webhook, CalendarClock, Boxes, Zap, BotMessageSquare } from "lucide-react";
 
 export default function LandingPage() {
   return (
@@ -74,7 +74,7 @@ export default function LandingPage() {
           tone="file"
         />
         <Feature
-          icon={<Boxes size={22} />}
+          icon={<BotMessageSquare size={22} />}
           title="Multi-provider"
           body="OpenAI, Google Gemini, and Cloudflare Workers AI behind a single canvas."
           tone="audio"

@@ -1,14 +1,20 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
-import { apiGet } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
+import { apiDelete, apiGet } from "@/lib/api";
 import type { Run, RunEvent } from "@flowforge/shared";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function RunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
   const { runId } = use(params);
+  const router = useRouter();
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     apiGet<{ run: Run; events: RunEvent[] }>(`/runs/${runId}`).then((r) => {
@@ -39,12 +45,19 @@ export default function RunDetailPage({ params }: { params: Promise<{ runId: str
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-semibold mb-2">Run {runId.slice(0, 8)}</h1>
-      {run && (
-        <div className="text-sm text-[var(--muted-foreground)] mb-6">
-          {run.trigger_kind} · {run.status}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold mb-2">Run {runId.slice(0, 8)}</h1>
+          {run && (
+            <div className="text-sm text-[var(--muted-foreground)]">
+              {run.trigger_kind} · {run.status}
+            </div>
+          )}
         </div>
-      )}
+        <Button variant="outline" onClick={() => setConfirmDelete(true)}>
+          <Trash2 size={16} /> Delete run
+        </Button>
+      </div>
       <div className="card-surface divide-y divide-[var(--border)] overflow-hidden">
         {events.map((e) => (
           <div key={e.id} className="px-5 py-3 flex items-start gap-3">
@@ -69,6 +82,17 @@ export default function RunDetailPage({ params }: { params: Promise<{ runId: str
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`Delete run ${runId.slice(0, 8)}?`}
+        description="This removes the run and its node execution events. The workflow itself will not be deleted."
+        confirmLabel="Delete run"
+        onConfirm={async () => {
+          await apiDelete(`/runs/${runId}`);
+          router.push("/app/runs");
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

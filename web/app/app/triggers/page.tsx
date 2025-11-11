@@ -77,11 +77,12 @@ export default function TriggersPage() {
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold">Triggers</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Run your flows via webhook, schedule, or shareable public form.
+          <p className="text-sm text-[var(--muted-foreground)] mt-1 max-w-2xl">
+            Start workflows from webhooks, schedules, or public forms.
+            Pick the entry node for each trigger so only the connected branch runs. Get notified by outbound callbacks when the workflow is done.
           </p>
         </div>
         <Button onClick={() => { setShowNew(true); setDetailsTrigger(null); }}>

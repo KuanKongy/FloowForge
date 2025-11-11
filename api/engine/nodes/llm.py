@@ -6,6 +6,7 @@ from typing import Any
 from ...providers import get_provider
 from ..context import ExecutionContext
 from .inputs import merge_inputs
+from .integrations import apply_integration_options
 
 
 # Display labels (kept compatible with the existing UI dropdowns) -> backend providers.
@@ -40,6 +41,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         options.setdefault("prompt", data.get("prompt"))
     if data.get("model") is not None:
         options.setdefault("model", data.get("model"))
+    options = await apply_integration_options(data, ctx, options)
 
     label = data.get("model") or "GPT o3-mini"
     provider_name = MODEL_TO_PROVIDER.get(label, "openai")

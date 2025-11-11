@@ -54,7 +54,7 @@ async def _enqueue_or_run_inline(
 
 @router.get("")
 async def list_runs(user: CurrentUserDep, flow_id: str | None = None):
-    params: dict[str, str] = {"select": "*", "order": "created_at.desc", "limit": "100"}
+    params: dict[str, str] = {"user_id": f"eq.{user.id}", "select": "*", "order": "created_at.desc", "limit": "100"}
     if flow_id:
         params["flow_id"] = f"eq.{flow_id}"
     return await user.db.select("runs", params=params)
@@ -64,14 +64,29 @@ async def list_runs(user: CurrentUserDep, flow_id: str | None = None):
 async def get_run(run_id: str, user: CurrentUserDep):
     run = await user.db.select(
         "runs",
-        params={"id": f"eq.{run_id}", "select": "*"},
+        params={"id": f"eq.{run_id}", "user_id": f"eq.{user.id}", "select": "*"},
         single=True,
     )
+    if not run:
+        raise HTTPException(404, "Run not found")
     events = await user.db.select(
         "run_events",
         params={"run_id": f"eq.{run_id}", "select": "*", "order": "ts.asc"},
     )
     return {"run": run, "events": events}
+
+
+@router.delete("/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_run(run_id: str, user: CurrentUserDep):
+    run = await user.db.select(
+        "runs",
+        params={"id": f"eq.{run_id}", "user_id": f"eq.{user.id}", "select": "id"},
+        single=True,
+    )
+    if not run:
+        raise HTTPException(404, "Run not found")
+    await user.db.delete("run_events", params={"run_id": f"eq.{run_id}"})
+    await user.db.delete("runs", params={"id": f"eq.{run_id}", "user_id": f"eq.{user.id}"})
 
 
 @router.post("/{run_id}/cancel")

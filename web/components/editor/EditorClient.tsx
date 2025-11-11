@@ -141,13 +141,12 @@ function Editor({ flowId }: { flowId: string }) {
               return n;
             }
           }
-          // Chat node tracks a `messages` array; append the assistant's reply
-          // when the upstream produced a string.
-          if (n.type === "chatbox" && typeof output === "string") {
-            const messages = Array.isArray(prev.messages)
-              ? [...(prev.messages as Array<{ role: string; content: string }>)]
-              : [];
-            messages.push({ role: "assistant", content: output });
+          if (n.type === "chatbox" && Array.isArray(output)) {
+            const mode = typeof prev.memory_mode === "string" ? prev.memory_mode : prev.memory_enabled === false ? "keep" : "update";
+            if (mode !== "update") return n;
+            const messages = (output as Array<{ role?: string; content?: string }>).filter(
+              (m) => m.role !== "system"
+            );
             return { ...n, data: { ...prev, messages } };
           }
           return { ...n, data: { ...prev, value: output } };
@@ -155,6 +154,35 @@ function Editor({ flowId }: { flowId: string }) {
       );
     },
     [setNodes]
+  );
+
+  const applyAiOutputToParentChats = useCallback(
+    (nodeId: string, content: string) => {
+      const parentChatIds = new Set(
+        edges
+          .filter((e) => e.target === nodeId)
+          .map((e) => e.source)
+      );
+      if (parentChatIds.size === 0) return;
+      setNodes((nds) =>
+        nds.map((n) => {
+          if (!parentChatIds.has(n.id) || n.type !== "chatbox") return n;
+          const prev = (n.data || {}) as Record<string, unknown>;
+          const mode = typeof prev.memory_mode === "string" ? prev.memory_mode : prev.memory_enabled === false ? "keep" : "update";
+          if (mode === "keep") return n;
+          if (mode === "wipe") return { ...n, data: { ...prev, messages: [] } };
+          const messages = Array.isArray(prev.messages)
+            ? [...(prev.messages as Array<{ role: string; content: string }>)]
+            : [];
+          if (messages.at(-1)?.role === "assistant" && messages.at(-1)?.content === content) {
+            return n;
+          }
+          messages.push({ role: "assistant", content });
+          return { ...n, data: { ...prev, messages } };
+        })
+      );
+    },
+    [edges, setNodes]
   );
 
   // ---- Load flow + latest version -----------------------------------------
@@ -238,6 +266,46 @@ function Editor({ flowId }: { flowId: string }) {
   // ---- Realtime subscription ----------------------------------------------
   useEffect(() => {
     if (!activeRunId) return;
+    let alive = true;
+    apiGet<{
+      run: { status?: string; ended_at?: string | null; created_at?: string; output?: unknown };
+      events: SidebarEvent[];
+    }>(`/runs/${activeRunId}`)
+      .then((detail) => {
+        if (!alive) return;
+        const events = (detail.events || []).map((e) => ({
+          kind: e.kind,
+          node_id: e.node_id,
+          payload: e.payload || {},
+          duration_ms: e.duration_ms ?? null,
+          ts: e.ts,
+        }));
+        setRunEvents(events);
+        const states: Record<string, NodeRunState> = {};
+        events.forEach((e) => {
+          if (!e.node_id) return;
+          if (e.kind === "node_started") states[e.node_id] = "running";
+          else if (e.kind === "node_succeeded") states[e.node_id] = "succeeded";
+          else if (e.kind === "node_failed") states[e.node_id] = "failed";
+          else if (e.kind === "node_skipped") states[e.node_id] = "skipped";
+        });
+        setRunStates(states);
+        const status = detail.run?.status;
+        if (status === "succeeded" || status === "failed" || status === "cancelled") {
+          setIsRunning(false);
+          setSystemStatus(status);
+          setRunEnd(detail.run?.ended_at ? new Date(detail.run.ended_at).getTime() : Date.now());
+          if (status === "succeeded") {
+            events.forEach((e) => {
+              const out = (e.payload as Record<string, unknown> | undefined)?.output;
+              if (e.kind === "node_succeeded" && e.node_id && typeof out === "string") {
+                applyAiOutputToParentChats(e.node_id, out);
+              }
+            });
+          }
+        }
+      })
+      .catch(() => {});
     const supabase = createSupabaseBrowserClient();
     const channel = supabase.channel(`run:${activeRunId}`);
     channel.on(
@@ -255,6 +323,7 @@ function Editor({ flowId }: { flowId: string }) {
           setRunStates((s) => ({ ...s, [p.node_id!]: "succeeded" }));
           const out = (p.payload as Record<string, unknown> | undefined)?.output;
           if (out !== undefined) applyOutputToDisplayNode(p.node_id, out);
+          if (typeof out === "string") applyAiOutputToParentChats(p.node_id, out);
         } else if (event === "node_failed" && p.node_id) {
           setRunStates((s) => ({ ...s, [p.node_id!]: "failed" }));
         } else if (event === "node_skipped" && p.node_id) {
@@ -285,9 +354,10 @@ function Editor({ flowId }: { flowId: string }) {
     );
     channel.subscribe();
     return () => {
+      alive = false;
       void supabase.removeChannel(channel);
     };
-  }, [activeRunId, applyOutputToDisplayNode]);
+  }, [activeRunId, applyOutputToDisplayNode, applyAiOutputToParentChats]);
 
   // ---- Connect / Add node helpers -----------------------------------------
   const onConnect = useCallback(

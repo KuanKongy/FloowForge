@@ -42,6 +42,12 @@ class OpenAIProvider(BaseProvider):
             self._client = AsyncOpenAI(api_key=get_settings().OPENAI_API_KEY)
         return self._client
 
+    def _client_for(self, options: dict[str, Any]) -> AsyncOpenAI:
+        credentials = options.get("provider_credentials")
+        if isinstance(credentials, dict) and credentials.get("api_key"):
+            return AsyncOpenAI(api_key=str(credentials["api_key"]))
+        return self.client
+
     async def generate(
         self,
         *,
@@ -86,7 +92,7 @@ class OpenAIProvider(BaseProvider):
             # UI scale 0..1 -> OpenAI 0..2.
             params["temperature"] = max(0.0, min(2.0, float(temperature) * 2.0))
 
-        completion = await self.client.chat.completions.create(**params)
+        completion = await self._client_for(options).chat.completions.create(**params)
         text = completion.choices[0].message.content or ""
         return ProviderResult(text=text)
 
@@ -103,7 +109,7 @@ class OpenAIProvider(BaseProvider):
         if isinstance(speed, (int, float)):
             params["speed"] = max(0.25, float(speed))
 
-        async with self.client.audio.speech.with_streaming_response.create(**params) as response:
+        async with self._client_for(options).audio.speech.with_streaming_response.create(**params) as response:
             data = await response.read()
         return ProviderResult(blob=data, mime="audio/mpeg")
 
@@ -116,7 +122,7 @@ class OpenAIProvider(BaseProvider):
             "response_format": "b64_json",
             "n": 1,
         }
-        result = await self.client.images.generate(**params)
+        result = await self._client_for(options).images.generate(**params)
         b64 = result.data[0].b64_json or ""
         if not b64:
             return ProviderResult(text="OpenAI image generation returned no data.")

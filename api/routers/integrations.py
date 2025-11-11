@@ -20,7 +20,7 @@ router = APIRouter(prefix="/integrations", tags=["integrations"])
 async def list_integrations(user: CurrentUserDep):
     rows = await user.db.select(
         "integrations",
-        params={"select": "id,user_id,provider,label,created_at"},
+        params={"user_id": f"eq.{user.id}", "select": "id,user_id,provider,label,created_at"},
     )
     return rows
 
@@ -41,7 +41,7 @@ async def create_integration(body: IntegrationCreate, user: CurrentUserDep):
 
 @router.delete("/{integration_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_integration(integration_id: str, user: CurrentUserDep):
-    await user.db.delete("integrations", params={"id": f"eq.{integration_id}"})
+    await user.db.delete("integrations", params={"id": f"eq.{integration_id}", "user_id": f"eq.{user.id}"})
 
 
 @router.patch("/{integration_id}")

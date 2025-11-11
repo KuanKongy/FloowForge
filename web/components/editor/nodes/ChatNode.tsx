@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MessagesSquare, Send } from "lucide-react";
+import { MessagesSquare, RotateCcw, Send, Trash2 } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { BackendBox } from "../BackendBox";
@@ -19,12 +19,18 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
   const {
     isFrontend = true,
     messages = [],
-    onTrigger,
+    memory_enabled,
+    memory_mode,
+    system_prompt = "",
   } = data as {
     isFrontend?: boolean;
     messages?: Message[];
-    onTrigger?: (id: string) => void;
+    memory_enabled?: boolean;
+    memory_mode?: "wipe" | "keep" | "update";
+    system_prompt?: string;
   };
+  const currentMemoryMode: "wipe" | "keep" | "update" =
+    memory_mode || (memory_enabled === false ? "keep" : "update");
   const rf = useReactFlow();
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -42,7 +48,10 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
     const next = [...messages, { content: draft, role: "user" }];
     rf.updateNodeData(id, { messages: next });
     setDraft("");
-    onTrigger?.(id);
+  }
+
+  function update(patch: Record<string, unknown>) {
+    rf.updateNodeData(id, patch);
   }
 
   if (!isFrontend) {
@@ -74,6 +83,35 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
       cardClassName="w-[40em]"
     >
       <div className="h-[520px] flex flex-col">
+        <div className="px-3 py-2 border-b border-[var(--border)] flex items-center gap-2 text-xs">
+          <input
+            value={system_prompt}
+            onChange={(e) => update({ system_prompt: e.target.value })}
+            onMouseDown={(e) => e.stopPropagation()}
+            placeholder="System prompt"
+            className="nodrag nopan h-8 flex-1 min-w-0 px-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-xs"
+          />
+          <select
+            value={currentMemoryMode}
+            onChange={(e) => update({ memory_mode: e.target.value })}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="nodrag nopan h-8 px-2 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] text-xs text-[var(--muted-foreground)]"
+            aria-label="After run"
+          >
+            <option value="wipe">Wipe</option>
+            <option value="keep">Keep</option>
+            <option value="update">Update</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => update({ messages: [] })}
+            onMouseDown={(e) => e.stopPropagation()}
+            className="nodrag nopan size-8 rounded-[8px] flex items-center justify-center hover:bg-[var(--muted)] text-[var(--muted-foreground)]"
+            aria-label="Reset conversation"
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
         <div
           ref={scrollRef}
           className="flex-1 overflow-auto p-4 flex flex-col gap-2 nowheel"
@@ -85,13 +123,29 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
             messages.map((m, i) => (
               <div
                 key={i}
-                className={`p-3 rounded-[12px] max-w-[80%] ${
+                className={`group relative p-3 pr-8 rounded-[12px] max-w-[80%] ${
                   m.role === "user"
                     ? "self-end bg-[var(--secondary)] text-[var(--primary)]"
+                    : m.role === "system"
+                    ? "self-center bg-[var(--surface-2)] text-[var(--muted-foreground)] border border-[var(--border)]"
                     : "self-start bg-[var(--muted)]"
                 }`}
               >
+                {m.role !== "user" && (
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--muted-foreground)] mb-1">
+                    {m.role}
+                  </div>
+                )}
                 {m.content}
+                <button
+                  type="button"
+                  onClick={() => update({ messages: messages.filter((_, idx) => idx !== i) })}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity text-[var(--muted-foreground)] hover:text-red-500"
+                  aria-label="Delete message"
+                >
+                  <Trash2 size={13} />
+                </button>
               </div>
             ))
           )}
@@ -102,7 +156,7 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
             onChange={(e) => setDraft(e.target.value)}
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 send();
               }

@@ -158,6 +158,22 @@ def _snapshot_value(node: dict[str, Any]) -> Any:
     return None
 
 
+def _node_output_name(node: dict[str, Any]) -> str:
+    data = node.get("data") or {}
+    if isinstance(data, dict):
+        for key in ("name", "label", "text"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return str(node.get("id") or "input")
+
+
+def _binding_key(name: str) -> str:
+    key = "".join(ch.lower() if ch.isalnum() else "_" for ch in name.strip())
+    key = "_".join(part for part in key.split("_") if part)
+    return key or "input"
+
+
 def _coerce_start_node_ids(value: Any) -> list[str] | None:
     """Normalize persisted/queued start ids.
 
@@ -392,18 +408,37 @@ async def run_flow(
         # - Whole-flow runs may also read a root/boundary node's static value.
         overrides: dict[str, Any] = ctx.cache.get("__input_overrides__") or {}
         node_inputs: list[Any] = []
+        input_bindings: dict[str, Any] = {}
+        input_meta: list[dict[str, Any]] = []
+
+        def add_input_from_parent(parent_id: str, value: Any) -> None:
+            node_inputs.append(value)
+            parent = nodes_by_id.get(parent_id)
+            if parent:
+                name = _node_output_name(parent)
+                input_bindings[_binding_key(name)] = value
+                input_bindings.setdefault(f"input{len(node_inputs)}", value)
+                input_meta.append(
+                    {
+                        "node_id": parent_id,
+                        "type": parent.get("type"),
+                        "name": name,
+                        "binding": _binding_key(name),
+                    }
+                )
+
         for p in parents.get(node_id, []):
             if p in scope:
                 if p in outputs and (strategy != "race" or race_parent_ids is None or p in race_parent_ids):
-                    node_inputs.append(outputs[p])
+                    add_input_from_parent(p, outputs[p])
                 # In race mode some parents may not have fired yet; skip them.
             else:
                 if strategy == "race" and race_parent_ids:
                     continue
                 if p in overrides:
-                    node_inputs.append(overrides[p])
+                    add_input_from_parent(p, overrides[p])
                 elif not explicit_start and p in nodes_by_id:
-                    node_inputs.append(_snapshot_value(nodes_by_id[p]))
+                    add_input_from_parent(p, _snapshot_value(nodes_by_id[p]))
 
         # When the user runs the WHOLE flow (no explicit starts), root nodes
         # receive ``runs.input`` so a webhook payload reaches the graph.
@@ -411,6 +446,11 @@ async def run_flow(
             run_input = ctx.cache.get("__run_input__")
             if run_input is not None and not node_inputs:
                 node_inputs = [run_input]
+                input_bindings = {"input1": run_input}
+                input_meta = [{"node_id": None, "type": "run_input", "name": "Run input", "binding": "input1"}]
+
+        ctx.cache[f"__input_bindings__:{node_id}"] = input_bindings
+        ctx.cache[f"__input_meta__:{node_id}"] = input_meta
 
         async with sema:
             if cancel_event.is_set():
