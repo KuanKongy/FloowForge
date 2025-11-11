@@ -1,10 +1,10 @@
 """FlowForge FastAPI entrypoint.
 
 Run locally:
-    uvicorn main:app --reload --port 5001
+    uvicorn api.main:app --reload --port 5001
 
 Run worker (separate process):
-    arq worker.WorkerSettings
+    python -m api.worker
 """
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ import contextlib
 import logging
 
 import httpx
-from arq import create_pool
-from arq.connections import RedisSettings
+import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,10 +31,7 @@ log = logging.getLogger(__name__)
 
 async def _check_schema() -> None:
     """Probe the Supabase schema for migration 0004 columns and warn loudly if
-    they're missing. The probe asks for ``start_node_ids`` on ``runs``; if the
-    column doesn't exist Supabase returns 400, which is the exact failure mode
-    that breaks ``POST /flows/:id/runs``. Surfacing the warning at boot makes
-    misconfigured projects obvious from the API logs.
+    they're missing.
     """
     settings = get_settings()
     if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
@@ -62,19 +58,24 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.public_api_url = settings.PUBLIC_API_URL
     try:
-        app.state.arq = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
+        r = aioredis.from_url(
+            settings.REDIS_URL,
+            decode_responses=False,
+            socket_connect_timeout=10,
+        )
+        await r.ping()
+        app.state.redis = r
     except Exception:
-        # Boot the API even if Redis is down; runs will queue once it returns.
-        app.state.arq = None
-    app.state.scheduler = FlowScheduler(arq=app.state.arq)
+        app.state.redis = None
+    app.state.scheduler = FlowScheduler(redis=app.state.redis)
     await app.state.scheduler.start()
     await _check_schema()
     try:
         yield
     finally:
         await app.state.scheduler.stop()
-        if app.state.arq is not None:
-            await app.state.arq.close()
+        if app.state.redis is not None:
+            await app.state.redis.aclose()
 
 
 def create_app() -> FastAPI:

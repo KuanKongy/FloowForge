@@ -39,7 +39,7 @@ export async function middleware(request: NextRequest) {
 
   if (user && (path === "/" || path === "/auth/sign-in" || path === "/auth/sign-up")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/app/flows";
+    url.pathname = "/app";
     url.search = "";
     return NextResponse.redirect(url);
   }

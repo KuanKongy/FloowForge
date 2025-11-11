@@ -14,7 +14,7 @@ export default function CustomNodesPage() {
   const [editing, setEditing] = useState<CustomNode | null>(null);
 
   async function refresh() {
-    setNodes(await apiGet<CustomNode[]>("/custom-nodes"));
+    setNodes(await apiGet<CustomNode[]>("/custom-nodes?kind=prompt_template"));
   }
   useEffect(() => {
     refresh();
@@ -81,7 +81,7 @@ export default function CustomNodesPage() {
               <button
                 type="button"
                 onClick={() => setPendingDelete(n)}
-                className="text-[var(--muted-foreground)] hover:text-red-500 transition-colors flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-red-50 opacity-0 group-hover:opacity-100"
+                className="text-[var(--muted-foreground)] hover:text-red-500 transition-colors flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:bg-red-50"
                 aria-label="Delete"
               >
                 <Trash2 size={14} />

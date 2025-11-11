@@ -11,7 +11,7 @@ NodeType = Literal[
     "header", "button",
     "llm", "imagegen", "audiogen", "fileparser",
     "subflow", "prompt_template",
-    "webhook_in", "manual_in",
+    "webhook_in", "manual_in", "schedule_in",
 ]
 
 IoType = Literal["text", "image", "audio", "file", "json"]
@@ -83,18 +83,29 @@ class RunCreate(BaseModel):
 
 
 # ----- Triggers -----
-TriggerKind = Literal["webhook", "schedule", "manual"]
+TriggerKind = Literal[
+    "webhook", "schedule", "manual",
+    "incoming_webhook", "outgoing_webhook", "public_form",
+]
 
 
 class TriggerCreate(BaseModel):
     flow_id: str
     kind: TriggerKind
     config: dict[str, Any] = Field(default_factory=dict)
+    callback_url: str | None = None
+    entry_node_id: str | None = None
+    show_outputs: bool = False
+    output_node_ids: list[str] | None = None
 
 
 class TriggerUpdate(BaseModel):
     config: dict[str, Any] | None = None
     is_active: bool | None = None
+    callback_url: str | None = None
+    entry_node_id: str | None = None
+    show_outputs: bool | None = None
+    output_node_ids: list[str] | None = None
 
 
 # ----- Custom nodes -----
@@ -104,11 +115,23 @@ class CustomNodeSchema(BaseModel):
 
 
 class CustomNodeCreate(BaseModel):
+    # "subflow" kind is reserved -- actual subflows use flows.is_subflow +
+    # the subflow node type.  New custom nodes should be "prompt_template".
     kind: Literal["subflow", "prompt_template"]
     name: str
     icon: str | None = None
     schema_: CustomNodeSchema = Field(alias="schema", default_factory=CustomNodeSchema)
     body: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"populate_by_name": True}
+
+
+class CustomNodeUpdate(BaseModel):
+    """Partial update -- all fields optional, ``kind`` is immutable."""
+    name: str | None = None
+    icon: str | None = None
+    schema_: CustomNodeSchema | None = Field(alias="schema", default=None)
+    body: dict[str, Any] | None = None
 
     model_config = {"populate_by_name": True}
 

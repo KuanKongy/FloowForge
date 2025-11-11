@@ -15,6 +15,7 @@ import {
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeHandleWrapper } from "../NodeHandleWrapper";
 import { ResumeOverlay } from "../ResumeOverlay";
+import { useNodeFrameControls } from "../NodeFrame";
 import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 
@@ -105,6 +106,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
   const meta = TYPE_META[type as ModelType] || TYPE_META.text;
   const models = MODELS_BY_TYPE[type as ModelType] || MODELS_BY_TYPE.text;
   const currentModel = model && models.includes(model) ? model : models[0];
+  const frameCtrl = useNodeFrameControls(id, { defaultName: meta.label, data: data as Record<string, unknown>, collapsible: false });
 
   // Reset stale model values (e.g. user switched type to a list that doesn't
   // include the previously stored model).
@@ -151,6 +153,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
             setDraftName={setDraftName}
             commitName={commitName}
             displayName={name || "Double Click to Edit"}
+            waitChip={frameCtrl.renderWaitChip("inline")}
           />
           {isOpen && (
             <>
@@ -255,6 +258,7 @@ function Header({
   setDraftName,
   commitName,
   displayName,
+  waitChip,
 }: {
   type: ModelType;
   isOpen: boolean;
@@ -266,6 +270,7 @@ function Header({
   setDraftName: (v: string) => void;
   commitName: () => void;
   displayName: string;
+  waitChip?: React.ReactNode;
 }) {
   return (
     <div className="relative flex items-center gap-x-[0.9em]">
@@ -329,6 +334,7 @@ function Header({
           >
             <PencilLine size={16} />
           </button>
+          {waitChip}
         </div>
       </div>
       <button

@@ -10,6 +10,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
+.venv*/
 venv/
 .pytest_cache/
 .ruff_cache/
@@ -26,4 +27,7 @@ venv/
 
 # Build artefacts / runtime
 api/data/
+dist/
+build/
 *.log
+*.sqlite3

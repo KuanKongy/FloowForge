@@ -1,9 +1,9 @@
 """Run lifecycle: enqueue, list, get, cancel.
 
-Runs are usually executed by the Arq worker. When the worker / Redis is
-unavailable (``app.state.arq is None``), we fall back to executing the run as
-an asyncio task in the API process so the platform stays usable for dev,
-tests, and small deployments.
+Runs are executed by the Redis Streams worker. When Redis is unavailable
+(``app.state.redis is None``), we fall back to executing the run as an asyncio
+task in the API process so the platform stays usable for dev, tests, and small
+deployments.
 """
 from __future__ import annotations
 
@@ -30,17 +30,14 @@ async def _enqueue_or_run_inline(
     run_id: str,
     start_node_ids: list[str] | None,
 ) -> str:
-    """Enqueue the run on Arq if a pool is available; otherwise execute it
-    inline as a FastAPI background task.
-
-    FastAPI awaits async ``BackgroundTasks`` after the response is sent on the
-    same loop, so the run completes within the request lifecycle when the
-    fallback is active. That behavior is exactly what we want in dev/tests
-    and small deployments where there's no separate worker process.
+    """Push the run onto the Redis Streams job queue. Falls back to inline
+    execution when Redis is unavailable.
     """
-    queue = getattr(request.app.state, "arq", None)
-    if queue is not None:
-        await queue.enqueue_job("run_flow", run_id, start_node_ids or None)
+    from ..queue import enqueue as stream_enqueue
+
+    r = getattr(request.app.state, "redis", None)
+    if r is not None:
+        await stream_enqueue(r, run_id, start_node_ids or None)
         return "queued"
 
     async def _inline() -> None:

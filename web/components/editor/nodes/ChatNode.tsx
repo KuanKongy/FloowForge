@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Send } from "lucide-react";
+import { MessagesSquare, Send } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
-import { NodeFrame } from "../NodeFrame";
+import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
+import { BackendBox } from "../BackendBox";
+import { NodeHandleWrapper } from "../NodeHandleWrapper";
+import { ResumeOverlay } from "../ResumeOverlay";
+import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 
 interface Message {
@@ -26,6 +30,8 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
+  const state = useNodeRunState(id);
+  const ctrl = useNodeFrameControls(id, { defaultName: "Chat Box", data: data as Record<string, unknown> });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -39,12 +45,25 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
     onTrigger?.(id);
   }
 
+  if (!isFrontend) {
+    return (
+      <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
+        <NodeHandleWrapper id={id} type="chat" isConnectable={isConnectable} hidden={false}>
+          <BackendBox kind="chat" icon={<MessagesSquare size={20} strokeWidth={1.5} />} label={ctrl.name} />
+        </NodeHandleWrapper>
+        {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
+        {ctrl.renderWaitChip("top")}
+        <ResumeOverlay nodeId={id} />
+      </div>
+    );
+  }
+
   return (
     <NodeFrame
       id={id}
       type="chat"
       isConnectable={isConnectable}
-      hidden={isFrontend}
+      hidden={true}
       defaultName="Chat Box"
       data={data as Record<string, unknown>}
       showWaitChip
@@ -88,7 +107,6 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
             }}
             placeholder="Type a message…"
             className="flex-1 h-9 px-3 rounded-full border border-[var(--border)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/30 nodrag nopan"
-            readOnly={!isFrontend}
           />
           <button
             onClick={send}

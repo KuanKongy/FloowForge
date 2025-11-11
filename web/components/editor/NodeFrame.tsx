@@ -207,7 +207,7 @@ export function useNodeFrameControls(
           <button
             type="button"
             onClick={() => setEditingName(true)}
-            className="node-frame__icon-btn opacity-0 group-hover:opacity-100"
+            className="node-frame__icon-btn"
             aria-label="Rename node"
             title="Rename"
           >

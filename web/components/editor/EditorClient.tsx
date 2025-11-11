@@ -67,10 +67,11 @@ const nodeTypes = {
   prompt_template: PromptTemplateNode,
   webhook_in: TriggerNode,
   manual_in: TriggerNode,
+  schedule_in: TriggerNode,
 } as const;
 
 const AI_TYPES = new Set<NodeType>(["llm", "imagegen", "audiogen", "fileparser"]);
-const TRIGGER_TYPES = new Set<NodeType>(["button", "webhook_in", "manual_in"]);
+const TRIGGER_TYPES = new Set<NodeType>(["button", "webhook_in", "manual_in", "schedule_in"]);
 /** Display nodes that should mirror the executor's output back into their
  * own ``data.value`` so the canvas reflects the current run's result. */
 const DISPLAY_TYPES = new Set<NodeType>([
@@ -357,7 +358,7 @@ function Editor({ flowId }: { flowId: string }) {
         delete dataAll.isFrontend;
         // ``flow_id`` is injected at hydrate-time so the Webhook node can
         // look up its public URL; it shouldn't be persisted in the graph.
-        if (n.type === "webhook_in" || n.type === "manual_in") {
+        if (n.type === "webhook_in" || n.type === "manual_in" || n.type === "schedule_in") {
           delete dataAll.flow_id;
         }
         return { id: n.id, type: n.type as NodeType, position: n.position, data: dataAll };
@@ -447,7 +448,15 @@ function Editor({ flowId }: { flowId: string }) {
       const parentIds = edges.filter((e) => e.target === nodeId).map((e) => e.source);
       const overrides: Record<string, unknown> = {};
       for (const pid of parentIds) {
-        if (pid in lastOutputByNode) overrides[pid] = lastOutputByNode[pid];
+        if (pid in lastOutputByNode) {
+          overrides[pid] = lastOutputByNode[pid];
+        } else {
+          const parentNode = rf.getNode(pid);
+          if (parentNode && DISPLAY_TYPES.has(parentNode.type as NodeType)) {
+            const val = (parentNode.data as Record<string, unknown>)?.value;
+            if (val !== undefined) overrides[pid] = val;
+          }
+        }
       }
 
       void runFlow([nodeId], Object.keys(overrides).length ? overrides : undefined);
@@ -565,7 +574,7 @@ function Editor({ flowId }: { flowId: string }) {
               saving={saving}
               systemStatus={systemStatus}
             />
-            <div className="absolute z-10 left-5 top-24">
+            <div className="absolute z-10 left-5 top-20">
               <EditorPalette onAdd={addNode} />
             </div>
             {/* The "live" run sidebar only appears once a run has actually
@@ -577,7 +586,12 @@ function Editor({ flowId }: { flowId: string }) {
                 states={runStates}
                 events={runEvents}
                 totalDurationMs={totalDuration}
-                onClose={() => setShowSidebar(false)}
+                onClose={() => {
+                  setShowSidebar(false);
+                  setActiveTriggerId(null);
+                  setRunStates({});
+                  setSystemStatus("idle");
+                }}
                 offsetRight={showRunHistory ? 320 + 16 : 0}
               />
             )}

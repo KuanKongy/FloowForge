@@ -2,20 +2,39 @@
 
 import { Image as ImageIcon } from "lucide-react";
 import { type NodeProps } from "@xyflow/react";
-import { NodeFrame } from "../NodeFrame";
+import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
+import { BackendBox } from "../BackendBox";
+import { NodeHandleWrapper } from "../NodeHandleWrapper";
+import { ResumeOverlay } from "../ResumeOverlay";
+import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 
 export default function ImageNode({ id, data, isConnectable }: NodeProps) {
   const { isFrontend = true, value } = data as { isFrontend?: boolean; value?: string };
   const step = useTopoStep(id);
   const inScope = useInScope(id);
+  const state = useNodeRunState(id);
+  const ctrl = useNodeFrameControls(id, { defaultName: "Image Box", data: data as Record<string, unknown> });
+
+  if (!isFrontend) {
+    return (
+      <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
+        <NodeHandleWrapper id={id} type="image" isConnectable={isConnectable} hidden={false}>
+          <BackendBox kind="image" icon={<ImageIcon size={20} strokeWidth={1.5} />} label={ctrl.name} />
+        </NodeHandleWrapper>
+        {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
+        {ctrl.renderWaitChip("top")}
+        <ResumeOverlay nodeId={id} />
+      </div>
+    );
+  }
 
   return (
     <NodeFrame
       id={id}
       type="image"
       isConnectable={isConnectable}
-      hidden={isFrontend}
+      hidden={true}
       defaultName="Image Box"
       data={data as Record<string, unknown>}
       showWaitChip

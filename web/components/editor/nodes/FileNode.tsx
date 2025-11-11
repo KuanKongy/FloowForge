@@ -1,9 +1,13 @@
 "use client";
 
-import { CloudUpload, CircleX, FileText, Loader2 } from "lucide-react";
+import { CloudUpload, CircleX, FileText, Loader2, Upload } from "lucide-react";
 import { useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
-import { NodeFrame } from "../NodeFrame";
+import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
+import { BackendBox } from "../BackendBox";
+import { NodeHandleWrapper } from "../NodeHandleWrapper";
+import { ResumeOverlay } from "../ResumeOverlay";
+import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -20,6 +24,8 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
   const [error, setError] = useState<string | null>(null);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
+  const state = useNodeRunState(id);
+  const ctrl = useNodeFrameControls(id, { defaultName: "File Box", data: data as Record<string, unknown> });
 
   async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -54,12 +60,25 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
     }
   }
 
+  if (!isFrontend) {
+    return (
+      <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
+        <NodeHandleWrapper id={id} type="file" isConnectable={isConnectable} hidden={false}>
+          <BackendBox kind="file" icon={<Upload size={20} strokeWidth={1.5} />} label={ctrl.name} />
+        </NodeHandleWrapper>
+        {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
+        {ctrl.renderWaitChip("top")}
+        <ResumeOverlay nodeId={id} />
+      </div>
+    );
+  }
+
   return (
     <NodeFrame
       id={id}
       type="file"
       isConnectable={isConnectable}
-      hidden={isFrontend}
+      hidden={true}
       defaultName="File Box"
       data={data as Record<string, unknown>}
       showWaitChip

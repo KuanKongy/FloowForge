@@ -27,9 +27,12 @@ from __future__ import annotations
 
 import asyncio
 import datetime as _dt
+import logging
 import time
 from collections import defaultdict
 from typing import Any
+
+log = logging.getLogger(__name__)
 
 from ..db import SupabaseClient
 from .context import ExecutionContext
@@ -46,6 +49,24 @@ from .nodes import get_executor
 _MAX_CONCURRENCY = 8
 _CANCEL_POLL_INTERVAL = 1.0  # seconds
 
+
+
+class _ExecutionAccountEnvelope:
+    def __init__(self, record: dict[str, object]) -> None:
+        self.record = dict(record)
+        self.errors: list[str] = []
+
+    def require(self, key: str) -> object:
+        value = self.record.get(key)
+        if value in (None, ''):
+            self.errors.append(f'missing {key}')
+        return value
+
+    def to_response(self) -> dict[str, object]:
+        response = dict(self.record)
+        if self.errors:
+            response['errors'] = list(self.errors)
+        return response
 
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
@@ -456,7 +477,75 @@ async def run_flow(
         returning=False,
     )
     await ctx.emit("run_succeeded", payload={"output": _summarize(final_value)})
+
+    # Outgoing webhook: POST results to callback_url if the trigger has one
+    await _fire_callback(sc, run, final_value)
+
+    # Auto-delete one-time schedule triggers after successful execution
+    await _cleanup_oneshot_trigger(sc, run)
+
     return {"ok": True, "output": final_value}
+
+
+async def _fire_callback(sc: SupabaseClient, run: dict, output: Any) -> None:
+    """POST run results to the trigger's callback_url (if configured)."""
+    trigger_kind = run.get("trigger_kind")
+    if not trigger_kind:
+        return
+    try:
+        triggers = await sc.select(
+            "triggers",
+            params={
+                "flow_id": f"eq.{run['flow_id']}",
+                "select": "callback_url,output_node_ids",
+            },
+        )
+        for t in triggers:
+            url = t.get("callback_url")
+            if not url:
+                continue
+            payload_output = _serialize_output(output)
+            import httpx
+            backoff = [1, 5, 25]
+            async with httpx.AsyncClient(timeout=10) as client:
+                for attempt in range(3):
+                    try:
+                        resp = await client.post(url, json={
+                            "run_id": run["id"],
+                            "flow_id": run["flow_id"],
+                            "status": "succeeded",
+                            "output": payload_output,
+                        })
+                        resp.raise_for_status()
+                        break
+                    except Exception:
+                        if attempt < 2:
+                            await asyncio.sleep(backoff[attempt])
+    except Exception as exc:
+        log.warning("Callback failed for run %s: %s", run.get("id"), exc)
+
+
+async def _cleanup_oneshot_trigger(sc: SupabaseClient, run: dict) -> None:
+    """Auto-delete one-time schedule triggers (delay/once) after execution."""
+    trigger_kind = run.get("trigger_kind")
+    if trigger_kind != "schedule":
+        return
+    try:
+        triggers = await sc.select(
+            "triggers",
+            params={
+                "flow_id": f"eq.{run['flow_id']}",
+                "kind": "eq.schedule",
+                "select": "id,config",
+            },
+        )
+        for t in triggers:
+            mode = (t.get("config") or {}).get("schedule_mode")
+            if mode in ("delay", "once"):
+                await sc.delete("triggers", params={"id": f"eq.{t['id']}"})
+                log.info("Auto-deleted one-time schedule trigger %s", t["id"])
+    except Exception as exc:
+        log.warning("Failed to cleanup oneshot trigger for run %s: %s", run.get("id"), exc)
 
 
 async def _is_cancelled(sc: SupabaseClient, run_id: str) -> bool:

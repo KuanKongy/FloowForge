@@ -15,15 +15,12 @@ import {
   RotateCw,
   Save,
   Square,
-  X,
   Zap,
 } from "lucide-react";
 
 /**
  * Floating top bar — left pill (home, name, frontend toggle, status) and a
- * right pill (Save, Add Button, Run / Stop / Resume). Below the right pill
- * sits a small History button for opening the run history panel. Visual
- * style matches Floowbox's `TopMenu`.
+ * right pill (Save, Add Button, Run / Stop / Resume / History).
  */
 export function EditorTopBar({
   flowName,
@@ -86,8 +83,8 @@ export function EditorTopBar({
       {/* LEFT pill: home, name, toggle, status */}
       <div className="floating-menu pointer-events-auto items-center px-2 gap-2">
         <Link
-          href="/app/flows"
-          className="size-9 rounded-full hover:bg-[var(--secondary)] flex items-center justify-center transition-colors"
+          href="/app"
+          className="floating-menu__button size-9 rounded-full hover:bg-[var(--secondary)] flex items-center justify-center transition-colors"
           aria-label="Back to flow list"
         >
           <House size={18} />
@@ -113,7 +110,7 @@ export function EditorTopBar({
               <span className="font-medium text-sm">{flowName}</span>
               <button
                 onClick={() => setEditing(true)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--muted-foreground)] hover:text-[var(--primary)]"
+                className="opacity-100 group-hover:opacity-100 transition-opacity text-[var(--muted-foreground)] hover:text-[var(--primary)]"
                 aria-label="Rename flow"
                 title="Rename flow"
               >
@@ -150,93 +147,83 @@ export function EditorTopBar({
         <SystemStatus status={systemStatus} />
       </div>
 
-      {/* RIGHT side: a single pill containing Save / Add / Run / History so
-          all primary actions stay on the same horizontal level. */}
-      <div className="flex flex-col items-end gap-3">
-        <div className="floating-menu pointer-events-auto items-center">
+      {/* RIGHT pill: Save / Add / Run / Resume / History */}
+      <div className="floating-menu pointer-events-auto items-center">
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="floating-menu__button h-9 px-4 rounded-full flex items-center gap-2 text-sm hover:bg-[var(--secondary)] transition-colors"
+          aria-label="Save flow"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+          {saving ? "Saving" : "Save"}
+        </button>
+        <button
+          onClick={onAddButton}
+          className="floating-menu__button h-9 px-3 rounded-full flex items-center gap-2 text-sm hover:bg-[var(--secondary)] transition-colors"
+          aria-label="Add a Button trigger"
+          title="Add a Button trigger"
+        >
+          <Zap size={14} />
+          Add Button
+        </button>
+        {isRunning ? (
           <button
-            onClick={onSave}
-            disabled={saving}
-            className="floating-menu__button h-9 px-4 rounded-full flex items-center gap-2 text-sm hover:bg-[var(--secondary)] transition-colors"
-            aria-label="Save flow"
+            onClick={onStop}
+            className="floating-menu__button floating-menu__button--puff h-9 px-4 rounded-full flex items-center gap-2 text-sm font-semibold text-[var(--primary)] border-[var(--primary)]"
+            aria-label="Stop run"
+            title="Stop"
           >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? "Saving" : "Save"}
+            <Square size={14} fill="currentColor" />
+            Stop
           </button>
-          <button
-            onClick={onAddButton}
-            className="floating-menu__button h-9 px-3 rounded-full flex items-center gap-2 text-sm hover:bg-[var(--secondary)] transition-colors"
-            aria-label="Add a Button trigger"
-            title="Add a Button trigger"
-          >
-            <Zap size={14} />
-            Add Button
-          </button>
-          {isRunning ? (
+        ) : (
+          <>
             <button
-              onClick={onStop}
-              className="floating-menu__button floating-menu__button--puff h-9 px-4 rounded-full flex items-center gap-2 text-sm font-semibold text-[var(--primary)] border-[var(--primary)]"
-              aria-label="Stop run"
-              title="Stop"
+              onClick={onRun}
+              className="floating-menu__button floating-menu__button--outlined floating-menu__button--filled floating-menu__button--puff h-9 px-4 rounded-full flex items-center gap-2 text-sm font-semibold"
+              aria-label="Run flow"
+              title="Run"
             >
-              <Square size={14} fill="currentColor" />
-              Stop
+              <Play size={14} />
+              Run
             </button>
-          ) : (
-            <>
+            {canResume && onToggleResume && (
               <button
-                onClick={onRun}
-                className="floating-menu__button floating-menu__button--outlined floating-menu__button--filled floating-menu__button--puff h-9 px-4 rounded-full flex items-center gap-2 text-sm font-semibold"
-                aria-label="Run flow"
-                title="Run"
+                onClick={onToggleResume}
+                aria-pressed={resumeMode}
+                className={`floating-menu__button h-9 px-3 rounded-full flex items-center gap-2 text-sm transition-colors ${
+                  resumeMode
+                    ? "bg-[var(--secondary)] text-[var(--primary)] border-[var(--primary)]"
+                    : "hover:bg-[var(--secondary)]"
+                }`}
+                aria-label={resumeMode ? "Cancel resume" : "Resume from a specific node"}
+                title={
+                  resumeMode
+                    ? "Click again to cancel"
+                    : "Click, then pick a node to start the run from there"
+                }
               >
-                <Play size={14} />
-                Run
+                <RotateCw size={14} />
+                {resumeMode ? "Pick a node" : "Resume"}
               </button>
-              {canResume && onToggleResume && (
-                <button
-                  onClick={onToggleResume}
-                  aria-pressed={resumeMode}
-                  className={`floating-menu__button h-9 px-3 rounded-full flex items-center gap-2 text-sm transition-colors ${
-                    resumeMode
-                      ? "bg-[var(--secondary)] text-[var(--primary)] border-[var(--primary)]"
-                      : "hover:bg-[var(--secondary)]"
-                  }`}
-                  aria-label={resumeMode ? "Cancel resume" : "Resume from a specific node"}
-                  title={
-                    resumeMode
-                      ? "Click again to cancel"
-                      : "Click, then pick a node to start the run from there"
-                  }
-                >
-                  <RotateCw size={14} />
-                  {resumeMode ? "Pick a node" : "Resume"}
-                </button>
-              )}
-            </>
-          )}
-          {onToggleRunHistory && (
-            <button
-              onClick={onToggleRunHistory}
-              aria-pressed={showRunHistory}
-              aria-label={showRunHistory ? "Hide run history" : "Show run history"}
-              title={showRunHistory ? "Hide runs" : "Show runs"}
-              className={`history-btn group size-9 rounded-full flex items-center justify-center transition-colors ${
-                showRunHistory ? "bg-[var(--secondary)] text-[var(--primary)]" : ""
-              }`}
-            >
-              {/* X when open or on hover (clicking closes), History otherwise. */}
-              {showRunHistory ? (
-                <X size={16} />
-              ) : (
-                <>
-                  <History size={16} className="group-hover:hidden" />
-                  <X size={16} className="hidden group-hover:inline-block" />
-                </>
-              )}
-            </button>
-          )}
-        </div>
+            )}
+          </>
+        )}
+        {onToggleRunHistory && (
+          <button
+            onClick={onToggleRunHistory}
+            className={`floating-menu__button h-9 w-9 rounded-full flex items-center justify-center transition-colors ${
+              showRunHistory
+                ? "bg-[var(--secondary)] text-[var(--primary)]"
+                : "hover:bg-[var(--secondary)]"
+            }`}
+            aria-label={showRunHistory ? "Close run history" : "Show run history"}
+            title={showRunHistory ? "Close runs" : "Show runs"}
+          >
+            <History size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

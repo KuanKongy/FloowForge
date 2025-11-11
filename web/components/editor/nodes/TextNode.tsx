@@ -1,32 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Type } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame } from "../NodeFrame";
+import { BackendBox } from "../BackendBox";
+import { NodeHandleWrapper } from "../NodeHandleWrapper";
+import { ResumeOverlay } from "../ResumeOverlay";
+import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
+import { useNodeFrameControls } from "../NodeFrame";
 
-/**
- * Floowbox-style Text Box. The textarea is **uncontrolled-ish**: we keep the
- * latest text in component-local state so React Flow's frequent re-renders
- * (driven by other nodes' state changes) don't snap the caret back to the
- * end. We sync external updates to ``data.value`` only when the textarea is
- * not focused, so a run that produces a new value never overwrites the user
- * mid-edit.
- *
- * Persistence to ``data.value`` happens on every change (so saves capture
- * the latest text) and again on blur (defensive flush).
- */
 export default function TextNode({ id, data, isConnectable }: NodeProps) {
   const { isFrontend = true, value = "" } = data as { isFrontend?: boolean; value?: string };
   const rf = useReactFlow();
   const step = useTopoStep(id);
   const inScope = useInScope(id);
+  const state = useNodeRunState(id);
+  const ctrl = useNodeFrameControls(id, { defaultName: "Text Box", data: data as Record<string, unknown> });
 
   const [localValue, setLocalValue] = useState<string>(typeof value === "string" ? value : "");
   const isFocusedRef = useRef(false);
 
-  // Mirror external updates (run output, save reload) into local state only
-  // when the user is not actively typing.
   useEffect(() => {
     if (typeof value === "string" && !isFocusedRef.current && value !== localValue) {
       setLocalValue(value);
@@ -40,12 +35,25 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
     }
   }
 
+  if (!isFrontend) {
+    return (
+      <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
+        <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={false}>
+          <BackendBox kind="text" icon={<Type size={20} strokeWidth={1.5} />} label={ctrl.name} />
+        </NodeHandleWrapper>
+        {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
+        {ctrl.renderWaitChip("top")}
+        <ResumeOverlay nodeId={id} />
+      </div>
+    );
+  }
+
   return (
     <NodeFrame
       id={id}
       type="text"
       isConnectable={isConnectable}
-      hidden={isFrontend}
+      hidden={true}
       defaultName="Text Box"
       data={data as Record<string, unknown>}
       showWaitChip
@@ -71,7 +79,6 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
-        readOnly={!isFrontend}
       />
     </NodeFrame>
   );

@@ -16,7 +16,8 @@ export type NodeType =
   | "subflow"
   | "prompt_template"
   | "webhook_in"
-  | "manual_in";
+  | "manual_in"
+  | "schedule_in";
 
 export type WaitStrategy = "barrier" | "race";
 
@@ -93,7 +94,7 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
-export type TriggerKind = "manual" | "webhook" | "schedule" | "subflow";
+export type TriggerKind = "manual" | "webhook" | "schedule" | "subflow" | "incoming_webhook" | "outgoing_webhook" | "public_form";
 
 export interface Run {
   id: string;
@@ -140,8 +141,12 @@ export interface Trigger {
   id: string;
   flow_id: string;
   user_id: string;
-  kind: "webhook" | "schedule" | "manual";
+  kind: string;
   config: Record<string, unknown>;
+  callback_url?: string | null;
+  entry_node_id?: string | null;
+  show_outputs?: boolean;
+  output_node_ids?: string[] | null;
   is_active: boolean;
   created_at: string;
 }

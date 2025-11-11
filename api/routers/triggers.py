@@ -12,6 +12,18 @@ from .runs import _enqueue_or_run_inline
 
 router = APIRouter(prefix="/triggers", tags=["triggers"])
 
+_INPUT_NODE_TYPES = {"textbox", "imagebox", "audiobox", "filebox", "chatbox"}
+_TRIGGER_NODE_TYPES = {"webhook_in", "manual_in", "schedule_in", "button"}
+
+_KIND_TO_NODE_TYPES: dict[str, set[str]] = {
+    "incoming_webhook": {"webhook_in"},
+    "webhook": {"webhook_in"},
+    "schedule": {"schedule_in"},
+    "public_form": {"manual_in"},
+}
+
+_WEBHOOK_KINDS = {"webhook", "incoming_webhook", "public_form"}
+
 
 @router.get("")
 async def list_triggers(user: CurrentUserDep, flow_id: str | None = None):
@@ -28,11 +40,9 @@ async def create_trigger(body: TriggerCreate, user: CurrentUserDep, request: Req
         {**body.model_dump(), "user_id": user.id},
     )
     trigger = rows[0]
-    if body.kind == "webhook":
+    if body.kind in _WEBHOOK_KINDS:
         token = secrets.token_urlsafe(24)
         secret = secrets.token_urlsafe(32)
-        # Use the service role to write into webhook_secrets so we don't need a
-        # separate RLS policy for INSERT (only owner-read is exposed).
         sc = SupabaseClient.as_service()
         await sc.insert(
             "webhook_secrets",
@@ -40,6 +50,7 @@ async def create_trigger(body: TriggerCreate, user: CurrentUserDep, request: Req
         )
         trigger["webhook"] = {
             "url": f"{request.app.state.public_api_url}/t/webhook/{token}",
+            "token": token,
             "secret": secret,
         }
     if body.kind == "schedule":
@@ -65,8 +76,6 @@ async def update_trigger(
     if not rows:
         raise HTTPException(404, "Trigger not found")
     trigger = rows[0]
-    # Re-sync the schedule with the in-process scheduler so cron edits and
-    # is_active toggles take effect immediately.
     scheduler = getattr(request.app.state, "scheduler", None)
     if scheduler is not None and trigger.get("kind") == "schedule":
         scheduler.remove_trigger(trigger_id)
@@ -83,21 +92,179 @@ async def delete_trigger(trigger_id: str, user: CurrentUserDep, request: Request
     await user.db.delete("triggers", params={"id": f"eq.{trigger_id}"})
 
 
+@router.get("/{trigger_id}/entry-nodes")
+async def list_entry_nodes(trigger_id: str, user: CurrentUserDep):
+    """Return all trigger-type nodes in the trigger's flow for the entry-node picker."""
+    triggers = await user.db.select(
+        "triggers", params={"id": f"eq.{trigger_id}", "select": "flow_id"}
+    )
+    if not triggers:
+        raise HTTPException(404, "Trigger not found")
+    flow_id = triggers[0]["flow_id"]
+    flow = await user.db.select(
+        "flows",
+        params={"id": f"eq.{flow_id}", "select": "current_version_id"},
+        single=True,
+    )
+    if not flow or not flow.get("current_version_id"):
+        return []
+    version = await user.db.select(
+        "flow_versions",
+        params={"id": f"eq.{flow['current_version_id']}", "select": "graph"},
+        single=True,
+    )
+    if not version:
+        return []
+    graph = version.get("graph") or {}
+    nodes = graph.get("nodes", [])
+    return [
+        {"id": n["id"], "type": n["type"], "name": (n.get("data") or {}).get("name", n["type"])}
+        for n in nodes
+        if n.get("type") in _TRIGGER_NODE_TYPES
+    ]
+
+
+@router.get("/flow/{flow_id}/entry-nodes")
+async def list_flow_entry_nodes(
+    flow_id: str, user: CurrentUserDep, kind: str | None = None
+):
+    """Return trigger-type nodes in a flow, optionally filtered by trigger kind."""
+    flow = await user.db.select(
+        "flows",
+        params={"id": f"eq.{flow_id}", "select": "current_version_id"},
+        single=True,
+    )
+    if not flow or not flow.get("current_version_id"):
+        return []
+    version = await user.db.select(
+        "flow_versions",
+        params={"id": f"eq.{flow['current_version_id']}", "select": "graph"},
+        single=True,
+    )
+    if not version:
+        return []
+    graph = version.get("graph") or {}
+    nodes = graph.get("nodes", [])
+    allowed = _KIND_TO_NODE_TYPES.get(kind, _TRIGGER_NODE_TYPES) if kind else _TRIGGER_NODE_TYPES
+    return [
+        {"id": n["id"], "type": n["type"], "name": (n.get("data") or {}).get("name", n["type"])}
+        for n in nodes
+        if n.get("type") in allowed
+    ]
+
+
+@router.get("/flow/{flow_id}/entry-nodes/{node_id}/inputs")
+async def list_entry_node_inputs(flow_id: str, node_id: str, user: CurrentUserDep):
+    """Return input fields downstream of a given entry node (BFS)."""
+    flow = await user.db.select(
+        "flows",
+        params={"id": f"eq.{flow_id}", "select": "current_version_id"},
+        single=True,
+    )
+    if not flow or not flow.get("current_version_id"):
+        return []
+    version = await user.db.select(
+        "flow_versions",
+        params={"id": f"eq.{flow['current_version_id']}", "select": "graph"},
+        single=True,
+    )
+    if not version:
+        return []
+    graph = version.get("graph") or {}
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    children_map: dict[str, list[str]] = {}
+    for e in edges:
+        children_map.setdefault(e["source"], []).append(e["target"])
+    visited: set[str] = set()
+    queue = [node_id]
+    result = []
+    while queue:
+        nid = queue.pop(0)
+        if nid in visited:
+            continue
+        visited.add(nid)
+        node = next((n for n in nodes if n["id"] == nid), None)
+        if node and node.get("type") in _INPUT_NODE_TYPES:
+            data = node.get("data") or {}
+            result.append({
+                "id": node["id"],
+                "type": node["type"],
+                "name": data.get("name", node["type"]),
+                "default_value": data.get("value"),
+            })
+        for child_id in children_map.get(nid, []):
+            queue.append(child_id)
+    return result
+
+
+@router.get("/flow/{flow_id}/sink-nodes")
+async def list_flow_sink_nodes(flow_id: str, user: CurrentUserDep):
+    """Return all nodes with no children (sink nodes) in the flow graph."""
+    flow = await user.db.select(
+        "flows",
+        params={"id": f"eq.{flow_id}", "select": "current_version_id"},
+        single=True,
+    )
+    if not flow or not flow.get("current_version_id"):
+        return []
+    version = await user.db.select(
+        "flow_versions",
+        params={"id": f"eq.{flow['current_version_id']}", "select": "graph"},
+        single=True,
+    )
+    if not version:
+        return []
+    graph = version.get("graph") or {}
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    sources = {e["source"] for e in edges}
+    return [
+        {"id": n["id"], "type": n["type"], "name": (n.get("data") or {}).get("name", n["type"])}
+        for n in nodes
+        if n["id"] not in sources
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Public webhook router (no auth)
 # ---------------------------------------------------------------------------
 public_router = APIRouter(prefix="/t", tags=["public-triggers"])
 
 
+def _derive_form_fields(graph: dict, entry_node_id: str | None) -> list[dict]:
+    """Auto-derive input fields from the entry node's direct children."""
+    nodes = graph.get("nodes", [])
+    edges = graph.get("edges", [])
+    if not entry_node_id:
+        return []
+    child_ids = [e["target"] for e in edges if e["source"] == entry_node_id]
+    nodes_by_id = {n["id"]: n for n in nodes}
+    fields = []
+    for cid in child_ids:
+        n = nodes_by_id.get(cid)
+        if not n or n.get("type") not in _INPUT_NODE_TYPES:
+            continue
+        data = n.get("data") or {}
+        fields.append({
+            "node_id": n["id"],
+            "type": n["type"],
+            "name": data.get("name", n["type"]),
+            "default_value": data.get("value"),
+        })
+    return fields
+
+
+def _derive_header_text(graph: dict) -> str | None:
+    """Return the text of the first header node in the graph, if any."""
+    for n in graph.get("nodes", []):
+        if n.get("type") == "header":
+            return (n.get("data") or {}).get("text")
+    return None
+
+
 @public_router.get("/webhook/{token}/info")
 async def webhook_info(token: str):
-    """Public endpoint that exposes a webhook trigger's flow name + version
-    inputs (without leaking the user's token or other triggers). Used by the
-    /p/[token] public form to render the right inputs and submit them.
-
-    Returns 404 for unknown / paused tokens — the form page treats that as
-    "this link is not active" and shows a friendly error.
-    """
     sc = SupabaseClient.as_service()
     secrets_row = await sc.select(
         "webhook_secrets",
@@ -118,14 +285,21 @@ async def webhook_info(token: str):
         "flow_versions",
         params={
             "id": f"eq.{flow_row['current_version_id']}",
-            "select": "id,inputs,outputs",
+            "select": "id,inputs,outputs,graph",
         },
         single=True,
     )
+    graph = (version or {}).get("graph") or {}
+    inputs = (version or {}).get("inputs") or []
+    if not inputs:
+        inputs = _derive_form_fields(graph, trigger.get("entry_node_id"))
+    header_text = _derive_header_text(graph)
     return {
         "flow_id": flow_row["id"],
         "flow_name": flow_row.get("name"),
-        "inputs": (version or {}).get("inputs") or [],
+        "header_text": header_text,
+        "show_outputs": trigger.get("show_outputs", False),
+        "inputs": inputs,
         "outputs": (version or {}).get("outputs") or [],
     }
 
@@ -159,6 +333,11 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
     if payload is None:
         payload = (await request.body()).decode(errors="ignore")
 
+    start_node_ids = None
+    entry_node_id = trigger.get("entry_node_id")
+    if entry_node_id:
+        start_node_ids = [entry_node_id]
+
     runs = await sc.insert(
         "runs",
         {
@@ -166,7 +345,7 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
             "flow_version_id": flow_rows["current_version_id"],
             "user_id": trigger["user_id"],
             "status": "queued",
-            "trigger_kind": "webhook",
+            "trigger_kind": trigger.get("kind", "webhook"),
             "input": payload,
         },
     )
@@ -175,6 +354,55 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
         request,
         background,
         run_id=run["id"],
-        start_node_ids=None,
+        start_node_ids=start_node_ids,
     )
-    return {"run_id": run["id"]}
+    return {"run_id": run["id"], "show_outputs": trigger.get("show_outputs", False)}
+
+
+@public_router.get("/webhook/{token}/runs/{run_id}")
+async def webhook_run_status(token: str, run_id: str):
+    sc = SupabaseClient.as_service()
+    secrets_row = await sc.select(
+        "webhook_secrets",
+        params={"token": f"eq.{token}", "select": "*,triggers(*)"},
+        single=True,
+    )
+    trigger = secrets_row.get("triggers") if isinstance(secrets_row, dict) else None
+    if not trigger:
+        raise HTTPException(404, "Trigger not found")
+    run = await sc.select(
+        "runs",
+        params={"id": f"eq.{run_id}", "flow_id": f"eq.{trigger['flow_id']}", "select": "id,status,output,ended_at,error"},
+        single=True,
+    )
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return run
+
+
+@public_router.get("/webhook/{token}/result/{run_id}")
+async def webhook_run_result(token: str, run_id: str):
+    """Result endpoint that respects show_outputs."""
+    sc = SupabaseClient.as_service()
+    secrets_row = await sc.select(
+        "webhook_secrets",
+        params={"token": f"eq.{token}", "select": "*,triggers(*)"},
+        single=True,
+    )
+    trigger = secrets_row.get("triggers") if isinstance(secrets_row, dict) else None
+    if not trigger:
+        raise HTTPException(404, "Trigger not found")
+    if not trigger.get("show_outputs"):
+        return {"status": "results_disabled"}
+    run = await sc.select(
+        "runs",
+        params={
+            "id": f"eq.{run_id}",
+            "flow_id": f"eq.{trigger['flow_id']}",
+            "select": "id,status,output,ended_at,error",
+        },
+        single=True,
+    )
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return run

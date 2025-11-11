@@ -5,6 +5,7 @@ import {
   AudioLines,
   BookOpen,
   BotMessageSquare,
+  CalendarClock,
   ChevronUp,
   FileAudio,
   Heading,
@@ -47,9 +48,9 @@ const SECTIONS: Section[] = [
       { icon: <Type size={22} strokeWidth={1.65} />, label: "Text Box", type: "textbox" },
       { icon: <ImageIcon size={22} strokeWidth={1.65} />, label: "Image Box", type: "imagebox" },
       { icon: <AudioLines size={22} strokeWidth={1.65} />, label: "Audio Box", type: "audiobox" },
-      { icon: <Heading size={22} strokeWidth={1.65} />, label: "Header", type: "header" },
       { icon: <Upload size={22} strokeWidth={1.65} />, label: "File Box", type: "filebox" },
       { icon: <MessagesSquare size={22} strokeWidth={1.65} />, label: "Chat Box", type: "chatbox" },
+      { icon: <Heading size={22} strokeWidth={1.65} />, label: "Header", type: "header" },
     ],
   },
   {
@@ -65,12 +66,11 @@ const SECTIONS: Section[] = [
       { icon: <Zap size={22} strokeWidth={1.65} />, label: "Run Button", type: "button" },
       { icon: <Webhook size={22} strokeWidth={1.65} />, label: "Webhook In", type: "webhook_in" },
       { icon: <Plus size={22} strokeWidth={1.65} />, label: "Manual In", type: "manual_in" },
+      { icon: <CalendarClock size={22} strokeWidth={1.65} />, label: "Schedule In", type: "schedule_in" },
     ],
   },
   {
     items: [
-      // Share2 (a forking-arrow icon) reads as "subflow" — distinct from
-      // the Sparkles glyph used for AI-driven custom nodes.
       { icon: <Share2 size={22} strokeWidth={1.65} />, label: "Subflow", type: "subflow" },
       { icon: <Sparkles size={22} strokeWidth={1.65} />, label: "Custom Node", type: "prompt_template" },
     ],
@@ -104,7 +104,7 @@ export function EditorPalette({ onAdd }: { onAdd: (type: NodeType) => void }) {
   }
 
   return (
-    <div className="top-menu__component-menu flex flex-col items-center justify-between py-[0.6em] gap-y-[0.5em]">
+    <div className="top-menu__component-menu flex flex-col items-center justify-between py-[0.4em] gap-y-[0.3em]">
       <button
         type="button"
         onClick={() => setExpand(false)}

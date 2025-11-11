@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { AudioLines, Pause, Play } from "lucide-react";
 import { type NodeProps } from "@xyflow/react";
 import WaveSurfer from "wavesurfer.js";
-import { NodeFrame } from "../NodeFrame";
+import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
+import { BackendBox } from "../BackendBox";
+import { NodeHandleWrapper } from "../NodeHandleWrapper";
+import { ResumeOverlay } from "../ResumeOverlay";
+import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 
 export default function AudioNode({ id, data, isConnectable }: NodeProps) {
@@ -14,6 +18,8 @@ export default function AudioNode({ id, data, isConnectable }: NodeProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
+  const state = useNodeRunState(id);
+  const ctrl = useNodeFrameControls(id, { defaultName: "Audio Box", data: data as Record<string, unknown> });
 
   useEffect(() => {
     if (!containerRef.current || !value) {
@@ -43,12 +49,25 @@ export default function AudioNode({ id, data, isConnectable }: NodeProps) {
     };
   }, [value]);
 
+  if (!isFrontend) {
+    return (
+      <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
+        <NodeHandleWrapper id={id} type="audio" isConnectable={isConnectable} hidden={false}>
+          <BackendBox kind="audio" icon={<AudioLines size={20} strokeWidth={1.5} />} label={ctrl.name} />
+        </NodeHandleWrapper>
+        {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
+        {ctrl.renderWaitChip("top")}
+        <ResumeOverlay nodeId={id} />
+      </div>
+    );
+  }
+
   return (
     <NodeFrame
       id={id}
       type="audio"
       isConnectable={isConnectable}
-      hidden={isFrontend}
+      hidden={true}
       defaultName="Audio Box"
       data={data as Record<string, unknown>}
       showWaitChip

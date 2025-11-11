@@ -59,9 +59,6 @@ export function RunHistoryPanel({
     <aside
       className="run-sidebar pointer-events-auto"
       aria-label="Run history"
-      // Sits directly under the right floating pill (Save / Add / Run /
-      // History) so clicking History reads as "panel descends from this
-      // button". 80px clears the pill height + the page's 16px top padding.
       style={{ top: 80, right: 16, width: 320 }}
     >
       <header className="run-sidebar__header">

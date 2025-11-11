@@ -44,7 +44,7 @@ export function AppShell({ children, userEmail }: { children: React.ReactNode; u
   return (
     <div className="min-h-screen bg-[var(--surface-1)] text-[var(--foreground)] flex">
       <aside className="w-[230px] border-r border-[var(--border)] bg-[var(--surface-2)] flex flex-col">
-        <Link href="/app/flows" className="px-5 py-5 font-semibold text-[1.05rem]">
+        <Link href="/app" className="px-5 py-5 font-semibold text-[1.05rem]">
           <BrandWordmark />
         </Link>
         <nav className="flex-1 px-2 flex flex-col gap-1">

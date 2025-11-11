@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Plus, Search, Trash2, Workflow } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+  Workflow,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
@@ -38,7 +44,7 @@ export default function FlowsPage() {
       router.push(`/app/flows/${flow.id}`);
     } catch (e: unknown) {
       setCreateError(
-        e instanceof Error ? e.message : "Could not create flow. Is the API running (NEXT_PUBLIC_API_URL)?"
+        e instanceof Error ? e.message : "Could not create flow. Is the API running?"
       );
     } finally {
       setCreating(false);
@@ -62,26 +68,18 @@ export default function FlowsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold">Flows</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Your saved workflows and subflows.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold">Workflows</h1>
         <Button onClick={createFlow} disabled={creating}>
-          <Plus size={16} /> {creating ? "Creating…" : "New flow"}
+          {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+          {creating ? "Creating…" : "New flow"}
         </Button>
       </div>
 
-      {listError && (
-        <div className="text-sm text-red-500 mb-4" role="alert">
-          {listError}
-        </div>
-      )}
       {createError && (
-        <div className="text-sm text-red-500 mb-4" role="alert">
-          {createError}
-        </div>
+        <div className="text-sm text-red-500 mb-4" role="alert">{createError}</div>
+      )}
+      {listError && (
+        <div className="text-sm text-red-500 mb-4" role="alert">{listError}</div>
       )}
 
       <div className="card-surface px-3 flex items-center gap-2 mb-6 h-10">
@@ -144,9 +142,6 @@ export default function FlowsPage() {
                   </p>
                 )}
               </Link>
-              {/* Footer row pinned **inside** the card with the date on the
-                  left and a delete chip on the right — no clipping above
-                  the card edge. */}
               <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--border)]">
                 <span className="text-xs text-[var(--muted-foreground)]">
                   Updated {new Date(flow.updated_at).toLocaleDateString()}

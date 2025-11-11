@@ -16,7 +16,7 @@ cp .env.example .env  # fill in Supabase + provider keys
 # In one terminal:
 uvicorn api.main:app --reload --port 5001
 # In another:
-arq api.worker.WorkerSettings
+python -m api.worker
 # Redis must be running (e.g. `redis-server` or `docker run -p 6379:6379 redis`).
 ```
 

@@ -1,10 +1,10 @@
-"""Custom node CRUD: subflows + prompt-template builders."""
+"""Custom node CRUD: prompt-template builders."""
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 
 from ..deps import CurrentUserDep
-from ..schemas import CustomNodeCreate
+from ..schemas import CustomNodeCreate, CustomNodeUpdate
 
 router = APIRouter(prefix="/custom-nodes", tags=["custom-nodes"])
 
@@ -46,14 +46,18 @@ async def delete_custom_node(node_id: str, user: CurrentUserDep):
 
 
 @router.patch("/{node_id}")
-async def update_custom_node(node_id: str, body: CustomNodeCreate, user: CurrentUserDep):
-    payload = {
-        "kind": body.kind,
-        "name": body.name,
-        "icon": body.icon,
-        "schema": body.schema_.model_dump(),
-        "body": body.body,
-    }
+async def update_custom_node(node_id: str, body: CustomNodeUpdate, user: CurrentUserDep):
+    payload: dict = {}
+    if body.name is not None:
+        payload["name"] = body.name
+    if body.icon is not None:
+        payload["icon"] = body.icon
+    if body.schema_ is not None:
+        payload["schema"] = body.schema_.model_dump()
+    if body.body is not None:
+        payload["body"] = body.body
+    if not payload:
+        raise HTTPException(400, "Empty update")
     rows = await user.db.update("custom_nodes", payload, params={"id": f"eq.{node_id}"})
     if not rows:
         raise HTTPException(404, "Custom node not found")

@@ -32,12 +32,20 @@ async def _load_body(node: dict, ctx: ExecutionContext) -> dict[str, Any]:
     custom_node_id = node.get("data", {}).get("custom_node_id")
     if not custom_node_id:
         return {}
-    rows = await ctx.db.select(
+    from ...db import SupabaseClient
+    sc = SupabaseClient.as_service()
+    rows = await sc.select(
         "custom_nodes",
-        params={"id": f"eq.{custom_node_id}", "select": "*"},
+        params={
+            "id": f"eq.{custom_node_id}",
+            "user_id": f"eq.{ctx.user_id}",
+            "select": "*",
+        },
         single=True,
     )
-    return rows.get("body", {}) if isinstance(rows, dict) else {}
+    if not rows or not isinstance(rows, dict):
+        raise ValueError("Custom node not found or not owned by this user")
+    return rows.get("body", {})
 
 
 async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:

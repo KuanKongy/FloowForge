@@ -5,13 +5,8 @@ import type { ReactNode } from "react";
 export type NodeKind = "text" | "image" | "audio" | "file" | "chat";
 
 /**
- * Floowbox-style backend tile. Renders an outer tinted pad and an inner
- * surface card with a title and an icon. The pad's color is keyed off the
- * `--${kind}__background-rgb` / `--${kind}__font-rgb` design tokens so
- * different I/O types pop visually without bespoke CSS per node.
- *
- * Used by Text, Image, Audio, File, and Chat nodes when the editor is in
- * Backend mode (the toggle on the top bar).
+ * Floowbox-style backend tile. Full-opacity colored outer pad with a white
+ * inner card containing a colored icon and black label text.
  */
 export function BackendBox({
   kind,
@@ -26,33 +21,26 @@ export function BackendBox({
   children?: ReactNode;
   className?: string;
 }) {
-  const padBg = `rgba(var(--${kind}__background-rgb), 0.45)`;
-  const padBorder = `rgba(var(--${kind}__font-rgb), 0.25)`;
-  const accent = `var(--${kind}__font)`;
   return (
     <div
-      className={`p-2 rounded-[18px] ${className}`}
+      className={`flex relative text-[0.9rem] p-[0.25em] rounded-[10px] ${className}`}
       style={{
-        background: padBg,
-        border: `1px solid ${padBorder}`,
+        background: `rgba(var(--${kind}__background-rgb), 1)`,
       }}
     >
       <div
-        className="bg-[var(--surface-2)] border rounded-[14px] flex items-center gap-3 px-4 py-3"
-        style={{ borderColor: "var(--border--container)" }}
+        className="bg-white rounded-[8px] font-medium h-[3em] pl-[0.7em] pr-[1.2em] flex items-center justify-center"
+        style={{
+          boxShadow: `0 1px 2px 0 rgba(var(--${kind}__font-rgb), 0.5)`,
+        }}
       >
         <div
-          className="size-9 rounded-[10px] flex items-center justify-center"
-          style={{
-            background: `rgba(var(--${kind}__background-rgb), 1)`,
-            color: accent,
-          }}
+          className="flex items-center gap-x-[0.5em]"
+          style={{ color: `rgba(var(--${kind}__font-rgb), 1)` }}
         >
           {icon}
+          <span className="text-black font-medium text-sm">{label}</span>
         </div>
-        <span className="font-medium text-sm" style={{ color: accent }}>
-          {label}
-        </span>
         {children}
       </div>
     </div>

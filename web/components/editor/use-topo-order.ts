@@ -11,7 +11,7 @@ import type { Edge, Node } from "@xyflow/react";
  * to shift around. The visible numbers correspond to the actual processing
  * stages (input -> AI -> output), not to which trigger fired.
  */
-const TRIGGER_NODE_TYPES = new Set(["button", "webhook_in", "manual_in"]);
+const TRIGGER_NODE_TYPES = new Set(["button", "webhook_in", "manual_in", "header", "schedule_in"]);
 
 /**
  * Compute step numbers for each node using Kahn's algorithm. Nodes that share

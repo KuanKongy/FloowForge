@@ -2,17 +2,18 @@
 
 import { useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
-import { useTopoStep, useInScope } from "../order-context";
 
+/**
+ * Decorative header node — purely visual, does not participate in the
+ * execution flow or topological ordering.
+ */
 export default function HeaderNode({ id, data }: NodeProps) {
   const rf = useReactFlow();
   const { text = "Double-click to edit" } = data as { text?: string };
   const [editing, setEditing] = useState(false);
-  const step = useTopoStep(id);
-  const inScope = useInScope(id);
 
   return (
-    <div className={`relative ${inScope ? "scope-active" : "scope-dimmed"}`}>
+    <div className="relative">
       <div className="text-[1.8rem] font-extrabold leading-tight">
         {editing ? (
           <input
@@ -33,11 +34,6 @@ export default function HeaderNode({ id, data }: NodeProps) {
           </span>
         )}
       </div>
-      {step !== undefined && (
-        <span className="topo-badge" aria-label={`Step ${step}`}>
-          {step}
-        </span>
-      )}
     </div>
   );
 }

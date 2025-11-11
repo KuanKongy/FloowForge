@@ -84,7 +84,7 @@ export default function IntegrationsPage() {
                 <button
                   type="button"
                   onClick={() => setPendingDelete(it)}
-                  className="text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-50 transition-colors px-2 py-1 rounded-md flex items-center gap-1 text-xs opacity-0 group-hover:opacity-100"
+                  className="text-[var(--muted-foreground)] hover:text-red-500 hover:bg-red-50 transition-colors px-2 py-1 rounded-md flex items-center gap-1 text-xs"
                 >
                   <Trash2 size={14} /> Delete
                 </button>

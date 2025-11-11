@@ -18,9 +18,9 @@ log = logging.getLogger(__name__)
 
 
 class FlowScheduler:
-    def __init__(self, *, arq):
+    def __init__(self, *, redis):
         self._scheduler = AsyncIOScheduler()
-        self._arq = arq
+        self._redis = redis
         self._jobs: dict[str, str] = {}  # trigger_id -> aps job id
 
     async def start(self) -> None:
@@ -55,7 +55,7 @@ class FlowScheduler:
         job = self._scheduler.add_job(
             _enqueue_run,
             CronTrigger.from_crontab(cron, timezone=timezone),
-            args=[self._arq, trigger["id"]],
+            args=[self._redis, trigger["id"]],
             id=f"trigger:{trigger['id']}",
             replace_existing=True,
             misfire_grace_time=60,
@@ -70,7 +70,7 @@ class FlowScheduler:
             pass
 
 
-async def _enqueue_run(arq, trigger_id: str) -> None:
+async def _enqueue_run(redis_conn, trigger_id: str) -> None:
     sc = SupabaseClient.as_service()
     trigger = await sc.select(
         "triggers",
@@ -98,11 +98,10 @@ async def _enqueue_run(arq, trigger_id: str) -> None:
         },
     )
     run_id = runs[0]["id"]
-    if arq is not None:
-        await arq.enqueue_job("run_flow", run_id, None)
+    if redis_conn is not None:
+        from .queue import enqueue
+        await enqueue(redis_conn, run_id, None)
     else:
-        # No worker available -- run inline. Schedules tend to be light, and
-        # this keeps cron-driven flows working in single-process deployments.
         from .engine.executor import run_flow
 
         try:

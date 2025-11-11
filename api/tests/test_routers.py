@@ -33,7 +33,7 @@ def client(fake_supabase, stub_executors):
 
     app = create_app()
     # Bypass the lifespan (no Redis, no scheduler).
-    app.state.arq = None
+    app.state.redis = None
     app.state.scheduler = None
     app.state.public_api_url = "http://test"
 
