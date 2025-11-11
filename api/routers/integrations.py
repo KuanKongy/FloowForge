@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
 
 from ..deps import CurrentUserDep
-from ..schemas import IntegrationCreate
+from ..schemas import IntegrationCreate, IntegrationUpdate
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -42,3 +42,29 @@ async def create_integration(body: IntegrationCreate, user: CurrentUserDep):
 @router.delete("/{integration_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_integration(integration_id: str, user: CurrentUserDep):
     await user.db.delete("integrations", params={"id": f"eq.{integration_id}"})
+
+
+@router.patch("/{integration_id}")
+async def update_integration(
+    integration_id: str,
+    body: IntegrationUpdate,
+    user: CurrentUserDep,
+):
+    payload: dict[str, str] = {}
+    if body.label is not None:
+        payload["label"] = body.label
+    if body.credentials is not None:
+        payload["encrypted_credentials"] = json.dumps(body.credentials)
+    if not payload:
+        raise HTTPException(400, "Empty update")
+
+    rows = await user.db.update(
+        "integrations",
+        payload,
+        params={"id": f"eq.{integration_id}", "user_id": f"eq.{user.id}"},
+    )
+    if not rows:
+        raise HTTPException(404, "Integration not found")
+    row = rows[0]
+    row.pop("encrypted_credentials", None)
+    return row

@@ -9,16 +9,31 @@ import { NodeHandleWrapper } from "../NodeHandleWrapper";
 import { ResumeOverlay } from "../ResumeOverlay";
 import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+type FilePayload = {
+  kind: "file";
+  name: string;
+  mime: string;
+  size: number;
+  data_url: string;
+};
+
+const MAX_INLINE_FILE_BYTES = 25 * 1024 * 1024;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function FileNode({ id, data, isConnectable }: NodeProps) {
   const {
     isFrontend = true,
     fileName,
-    extracted,
-  } = data as { isFrontend?: boolean; fileName?: string; extracted?: string };
+  } = data as { isFrontend?: boolean; fileName?: string };
   const rf = useReactFlow();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,25 +48,22 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
     setBusy(true);
     setError(null);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const fd = new FormData();
-      fd.append("pdf", file);
-      const r = await fetch(`${API}/media/parse-pdf`, {
-        method: "POST",
-        body: fd,
-        headers: session?.access_token
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined,
-      });
-      if (!r.ok) throw new Error(`Upload failed (${r.status})`);
-      const body = await r.json();
+      if (file.size > MAX_INLINE_FILE_BYTES) {
+        throw new Error("File exceeds 25 MB limit");
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      const payload: FilePayload = {
+        kind: "file",
+        name: file.name,
+        mime: file.type || "application/octet-stream",
+        size: file.size,
+        data_url: dataUrl,
+      };
       rf.updateNodeData(id, {
         fileName: file.name,
-        value: body.text || "",
-        extracted: body.text || "",
+        fileMime: payload.mime,
+        fileSize: payload.size,
+        value: payload,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -92,7 +104,7 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
         className="block nodrag nopan"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <input type="file" className="hidden" onChange={onChange} disabled={busy} accept=".pdf" />
+        <input type="file" className="hidden" onChange={onChange} disabled={busy} />
         <div className="border border-dashed border-[var(--border)] rounded-[14px] py-6 flex flex-col items-center text-sm text-[var(--muted-foreground)] cursor-pointer hover:bg-[var(--muted)] transition-colors">
           {busy ? (
             <Loader2 size={48} strokeWidth={1.3} className="text-[var(--primary)] mb-2 animate-spin" />
@@ -103,10 +115,10 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
           )}
           <div>
             {busy
-              ? "Uploading & parsing…"
+              ? "Reading file…"
               : fileName
               ? "Replace file"
-              : "Choose a PDF or drag & drop here."}
+              : "Choose a file or drag & drop here."}
           </div>
           {fileName && !busy && (
             <div className="mt-2 text-[var(--foreground)] flex items-center gap-2">
@@ -114,7 +126,12 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
               <button
                 onClick={(e) => {
                   e.preventDefault();
-                  rf.updateNodeData(id, { fileName: undefined, value: undefined, extracted: undefined });
+                  rf.updateNodeData(id, {
+                    fileName: undefined,
+                    fileMime: undefined,
+                    fileSize: undefined,
+                    value: undefined,
+                  });
                 }}
                 aria-label="Remove file"
                 className="hover:text-[var(--primary)] transition-colors"
@@ -124,12 +141,6 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
             </div>
           )}
           {error && <div className="mt-2 text-[var(--primary)] text-xs">{error}</div>}
-          {extracted && !busy && (
-            <div className="mt-2 max-h-16 overflow-auto text-xs text-[var(--muted-foreground)] px-3">
-              {(extracted as string).slice(0, 240)}
-              {(extracted as string).length > 240 ? "…" : ""}
-            </div>
-          )}
         </div>
       </label>
     </NodeFrame>

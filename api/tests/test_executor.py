@@ -338,6 +338,90 @@ async def test_entry_run_ignores_out_of_scope_parent_for_barrier(
     assert received == [[None]]
 
 
+async def test_filebox_passes_full_file_to_parser_but_events_use_metadata(
+    make_run, fake_supabase
+):
+    import base64
+    import pymupdf
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Worker file handoff")
+    raw = doc.write()
+    payload = {
+        "kind": "file",
+        "name": "handoff.pdf",
+        "mime": "application/pdf",
+        "size": len(raw),
+        "data_url": f"data:application/pdf;base64,{base64.b64encode(raw).decode('ascii')}",
+    }
+    graph = {
+        "nodes": [
+            {
+                "id": "file",
+                "type": "filebox",
+                "position": {"x": 0, "y": 0},
+                "data": {"value": payload},
+            },
+            {"id": "parser", "type": "fileparser", "position": {"x": 0, "y": 0}, "data": {}},
+        ],
+        "edges": [{"id": "e1", "source": "file", "target": "parser"}],
+    }
+
+    result = await run_flow(make_run(graph))
+
+    assert result["ok"] is True
+    assert "Worker file handoff" in result["output"]
+    file_success = [
+        e for e in _events_for(fake_supabase.broadcasts, "node_succeeded")
+        if e.get("node_id") == "file"
+    ][0]
+    event_output = file_success["payload"]["output"]
+    assert event_output["kind"] == "file"
+    assert event_output["name"] == "handoff.pdf"
+    assert "data_url" not in event_output
+
+
+async def test_filebox_keeps_ui_file_when_trigger_parent_outputs_none(
+    make_run, fake_supabase
+):
+    payload = {
+        "kind": "file",
+        "name": "notes.txt",
+        "mime": "text/plain",
+        "size": 11,
+        "data_url": "data:text/plain;base64,aGVsbG8gd29ybGQ=",
+    }
+    graph = {
+        "nodes": [
+            {"id": "button", "type": "button", "position": {"x": 0, "y": 0}, "data": {}},
+            {
+                "id": "file",
+                "type": "filebox",
+                "position": {"x": 0, "y": 0},
+                "data": {"value": payload},
+            },
+            {"id": "parser", "type": "fileparser", "position": {"x": 0, "y": 0}, "data": {}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "button", "target": "file"},
+            {"id": "e2", "source": "file", "target": "parser"},
+        ],
+    }
+
+    result = await run_flow(make_run(graph, start_node_ids=["button"]))
+
+    assert result["ok"] is True
+    assert result["output"] == "hello world"
+    file_success = [
+        e for e in _events_for(fake_supabase.broadcasts, "node_succeeded")
+        if e.get("node_id") == "file"
+    ][0]
+    event_output = file_success["payload"]["output"]
+    assert event_output["kind"] == "file"
+    assert event_output["name"] == "notes.txt"
+
+
 # ---------------------------------------------------------------------------
 # Scenario 6: cancellation mid-run
 # ---------------------------------------------------------------------------

@@ -22,25 +22,6 @@ def _node_ids(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {n["id"]: n for n in graph.get("nodes", [])}
 
 
-
-def _parse_graph_canvas_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_graph_canvas_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-
 def _edges(graph: dict[str, Any]) -> list[dict[str, Any]]:
     return list(graph.get("edges", []))
 

@@ -4,24 +4,6 @@ from __future__ import annotations
 from typing import Any
 
 
-
-class _InputsQueueEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
 def merge_inputs(inputs: list[Any]) -> Any:
     """Collapse multiple upstream values into one provider-friendly input.
 

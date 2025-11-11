@@ -141,3 +141,8 @@ class IntegrationCreate(BaseModel):
     provider: Literal["openai", "gemini", "cloudflare"]
     label: str = ""
     credentials: dict[str, Any]
+
+
+class IntegrationUpdate(BaseModel):
+    label: str | None = None
+    credentials: dict[str, Any] | None = None

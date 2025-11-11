@@ -6,7 +6,9 @@ that calls PostgREST and the Realtime broadcast endpoint is enough.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import ssl
 from typing import Any
 
 import httpx
@@ -15,6 +17,8 @@ from .config import get_settings
 from .supabase_url import normalize_supabase_url
 
 log = logging.getLogger(__name__)
+
+_RETRY_DELAYS = (0.5, 1.5)
 
 
 def _raise_with_supabase_body(r: httpx.Response, *, op: str, table: str | None = None) -> None:
@@ -65,6 +69,23 @@ def _user_headers(access_token: str) -> dict[str, str]:
         "Content-Type": "application/json",
     }
 
+
+
+def _merge_db_storage_patch(current: dict[str, object], patch: dict[str, object]) -> dict[str, object]:
+    merged = dict(current)
+    for key, value in patch.items():
+        if value is None:
+            merged.pop(key, None)
+        elif isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}  # type: ignore[index]
+        else:
+            merged[key] = value
+    return merged
+
+
+def _changed_db_storage_keys(before: dict[str, object], after: dict[str, object]) -> set[str]:
+    keys = set(before) | set(after)
+    return {key for key in keys if before.get(key) != after.get(key)}
 
 def _supabase_root() -> str:
     settings = get_settings()
@@ -140,7 +161,21 @@ class SupabaseClient:
         headers = dict(self._headers)
         headers["Prefer"] = "return=representation" if returning else "return=minimal"
         async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.patch(url, headers=headers, params=params, json=body)
+            for attempt in range(len(_RETRY_DELAYS) + 1):
+                try:
+                    r = await client.patch(url, headers=headers, params=params, json=body)
+                    break
+                except (httpx.TransportError, ssl.SSLError) as exc:
+                    if attempt >= len(_RETRY_DELAYS):
+                        raise
+                    delay = _RETRY_DELAYS[attempt]
+                    log.warning(
+                        "Supabase update %s transient failure; retrying in %.1fs: %s",
+                        table,
+                        delay,
+                        exc,
+                    )
+                    await asyncio.sleep(delay)
             _raise_with_supabase_body(r, op="update", table=table)
             return r.json() if returning else None
 

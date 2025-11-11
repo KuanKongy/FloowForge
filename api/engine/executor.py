@@ -51,27 +51,14 @@ _MAX_CONCURRENCY = 8
 _CANCEL_POLL_INTERVAL = 1.0  # seconds
 
 
-
-def _summarize_execution_selection_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'execution'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_execution_selection_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
 
 
 def _summarize(value: Any, max_len: int = 240) -> Any:
     """Trim large payloads before emitting / persisting."""
+    if _is_file_payload(value):
+        return _file_payload_preview(value)
     if isinstance(value, str):
         return value if len(value) <= max_len else value[:max_len] + "…"
     if isinstance(value, (list, dict)):
@@ -80,14 +67,46 @@ def _summarize(value: Any, max_len: int = 240) -> Any:
     return value
 
 
+def _is_file_payload(value: Any) -> bool:
+    return isinstance(value, dict) and value.get("kind") == "file"
+
+
+def _file_payload_preview(value: dict[str, Any]) -> dict[str, Any]:
+    data_url = value.get("data_url")
+    byte_len = None
+    if isinstance(data_url, str) and "," in data_url:
+        byte_len = max(0, int((len(data_url.split(",", 1)[1]) * 3) / 4))
+    return {
+        "kind": "file",
+        "name": value.get("name"),
+        "mime": value.get("mime"),
+        "size": value.get("size") or byte_len,
+        "has_data": bool(data_url),
+    }
+
+
+def _event_value(value: Any) -> Any:
+    """Value safe to broadcast/persist in run events.
+
+    Execution outputs may contain full file data URLs. Those must stay inside
+    the worker process and never be sent through Realtime/PostgREST.
+    """
+    if _is_file_payload(value):
+        return _file_payload_preview(value)
+    if isinstance(value, list):
+        return [_event_value(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _event_value(v) for k, v in value.items()}
+    return value
+
+
 def _snapshot_for_event(value: Any, max_len: int = 4000) -> Any:
     """Trim large values before **persisting** to ``run_events``.
 
-    The full value is still broadcast to the editor in real time (see
-    ``ExecutionContext.emit``'s ``payload`` vs ``db_payload`` split), so the
-    canvas preview gets the full image / audio / chat output. We just don't
-    persist 150 KB base64 strings into Postgres for every run, since the IO
-    modal only needs a recognizable preview.
+    The live value may still be broadcast to the editor for previewable media,
+    but file payloads are reduced to metadata before this function is called.
+    Persisted event rows should stay compact because the IO modal only needs a
+    recognizable preview.
 
     Strings longer than ``max_len`` use a clear middle-ellipsis form so the
     truncation is obvious to the user — e.g.
@@ -115,6 +134,7 @@ def _snapshot_for_event(value: Any, max_len: int = 4000) -> Any:
 
 
 def _serialize_output(value: Any) -> Any:
+    value = _event_value(value)
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, (list, dict)):
@@ -217,7 +237,7 @@ async def run_flow(
         params={"id": f"eq.{run_id}"},
         returning=False,
     )
-    await ctx.emit("run_started", payload={"input": run.get("input")})
+    await ctx.emit("run_started", payload={"input": _event_value(run.get("input"))})
 
     nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph.get("nodes", [])}
     explicit_start = bool(effective_start_node_ids)
@@ -407,22 +427,21 @@ async def run_flow(
                 return
 
             t0 = time.perf_counter()
-            # Snapshot the resolved inputs onto ``node_started``. We send the
-            # **full** inputs over Realtime broadcast so the editor canvas
-            # can show / use them, but we persist a trimmed copy to
-            # ``run_events`` so historical rows stay compact.
+            # Snapshot the resolved inputs onto ``node_started``. File payloads
+            # are reduced to metadata for both Realtime and persisted rows; the
+            # full value stays in ``outputs`` for downstream execution.
             await ctx.emit(
                 "node_started",
                 node_id=node_id,
                 payload={
                     "type": node["type"],
                     "name": data.get("name"),
-                    "inputs": list(node_inputs),
+                    "inputs": [_event_value(v) for v in node_inputs],
                 },
                 db_payload={
                     "type": node["type"],
                     "name": data.get("name"),
-                    "inputs": [_snapshot_for_event(v) for v in node_inputs],
+                    "inputs": [_snapshot_for_event(_event_value(v)) for v in node_inputs],
                 },
             )
             try:
@@ -445,12 +464,12 @@ async def run_flow(
                 node_id=node_id,
                 payload={
                     "summary": _summarize(value),
-                    "output": value,
+                    "output": _event_value(value),
                     "duration_ms": duration_ms,
                 },
                 db_payload={
                     "summary": _summarize(value),
-                    "output": _snapshot_for_event(value),
+                    "output": _snapshot_for_event(_event_value(value)),
                     "duration_ms": duration_ms,
                 },
             )

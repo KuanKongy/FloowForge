@@ -104,7 +104,7 @@ class OpenAIProvider(BaseProvider):
             params["speed"] = max(0.25, float(speed))
 
         async with self.client.audio.speech.with_streaming_response.create(**params) as response:
-            data = await response.aread()
+            data = await response.read()
         return ProviderResult(blob=data, mime="audio/mpeg")
 
     async def _image(self, input: Any, options: dict[str, Any]) -> ProviderResult:

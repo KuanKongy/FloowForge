@@ -18,6 +18,7 @@ IMAGE_MODEL_TO_PROVIDER: dict[str, str] = {
     "DALLE 3": "openai",
     "DALL-E 3": "openai",
     "DreamShaper": "cloudflare",
+    "Flux Schnell": "cloudflare",
     "Midjourney": "cloudflare",
 }
 AUDIO_MODEL_TO_PROVIDER: dict[str, str] = {
@@ -37,7 +38,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         options.setdefault("model", data.get("model"))
 
     node_type = node.get("type")
-    label = data.get("model") or ("DreamShaper" if node_type == "imagegen" else "TTS-1")
+    label = data.get("model") or ("DALLE 3" if node_type == "imagegen" else "TTS-1")
     if node_type == "imagegen":
         provider_name = IMAGE_MODEL_TO_PROVIDER.get(label, "cloudflare")
         output_type = "image"

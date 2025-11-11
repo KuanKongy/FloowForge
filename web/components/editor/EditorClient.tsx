@@ -131,6 +131,16 @@ function Editor({ flowId }: { flowId: string }) {
           if (n.id !== nodeId) return n;
           if (!DISPLAY_TYPES.has(n.type as NodeType)) return n;
           const prev = (n.data || {}) as Record<string, unknown>;
+          if (n.type === "filebox") {
+            if (
+              output &&
+              typeof output === "object" &&
+              (output as Record<string, unknown>).kind === "file" &&
+              !("data_url" in (output as Record<string, unknown>))
+            ) {
+              return n;
+            }
+          }
           // Chat node tracks a `messages` array; append the assistant's reply
           // when the upstream produced a string.
           if (n.type === "chatbox" && typeof output === "string") {
@@ -139,10 +149,6 @@ function Editor({ flowId }: { flowId: string }) {
               : [];
             messages.push({ role: "assistant", content: output });
             return { ...n, data: { ...prev, messages } };
-          }
-          // File node uses `extracted` for the parsed text.
-          if (n.type === "filebox" && typeof output === "string") {
-            return { ...n, data: { ...prev, value: output, extracted: output } };
           }
           return { ...n, data: { ...prev, value: output } };
         })
@@ -349,9 +355,9 @@ function Editor({ flowId }: { flowId: string }) {
   );
 
   // ---- Save / Run --------------------------------------------------------
-  const graph = useMemo(
-    () => ({
-      nodes: nodes.map((n) => {
+  const buildGraphSnapshot = useCallback(
+    (snapshotNodes: Node[], snapshotEdges: Edge[]) => ({
+      nodes: snapshotNodes.map((n) => {
         const dataAll = { ...(n.data || {}) } as Record<string, unknown>;
         // Strip non-serializable closures + render-only flags before saving.
         delete dataAll.onTrigger;
@@ -363,7 +369,7 @@ function Editor({ flowId }: { flowId: string }) {
         }
         return { id: n.id, type: n.type as NodeType, position: n.position, data: dataAll };
       }),
-      edges: edges.map((e) => ({
+      edges: snapshotEdges.map((e) => ({
         id: e.id,
         source: e.source,
         target: e.target,
@@ -371,12 +377,13 @@ function Editor({ flowId }: { flowId: string }) {
         targetHandle: e.targetHandle ?? null,
       })),
     }),
-    [nodes, edges]
+    []
   );
 
   async function saveVersion(): Promise<FlowVersion> {
     setSaving(true);
     try {
+      const graph = buildGraphSnapshot(rf.getNodes(), rf.getEdges());
       const v = await apiPost<FlowVersion>(`/flows/${flowId}/versions`, {
         graph,
         inputs: version?.inputs || [],

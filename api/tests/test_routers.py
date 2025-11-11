@@ -279,3 +279,22 @@ async def test_cancel_run_marks_cancelled(client, fake_supabase, stub_executors)
     # Broadcast was emitted.
     cancellations = [b for b in fake_supabase.broadcasts if b[1] == "run_cancelled"]
     assert cancellations
+
+
+async def test_update_integration_label(client, fake_supabase):
+    created = client.post(
+        "/integrations",
+        json={
+            "provider": "openai",
+            "label": "default",
+            "credentials": {"api_key": "sk-test"},
+        },
+    )
+    assert created.status_code == 201, created.text
+    integration = created.json()
+
+    updated = client.patch(f"/integrations/{integration['id']}", json={"label": "personal"})
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["label"] == "personal"
+    assert "encrypted_credentials" not in updated.json()
