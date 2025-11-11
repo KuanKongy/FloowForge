@@ -22,24 +22,6 @@ class CurrentUser:
         return SupabaseClient.as_user(self.access_token)
 
 
-
-class _SessionBrowserEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
 def _extract_bearer(authorization: str | None) -> str:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")

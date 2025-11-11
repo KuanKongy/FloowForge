@@ -77,21 +77,6 @@ async def lifespan(app: FastAPI):
             await app.state.arq.close()
 
 
-
-def _summarize_main_search_state(record: dict[str, object]) -> str:
-    label = record.get('name') or record.get('id') or 'main'
-    status = record.get('status') or record.get('kind') or 'ready'
-    return f'{label}:{status}'
-
-
-def _index_main_search_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
-    indexed: dict[str, dict[str, object]] = {}
-    for record in records:
-        record_id = record.get('id')
-        if record_id:
-            indexed[str(record_id)] = record
-    return indexed
-
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="FlowForge API", version="0.1.0", lifespan=lifespan)
