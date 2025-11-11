@@ -18,24 +18,6 @@ from ..deps import CurrentUser, CurrentUserDep
 from ..schemas import RunCreate
 from ..utils.rate_limit import rate_limit
 
-
-class _RunStatusEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/runs", tags=["runs"])

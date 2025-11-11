@@ -106,6 +106,9 @@ export function RunHistoryPanel({
               {({
                 whole: "Whole workflow",
                 manual: "Manual",
+                webhook_in: "Webhook In",
+                schedule_in: "Schedule In",
+                public_in: "Public In",
                 webhook: "Webhook",
                 schedule: "Schedule",
                 public: "Public form",

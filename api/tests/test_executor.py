@@ -172,6 +172,44 @@ async def test_scenario_race_join_fires_on_first(make_run, fake_supabase, stub_e
     assert fired.index("race") < fired.index("slow")
 
 
+async def test_race_join_uses_only_winning_parent_even_if_others_finish_before_input_collection(
+    make_run, fake_supabase, stub_executors
+):
+    received: list[list[Any]] = []
+
+    async def parent(node, inputs, ctx):
+        return node["id"]
+
+    async def race_consumer(node, inputs, ctx):
+        received.append(list(inputs))
+        return ",".join(inputs)
+
+    stub_executors({"textbox": parent, "imagebox": parent, "llm": race_consumer})
+
+    graph = {
+        "nodes": [
+            {"id": "a", "type": "textbox", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "b", "type": "imagebox", "position": {"x": 0, "y": 0}, "data": {}},
+            {
+                "id": "r",
+                "type": "llm",
+                "position": {"x": 0, "y": 0},
+                "data": {"wait_strategy": "race"},
+            },
+        ],
+        "edges": [
+            {"id": "e1", "source": "a", "target": "r"},
+            {"id": "e2", "source": "b", "target": "r"},
+        ],
+    }
+
+    result = await run_flow(make_run(graph))
+
+    assert result["ok"] is True
+    assert received and len(received[0]) == 1
+    assert received[0][0] in {"a", "b"}
+
+
 # ---------------------------------------------------------------------------
 # Scenario 4: multi-trigger scope
 # ---------------------------------------------------------------------------
@@ -208,12 +246,50 @@ async def test_scenario_multi_trigger_scopes_to_button_subgraph(
     assert "btnB" not in visited and "downB" not in visited
 
 
+async def test_start_node_ids_persisted_on_run_row_define_scope(
+    make_run, fake_supabase, stub_executors
+):
+    """Worker jobs should not need to carry scope perfectly.
+
+    The durable source of truth is ``runs.start_node_ids``; if a queued job is
+    missing that field, the executor must still run only the entry branch.
+    """
+    visited: list[str] = []
+
+    async def record(node, inputs, ctx):
+        visited.append(node["id"])
+        return node["id"]
+
+    stub_executors({"button": record, "textbox": record})
+
+    graph = {
+        "nodes": [
+            {"id": "btnA", "type": "button", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "downA", "type": "textbox", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "btnB", "type": "button", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "downB", "type": "textbox", "position": {"x": 0, "y": 0}, "data": {}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "btnA", "target": "downA"},
+            {"id": "e2", "source": "btnB", "target": "downB"},
+        ],
+    }
+    run_id = make_run(graph, start_node_ids=["btnA"])
+
+    result = await run_flow(run_id)
+
+    assert result["ok"] is True
+    assert sorted(visited) == ["btnA", "downA"]
+
+
 # ---------------------------------------------------------------------------
-# Scenario 5: snapshot input from outside scope
+# Scenario 5: boundary parents outside an entry run are ignored
 # ---------------------------------------------------------------------------
 
 
-async def test_scenario_snapshot_input_from_boundary(make_run, fake_supabase, stub_executors):
+async def test_entry_run_ignores_out_of_scope_parent_for_barrier(
+    make_run, fake_supabase, stub_executors
+):
     received: list[Any] = []
     visited: list[str] = []
 
@@ -241,7 +317,12 @@ async def test_scenario_snapshot_input_from_boundary(make_run, fake_supabase, st
                 "data": {"value": "snapshot-text"},
             },
             {"id": "btn", "type": "button", "position": {"x": 0, "y": 0}, "data": {}},
-            {"id": "llm", "type": "llm", "position": {"x": 0, "y": 0}, "data": {}},
+            {
+                "id": "llm",
+                "type": "llm",
+                "position": {"x": 0, "y": 0},
+                "data": {"wait_strategy": "barrier"},
+            },
         ],
         "edges": [
             {"id": "e1", "source": "t", "target": "llm"},
@@ -251,10 +332,10 @@ async def test_scenario_snapshot_input_from_boundary(make_run, fake_supabase, st
     run_id = make_run(graph)
     result = await run_flow(run_id, start_node_ids=["btn"])
     assert result["ok"] is True, result
-    # `t` is outside the scope; the boom executor would have raised had it run.
     assert "t" not in visited
-    # The LLM consumed both: the snapshot value from boundary `t` and `None` from `btn`.
-    assert received and "snapshot-text" in received[0]
+    # The barrier waits only for in-scope parents. The outside textbox exists
+    # for whole-workflow runs only, so its snapshot is not injected here.
+    assert received == [[None]]
 
 
 # ---------------------------------------------------------------------------

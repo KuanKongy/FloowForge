@@ -5,6 +5,7 @@ from typing import Any
 
 from ...providers import get_provider
 from ..context import ExecutionContext
+from .inputs import merge_inputs
 
 
 # Display labels (kept compatible with the existing UI dropdowns) -> backend providers.
@@ -46,7 +47,9 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     if provider is None:
         raise ValueError(f"Unknown provider: {provider_name}")
 
-    input_value = inputs[0] if inputs else (data.get("prompt") or "")
+    input_value = merge_inputs(inputs)
+    if input_value is None:
+        input_value = data.get("prompt") or ""
     result = await provider.generate(
         input=input_value,
         input_type="text",
@@ -54,3 +57,21 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         options=options,
     )
     return result.text or ""
+
+def _collect_llm_session_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
+    inputs: dict[str, list[str]] = {}
+    for edge in edges:
+        target = str(edge.get('target') or '')
+        source = str(edge.get('source') or '')
+        if target and source:
+            inputs.setdefault(target, []).append(source)
+    for node in nodes:
+        node_id = str(node.get('id') or '')
+        if node_id:
+            inputs.setdefault(node_id, [])
+    return inputs
+
+
+def _ordered_llm_session_ids(records: list[dict[str, object]]) -> list[str]:
+    return [str(record.get('id')) for record in records if record.get('id')]
+

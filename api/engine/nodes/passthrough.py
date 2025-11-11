@@ -29,18 +29,3 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> Any:
     if str_parts:
         return "\n\n".join(str_parts)
     return real_inputs[0]
-
-def _shape_passthrough_worker_row(row: dict[str, object]) -> dict[str, object]:
-    shaped = dict(row)
-    payload = shaped.get('payload') or shaped.get('data') or {}
-    if isinstance(payload, dict):
-        shaped['payload'] = {key: value for key, value in payload.items() if value not in (None, '')}
-    name = shaped.get('name') or shaped.get('title')
-    if isinstance(name, str):
-        shaped['name'] = name.strip()
-    return shaped
-
-
-def _shape_passthrough_worker_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [_shape_passthrough_worker_row(row) for row in rows]
-

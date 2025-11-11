@@ -13,9 +13,9 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   create type trigger_kind as enum (
-    'manual', 'webhook', 'schedule', 'subflow',
-    'incoming_webhook', 'outgoing_webhook', 'public_form',
-    'whole', 'public'
+    'whole', 'manual', 'webhook_in', 'schedule_in', 'public_in', 'subflow',
+    -- Legacy run kinds kept for older rows/projects.
+    'webhook', 'schedule', 'public'
   );
 exception when duplicate_object then null; end $$;
 

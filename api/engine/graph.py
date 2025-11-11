@@ -22,6 +22,25 @@ def _node_ids(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {n["id"]: n for n in graph.get("nodes", [])}
 
 
+
+def _parse_graph_canvas_filters(params: dict[str, object]) -> dict[str, object]:
+    filters: dict[str, object] = {}
+    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
+        value = params.get(key)
+        if isinstance(value, str):
+            value = value.strip()
+        if value not in (None, ''):
+            filters[key] = value
+    return filters
+
+
+def _apply_graph_canvas_scope(query: object, filters: dict[str, object]) -> object:
+    scoped = query
+    for key, value in filters.items():
+        if hasattr(scoped, 'eq'):
+            scoped = scoped.eq(key, value)
+    return scoped
+
 def _edges(graph: dict[str, Any]) -> list[dict[str, Any]]:
     return list(graph.get("edges", []))
 
@@ -77,8 +96,7 @@ def scope_for(graph: dict[str, Any], start_ids: Iterable[str]) -> set[str]:
     """Return the union of start_ids ∪ downstream_of(start_ids).
 
     This is the set of nodes that will execute when a run is launched from
-    ``start_ids``. Boundary parents (nodes with edges into the scope but
-    themselves outside) contribute SNAPSHOT values via ``node.data.value``.
+    ``start_ids``.
     """
     nodes = _node_ids(graph)
     base = {s for s in start_ids if s in nodes}

@@ -6,9 +6,9 @@ multi-parent ordering, cancellation polling, and sink-based final output.
 Design summary
 ==============
 1. **Scope.** When ``start_node_ids`` is non-empty, we run only
-   ``start ∪ downstream_of(start)``. Edges that cross the scope boundary
-   contribute snapshots: the parent's static ``data.value`` (or
-   ``data.config.value``) is read once and used as the input.
+   ``start ∪ downstream_of(start)``. Edges that cross the scope boundary are
+   ignored unless an explicit ``input_overrides`` value is present (used by
+   resume-from-node).
 2. **Wait strategy.** Each node may declare ``data.wait_strategy`` of
    ``"barrier"`` (default) or ``"race"``. Barrier nodes execute when all
    in-scope parents have produced output. Race nodes execute as soon as ANY
@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as _dt
+import json
 import logging
 import time
 from collections import defaultdict
@@ -49,6 +50,21 @@ from .nodes import get_executor
 _MAX_CONCURRENCY = 8
 _CANCEL_POLL_INTERVAL = 1.0  # seconds
 
+
+
+def _summarize_execution_selection_state(record: dict[str, object]) -> str:
+    label = record.get('name') or record.get('id') or 'execution'
+    status = record.get('status') or record.get('kind') or 'ready'
+    return f'{label}:{status}'
+
+
+def _index_execution_selection_by_id(records: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    indexed: dict[str, dict[str, object]] = {}
+    for record in records:
+        record_id = record.get('id')
+        if record_id:
+            indexed[str(record_id)] = record
+    return indexed
 
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
@@ -122,6 +138,25 @@ def _snapshot_value(node: dict[str, Any]) -> Any:
     return None
 
 
+def _coerce_start_node_ids(value: Any) -> list[str] | None:
+    """Normalize persisted/queued start ids.
+
+    Supabase stores ``runs.start_node_ids`` as jsonb, but queued jobs may pass
+    the same value directly. Treat missing/empty values as a whole-workflow run.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            value = [value]
+    if not isinstance(value, list):
+        return None
+    ids = [str(v) for v in value if v]
+    return ids or None
+
+
 async def _load_run(run_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     sc = SupabaseClient.as_service()
     run = await sc.select(
@@ -150,6 +185,10 @@ async def run_flow(
     run, version = await _load_run(run_id)
     user_id = run["user_id"]
     graph: dict[str, Any] = version.get("graph") or {"nodes": [], "edges": []}
+    effective_start_node_ids = (
+        _coerce_start_node_ids(start_node_ids)
+        or _coerce_start_node_ids(run.get("start_node_ids"))
+    )
 
     ctx = ExecutionContext(
         user_id=user_id,
@@ -181,9 +220,9 @@ async def run_flow(
     await ctx.emit("run_started", payload={"input": run.get("input")})
 
     nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph.get("nodes", [])}
-    explicit_start = bool(start_node_ids)
+    explicit_start = bool(effective_start_node_ids)
     if explicit_start:
-        scope = scope_for(graph, start_node_ids or [])
+        scope = scope_for(graph, effective_start_node_ids or [])
     else:
         scope = set(nodes_by_id.keys())
 
@@ -252,25 +291,39 @@ async def run_flow(
         # Barrier: every in-scope parent must have completed (resolved or failed/skipped).
         return all((p in outputs) or (p in failed) or (p in skipped) for p in ips)
 
-    async def wait_for_ready(node_id: str, strategy: str) -> bool:
+    def race_winner(node_id: str) -> str | None:
+        ips = set(in_scope_parents(node_id))
+        for nid in completion_order:
+            if nid in ips and nid in outputs:
+                return nid
+        for nid in parents.get(node_id, []):
+            if nid in ips and nid in outputs:
+                return nid
+        return None
+
+    async def wait_for_ready(node_id: str, strategy: str) -> tuple[bool, set[str] | None]:
         """Block until the node is ready to fire (per strategy) or the run is cancelled.
 
-        Returns True if ready, False if cancellation/upstream failure should
-        cause this node to be skipped.
+        Returns ``(ready, race_parent_ids)``. ``ready`` is false when
+        cancellation/upstream failure should cause this node to be skipped.
+        Race nodes receive the single winning parent id captured at readiness
+        time, so later parent completions cannot leak into the inputs.
         """
         while True:
             if cancel_event.is_set():
-                return False
+                return (False, None)
             ips = in_scope_parents(node_id)
             if parents_ready(node_id, strategy):
                 # Strategy-specific guard against pure-failure parents.
                 if strategy == "race":
-                    if not any(p in outputs for p in ips) and ips:
-                        return False
+                    winner = race_winner(node_id)
+                    if not winner and ips:
+                        return (False, None)
+                    return (True, {winner} if winner else set())
                 else:  # barrier
                     if any(p in failed for p in ips):
-                        return False
-                return True
+                        return (False, None)
+                return (True, None)
 
             wait_tasks = [
                 asyncio.ensure_future(events[p].wait())
@@ -297,7 +350,7 @@ async def run_flow(
         if strategy not in {"barrier", "race"}:
             strategy = "barrier"
 
-        ready = await wait_for_ready(node_id, strategy)
+        ready, race_parent_ids = await wait_for_ready(node_id, strategy)
         if not ready:
             skipped.add(node_id)
             await ctx.emit(
@@ -315,16 +368,18 @@ async def run_flow(
         # - In-scope parents that produced output contribute their output (in edge order).
         # - Boundary parents (outside scope) prefer an explicit override
         #   (used by the "Resume from this node" feature so the partial run
-        #   sees the same context the failed run had); otherwise fall back to
-        #   the parent's static snapshot value (data.value).
+        #   sees the same context the failed run had).
+        # - Whole-flow runs may also read a root/boundary node's static value.
         overrides: dict[str, Any] = ctx.cache.get("__input_overrides__") or {}
         node_inputs: list[Any] = []
         for p in parents.get(node_id, []):
             if p in scope:
-                if p in outputs:
+                if p in outputs and (strategy != "race" or race_parent_ids is None or p in race_parent_ids):
                     node_inputs.append(outputs[p])
                 # In race mode some parents may not have fired yet; skip them.
             else:
+                if strategy == "race" and race_parent_ids:
+                    continue
                 if p in overrides:
                     node_inputs.append(overrides[p])
                 elif not explicit_start and p in nodes_by_id:
@@ -510,7 +565,7 @@ async def _fire_callback(sc: SupabaseClient, run: dict, output: Any) -> None:
 async def _cleanup_oneshot_trigger(sc: SupabaseClient, run: dict) -> None:
     """Auto-delete one-time schedule triggers (delay/once) after execution."""
     trigger_kind = run.get("trigger_kind")
-    if trigger_kind != "schedule":
+    if trigger_kind not in {"schedule_in", "schedule"}:
         return
     try:
         triggers = await sc.select(
@@ -579,22 +634,3 @@ async def run_flow_inline(
     if not result.get("ok"):
         raise RuntimeError(f"Subflow {flow_id} failed: {result.get('error')}")
     return result.get("output")
-
-def _parse_execution_panel_filters(params: dict[str, object]) -> dict[str, object]:
-    filters: dict[str, object] = {}
-    for key in ('owner_id', 'flow_id', 'run_id', 'status', 'kind'):
-        value = params.get(key)
-        if isinstance(value, str):
-            value = value.strip()
-        if value not in (None, ''):
-            filters[key] = value
-    return filters
-
-
-def _apply_execution_panel_scope(query: object, filters: dict[str, object]) -> object:
-    scoped = query
-    for key, value in filters.items():
-        if hasattr(scoped, 'eq'):
-            scoped = scoped.eq(key, value)
-    return scoped
-

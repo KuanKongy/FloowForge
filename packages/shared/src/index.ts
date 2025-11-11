@@ -94,7 +94,17 @@ export type RunStatus =
   | "failed"
   | "cancelled";
 
-export type TriggerKind = "whole" | "manual" | "webhook" | "schedule" | "subflow" | "incoming_webhook" | "outgoing_webhook" | "public_form" | "public";
+export type TriggerKind =
+  | "whole"
+  | "manual"
+  | "webhook_in"
+  | "schedule_in"
+  | "public_in"
+  | "subflow"
+  // Legacy run kinds kept readable for existing rows.
+  | "webhook"
+  | "schedule"
+  | "public";
 
 export interface Run {
   id: string;

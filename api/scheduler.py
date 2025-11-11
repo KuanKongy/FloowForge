@@ -155,7 +155,7 @@ async def _enqueue_run(redis_conn, trigger_id: str, is_oneshot: bool = False) ->
         "flow_version_id": flow["current_version_id"],
         "user_id": trigger["user_id"],
         "status": "queued",
-        "trigger_kind": "schedule",
+        "trigger_kind": "schedule_in",
         "input": trigger.get("config", {}).get("input"),
     }
     if start_node_ids:

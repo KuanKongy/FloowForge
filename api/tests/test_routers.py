@@ -157,6 +157,49 @@ async def test_run_with_start_node_ids_records_scope(client, fake_supabase):
     assert detail["run"].get("start_node_ids") == ["btnA"]
 
 
+async def test_public_webhook_persists_entry_scope_and_run_kind(client, fake_supabase):
+    flow = client.post("/flows", json={"name": "Webhook scoped"}).json()
+    graph = {
+        "nodes": [
+            {"id": "hook", "type": "webhook_in", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "downA", "type": "textbox", "position": {"x": 0, "y": 0}, "data": {}},
+            {"id": "other", "type": "textbox", "position": {"x": 0, "y": 0}, "data": {"value": "nope"}},
+        ],
+        "edges": [
+            {"id": "e1", "source": "hook", "target": "downA"},
+        ],
+    }
+    client.post(
+        f"/flows/{flow['id']}/versions",
+        json={"graph": graph, "inputs": [], "outputs": []},
+    )
+    trigger = fake_supabase.insert(
+        "triggers",
+        {
+            "flow_id": flow["id"],
+            "user_id": "user-1",
+            "kind": "incoming_webhook",
+            "config": {},
+            "is_active": True,
+            "entry_node_id": "hook",
+        },
+    )[0]
+    fake_supabase.insert(
+        "webhook_secrets",
+        {"trigger_id": trigger["id"], "token": "tok-hook", "secret": None},
+    )
+
+    response = client.post("/t/webhook/tok-hook", json={"hello": "world"})
+
+    assert response.status_code == 200, response.text
+    run_id = response.json()["run_id"]
+    detail = client.get(f"/runs/{run_id}").json()
+    assert detail["run"]["trigger_kind"] == "webhook_in"
+    assert detail["run"]["start_node_ids"] == ["hook"]
+    started = {e["node_id"] for e in detail["events"] if e["kind"] == "node_started"}
+    assert started == {"hook", "downA"}
+
+
 async def test_run_400_surfaces_supabase_message(client, fake_supabase, monkeypatch):
     """If Supabase rejects the ``runs`` insert (the most common cause is the
     project missing migration 0004 ``runs.start_node_ids``), the API must

@@ -10,6 +10,7 @@ from typing import Any
 
 from ...providers import get_provider
 from ..context import ExecutionContext
+from .inputs import merge_inputs
 
 
 # Image / audio model label maps.
@@ -48,7 +49,9 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     if provider is None:
         raise ValueError(f"Unknown provider: {provider_name}")
 
-    input_value = inputs[0] if inputs else (data.get("prompt") or "")
+    input_value = merge_inputs(inputs)
+    if input_value is None:
+        input_value = data.get("prompt") or ""
     result = await provider.generate(
         input=input_value,
         input_type="text",

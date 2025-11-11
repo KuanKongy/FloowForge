@@ -61,7 +61,7 @@ def _apply_query(
             pass
     if select and select != "*":
         cols = [c.strip() for c in select.split(",") if c.strip()]
-        if cols:
+        if cols and "*" not in cols:
             out = [{k: v for k, v in row.items() if k in cols} for row in out]
     return [deepcopy(r) for r in out]
 
@@ -96,6 +96,14 @@ class FakeSupabaseDB:
         single: bool,
     ) -> Any:
         rows = _apply_query(self.tables.get(table, []), params)
+        select = (params or {}).get("select", "")
+        if table == "webhook_secrets" and "triggers(*)" in select:
+            triggers = self.tables.get("triggers", [])
+            for row in rows:
+                row["triggers"] = next(
+                    (deepcopy(t) for t in triggers if t.get("id") == row.get("trigger_id")),
+                    None,
+                )
         if single:
             return rows[0] if rows else None
         return rows
@@ -250,7 +258,13 @@ async def fake_supabase(monkeypatch):
 def make_run(fake_supabase: FakeSupabaseDB):
     """Returns a helper that creates a flow + version + run row, returning ``run_id``."""
 
-    def _make(graph: dict[str, Any], *, run_input: Any = None, user_id: str = "user-1") -> str:
+    def _make(
+        graph: dict[str, Any],
+        *,
+        run_input: Any = None,
+        user_id: str = "user-1",
+        start_node_ids: list[str] | None = None,
+    ) -> str:
         flow = fake_supabase.insert(
             "flows",
             {
@@ -272,17 +286,17 @@ def make_run(fake_supabase: FakeSupabaseDB):
         )[0]
         # Attach as current.
         fake_supabase.update("flows", {"current_version_id": version["id"]}, params={"id": f"eq.{flow['id']}"})
-        run = fake_supabase.insert(
-            "runs",
-            {
-                "flow_id": flow["id"],
-                "flow_version_id": version["id"],
-                "user_id": user_id,
-                "status": "queued",
-                "trigger_kind": "manual",
-                "input": run_input,
-            },
-        )[0]
+        run_body = {
+            "flow_id": flow["id"],
+            "flow_version_id": version["id"],
+            "user_id": user_id,
+            "status": "queued",
+            "trigger_kind": "manual",
+            "input": run_input,
+        }
+        if start_node_ids:
+            run_body["start_node_ids"] = start_node_ids
+        run = fake_supabase.insert("runs", run_body)[0]
         return run["id"]
 
     return _make

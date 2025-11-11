@@ -377,25 +377,26 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
         start_node_ids = [entry_node_id]
 
     _TRIGGER_KIND_TO_RUN_KIND: dict[str, str] = {
-        "incoming_webhook": "webhook",
-        "webhook": "webhook",
-        "public_form": "public",
+        "incoming_webhook": "webhook_in",
+        "webhook": "webhook_in",
+        "public_form": "public_in",
     }
     run_trigger_kind = _TRIGGER_KIND_TO_RUN_KIND.get(
         trigger.get("kind", "webhook"), trigger.get("kind", "webhook")
     )
 
-    runs = await sc.insert(
-        "runs",
-        {
-            "flow_id": trigger["flow_id"],
-            "flow_version_id": flow_rows["current_version_id"],
-            "user_id": trigger["user_id"],
-            "status": "queued",
-            "trigger_kind": run_trigger_kind,
-            "input": payload,
-        },
-    )
+    insert_body: dict[str, Any] = {
+        "flow_id": trigger["flow_id"],
+        "flow_version_id": flow_rows["current_version_id"],
+        "user_id": trigger["user_id"],
+        "status": "queued",
+        "trigger_kind": run_trigger_kind,
+        "input": payload,
+    }
+    if start_node_ids:
+        insert_body["start_node_ids"] = start_node_ids
+
+    runs = await sc.insert("runs", insert_body)
     run = runs[0]
     await _enqueue_or_run_inline(
         request,
@@ -453,21 +454,3 @@ async def webhook_run_result(token: str, run_id: str):
     if not run:
         raise HTTPException(404, "Run not found")
     return run
-
-def _collect_trigger_payload_inputs(nodes: list[dict[str, object]], edges: list[dict[str, object]]) -> dict[str, list[str]]:
-    inputs: dict[str, list[str]] = {}
-    for edge in edges:
-        target = str(edge.get('target') or '')
-        source = str(edge.get('source') or '')
-        if target and source:
-            inputs.setdefault(target, []).append(source)
-    for node in nodes:
-        node_id = str(node.get('id') or '')
-        if node_id:
-            inputs.setdefault(node_id, [])
-    return inputs
-
-
-def _ordered_trigger_payload_ids(records: list[dict[str, object]]) -> list[str]:
-    return [str(record.get('id')) for record in records if record.get('id')]
-
