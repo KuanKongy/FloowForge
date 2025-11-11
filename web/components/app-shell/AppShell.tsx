@@ -104,17 +104,21 @@ function TopBar({ pathname }: { pathname: string }) {
   const seg = pathname.split("/").filter(Boolean);
   const label = seg[1]
     ? seg[1].replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase())
-    : "FlowForge";
+    : "";
 
   return (
     <header className="flex h-[56px] items-center justify-between border-b border-[var(--border)] bg-[var(--surface-2)] px-6">
       <div className="flex items-center gap-2 text-sm">
         <Sparkles size={16} className="text-[var(--primary)]" />
-        <span className="text-[var(--muted-foreground)]">
+        <span className={label ? "text-[var(--muted-foreground)]" : "font-medium"}>
           <BrandWordmark />
-          {" /"}
         </span>
-        <span className="font-medium">{label}</span>
+        {label && (
+          <>
+            <span className="text-[var(--muted-foreground)]">/</span>
+            <span className="font-medium">{label}</span>
+          </>
+        )}
       </div>
     </header>
   );

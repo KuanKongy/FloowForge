@@ -50,24 +50,6 @@ _MAX_CONCURRENCY = 8
 _CANCEL_POLL_INTERVAL = 1.0  # seconds
 
 
-
-class _ExecutionAccountEnvelope:
-    def __init__(self, record: dict[str, object]) -> None:
-        self.record = dict(record)
-        self.errors: list[str] = []
-
-    def require(self, key: str) -> object:
-        value = self.record.get(key)
-        if value in (None, ''):
-            self.errors.append(f'missing {key}')
-        return value
-
-    def to_response(self) -> dict[str, object]:
-        response = dict(self.record)
-        if self.errors:
-            response['errors'] = list(self.errors)
-        return response
-
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
 

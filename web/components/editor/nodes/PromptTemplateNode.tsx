@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Maximize2, Minimize2, Sparkles } from "lucide-react";
+import { Maximize2, Minimize2, PencilLine, Sparkles } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { apiGet } from "@/lib/api";
@@ -16,10 +16,24 @@ export default function PromptTemplateNode({ id, data, isConnectable }: NodeProp
   const inScope = useInScope(id);
 
   const ctrl = useNodeFrameControls(id, {
-    defaultName: "Custom Node",
+    defaultName: "Double Click to Edit",
     data: data as Record<string, unknown>,
     collapsible: true,
   });
+
+  const displayName = ctrl.name || "Double Click to Edit";
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(displayName);
+
+  useEffect(() => {
+    if (!editingName) setDraftName(displayName);
+  }, [displayName, editingName]);
+
+  function commitName() {
+    setEditingName(false);
+    const next = draftName.trim();
+    if (next) rf.updateNodeData(id, { name: next });
+  }
 
   useEffect(() => {
     apiGet<CustomNode[]>("/custom-nodes?kind=prompt_template")
@@ -72,12 +86,39 @@ export default function PromptTemplateNode({ id, data, isConnectable }: NodeProp
               </div>
             </div>
             <div className="flex flex-row items-center gap-x-2">
-              {ctrl.renderRename({
-                wrapperClassName: "flex items-center gap-x-2 group",
-                staticClassName: "font-semibold text-[1rem] cursor-pointer select-none",
-                inputClassName: "nodrag nopan font-semibold text-[1rem] bg-transparent border-b border-[var(--primary)] outline-none w-full",
-                showPencil: true,
-              })}
+              <div className="font-semibold text-[1rem]">
+                {editingName ? (
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onBlur={commitName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitName();
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="nodrag nopan w-full focus:outline-none border-none bg-transparent"
+                  />
+                ) : (
+                  <div
+                    onDoubleClick={() => setEditingName(true)}
+                    className="cursor-pointer"
+                    title="Double-click to rename"
+                  >
+                    {displayName}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingName(true)}
+                className="text-[var(--font--light)] hover:text-[var(--primary)] transition-colors"
+                aria-label="Rename"
+              >
+                <PencilLine size={16} />
+              </button>
               {ctrl.renderWaitChip("inline")}
             </div>
           </div>

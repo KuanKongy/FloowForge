@@ -20,7 +20,9 @@ export default function ImageNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="image" isConnectable={isConnectable} hidden={false}>
-          <BackendBox kind="image" icon={<ImageIcon size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          <div className="backend-shell backend-shell--image" style={{ width: "36em", height: "410px" }}>
+            <BackendBox kind="image" icon={<ImageIcon size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          </div>
         </NodeHandleWrapper>
         {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
         {ctrl.renderWaitChip("top")}

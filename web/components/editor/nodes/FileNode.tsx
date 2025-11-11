@@ -64,7 +64,9 @@ export default function FileNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="file" isConnectable={isConnectable} hidden={false}>
-          <BackendBox kind="file" icon={<Upload size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          <div className="backend-shell backend-shell--file" style={{ width: "450px", height: "200px" }}>
+            <BackendBox kind="file" icon={<Upload size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          </div>
         </NodeHandleWrapper>
         {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
         {ctrl.renderWaitChip("top")}

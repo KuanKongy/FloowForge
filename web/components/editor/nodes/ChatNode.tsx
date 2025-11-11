@@ -49,7 +49,9 @@ export default function ChatNode({ id, data, isConnectable }: NodeProps) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
         <NodeHandleWrapper id={id} type="chat" isConnectable={isConnectable} hidden={false}>
-          <BackendBox kind="chat" icon={<MessagesSquare size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          <div className="backend-shell backend-shell--chat" style={{ width: "40em", height: "590px" }}>
+            <BackendBox kind="chat" icon={<MessagesSquare size={20} strokeWidth={1.5} />} label={ctrl.name} />
+          </div>
         </NodeHandleWrapper>
         {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
         {ctrl.renderWaitChip("top")}

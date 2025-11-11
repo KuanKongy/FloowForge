@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Boxes, Maximize2, Minimize2 } from "lucide-react";
+import { Boxes, Maximize2, Minimize2, PencilLine } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { apiGet } from "@/lib/api";
@@ -10,16 +10,30 @@ import { useTopoStep, useInScope } from "../order-context";
 
 export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
   const rf = useReactFlow();
-  const { flow_id, value: fixedDefault = "" } = data as { flow_id?: string; value?: string };
+  const { flow_id } = data as { flow_id?: string };
   const [subflows, setSubflows] = useState<Flow[]>([]);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
 
   const ctrl = useNodeFrameControls(id, {
-    defaultName: "Subflow",
+    defaultName: "Double Click to Edit",
     data: data as Record<string, unknown>,
     collapsible: true,
   });
+
+  const displayName = ctrl.name || "Double Click to Edit";
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState(displayName);
+
+  useEffect(() => {
+    if (!editingName) setDraftName(displayName);
+  }, [displayName, editingName]);
+
+  function commitName() {
+    setEditingName(false);
+    const next = draftName.trim();
+    if (next) rf.updateNodeData(id, { name: next });
+  }
 
   useEffect(() => {
     apiGet<Flow[]>("/flows").then(setSubflows).catch(() => setSubflows([]));
@@ -36,7 +50,7 @@ export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
       showWaitChip
       topoStep={step}
       className={inScope ? "scope-active" : "scope-dimmed"}
-      cardClassName="w-[22em]"
+      cardClassName="w-[24em]"
       headerVariant="none"
     >
       <div className="p-3 flex flex-col gap-3">
@@ -68,12 +82,39 @@ export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
               </div>
             </div>
             <div className="flex flex-row items-center gap-x-2">
-              {ctrl.renderRename({
-                wrapperClassName: "flex items-center gap-x-2 group",
-                staticClassName: "font-semibold text-[1rem] cursor-pointer select-none",
-                inputClassName: "nodrag nopan font-semibold text-[1rem] bg-transparent border-b border-[var(--primary)] outline-none w-full",
-                showPencil: true,
-              })}
+              <div className="font-semibold text-[1rem]">
+                {editingName ? (
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onBlur={commitName}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitName();
+                      if (e.key === "Escape") setEditingName(false);
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    autoFocus
+                    className="nodrag nopan w-full focus:outline-none border-none bg-transparent"
+                  />
+                ) : (
+                  <div
+                    onDoubleClick={() => setEditingName(true)}
+                    className="cursor-pointer"
+                    title="Double-click to rename"
+                  >
+                    {displayName}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingName(true)}
+                className="text-[var(--font--light)] hover:text-[var(--primary)] transition-colors"
+                aria-label="Rename"
+              >
+                <PencilLine size={16} />
+              </button>
               {ctrl.renderWaitChip("inline")}
             </div>
           </div>
@@ -102,18 +143,6 @@ export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
                 </option>
               ))}
             </select>
-            <label className="flex flex-col gap-1 text-xs">
-              <span className="text-[var(--muted-foreground)] font-medium">
-                Default input (used if nothing wired)
-              </span>
-              <textarea
-                value={fixedDefault}
-                onChange={(e) => rf.updateNodeData(id, { value: e.target.value })}
-                onMouseDown={(e) => e.stopPropagation()}
-                placeholder="Static value to pass when no upstream is connected."
-                className="px-2 py-1.5 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] resize-none nodrag nopan h-[3.5em]"
-              />
-            </label>
           </>
         )}
       </div>
