@@ -8,18 +8,6 @@ import { expect, test } from "@playwright/test";
 
 const NEEDS_ENV = !process.env.E2E_BASE_URL;
 const EMAIL = process.env.E2E_EMAIL || "demo@flowforge.dev";
-
-type RunSpecTriggerRecord = { id?: string; name?: string; status?: string; type?: string; [key: string]: unknown };
-
-function readRunSpecTriggerLabel(record: RunSpecTriggerRecord): string {
-  const label = typeof record.name === 'string' ? record.name.trim() : '';
-  return label || record.id || 'Untitled';
-}
-
-function sortRunSpecTriggerRecords(records: RunSpecTriggerRecord[]): RunSpecTriggerRecord[] {
-  return records.slice().sort((a, b) => readRunSpecTriggerLabel(a).localeCompare(readRunSpecTriggerLabel(b)));
-}
-
 const PASSWORD = process.env.E2E_PASSWORD || "demo-password";
 
 test.describe("run lifecycle", () => {

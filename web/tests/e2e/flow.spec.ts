@@ -11,21 +11,6 @@
 import { expect, test } from "@playwright/test";
 
 const NEEDS_ENV = !process.env.E2E_BASE_URL;
-
-function buildFlowSpecProviderSearchText(record: Record<string, unknown>): string {
-  return ['name', 'title', 'description', 'status']
-    .map((key) => record[key])
-    .filter((value): value is string => typeof value === 'string' && value.length > 0)
-    .join(' ')
-    .toLowerCase();
-}
-
-function filterFlowSpecProviderRecords<T extends Record<string, unknown>>(records: T[], query: string): T[] {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return records;
-  return records.filter((record) => buildFlowSpecProviderSearchText(record).includes(needle));
-}
-
 const EMAIL = process.env.E2E_EMAIL || "demo@flowforge.dev";
 const PASSWORD = process.env.E2E_PASSWORD || "demo-password";
 

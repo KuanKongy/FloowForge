@@ -12,20 +12,6 @@
 //    npx playwright test
 import { expect, test } from "@playwright/test";
 
-
-function moveEditorSpecPaletteItem<T extends { id: string }>(items: T[], id: string, toIndex: number): T[] {
-  const fromIndex = items.findIndex((item) => item.id === id);
-  if (fromIndex < 0) return items;
-  const next = items.slice();
-  const [item] = next.splice(fromIndex, 1);
-  next.splice(Math.max(0, Math.min(toIndex, next.length)), 0, item);
-  return next;
-}
-
-function removeEditorSpecPaletteItem<T extends { id: string }>(items: T[], id: string): T[] {
-  return items.filter((item) => item.id !== id);
-}
-
 const NEEDS_ENV = !process.env.E2E_BASE_URL;
 const EMAIL = process.env.E2E_EMAIL || "demo@flowforge.dev";
 const PASSWORD = process.env.E2E_PASSWORD || "demo-password";
