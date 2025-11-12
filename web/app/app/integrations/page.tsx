@@ -49,7 +49,7 @@ export default function IntegrationsPage() {
       <div className="grid gap-3 md:grid-cols-3 mb-6">
         <InfoCard title="Platform default" body="Uses FlowForge credentials and counts AI calls toward workflow cost limits." />
         <InfoCard title="User-paid calls" body="Your key pays the provider directly, so those AI calls are not limited by FlowForge AI spend." />
-        <InfoCard title="Implemented models" body="Keys unlock supported providers only: OpenAI, Gemini, and Cloudflare Workers AI." />
+        <InfoCard title="Implemented models" body="Keys unlock supported providers only: OpenAI, Gemini, Cloudflare Workers AI, and DeepSeek." />
       </div>
 
       <div className="card-surface divide-y divide-[var(--border)] overflow-hidden">
@@ -137,7 +137,6 @@ function RenameIntegrationDialog({
   const [label, setLabel] = useState(integration.label || "default");
   const [key, setKey] = useState("");
   const [accountId, setAccountId] = useState("");
-  const [gatewaySlug, setGatewaySlug] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function save() {
@@ -145,8 +144,8 @@ function RenameIntegrationDialog({
     try {
       const credentials: Record<string, string> | undefined = key
         ? {
-            api_key: key,
-            ...(integration.provider === "cloudflare" ? { account_id: accountId, gateway_slug: gatewaySlug } : {}),
+          api_key: key,
+            ...(integration.provider === "cloudflare" ? { account_id: accountId } : {}),
           }
         : undefined;
       await apiPatch(`/integrations/${integration.id}`, { label, ...(credentials ? { credentials } : {}) });
@@ -187,14 +186,10 @@ function RenameIntegrationDialog({
             />
           </label>
           {integration.provider === "cloudflare" && key && (
-            <div className="grid gap-3 md:grid-cols-2 mt-4">
+            <div className="mt-4">
               <label className="flex flex-col gap-1 text-sm">
                 <span className="text-xs text-[var(--muted-foreground)]">Account ID</span>
                 <input value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]" />
-              </label>
-              <label className="flex flex-col gap-1 text-sm">
-                <span className="text-xs text-[var(--muted-foreground)]">Gateway slug</span>
-                <input value={gatewaySlug} onChange={(e) => setGatewaySlug(e.target.value)} className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]" />
               </label>
             </div>
           )}
@@ -211,11 +206,10 @@ function RenameIntegrationDialog({
 }
 
 function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [provider, setProvider] = useState<"openai" | "gemini" | "cloudflare">("openai");
+  const [provider, setProvider] = useState<"openai" | "gemini" | "cloudflare" | "deepseek">("openai");
   const [label, setLabel] = useState("default");
   const [key, setKey] = useState("");
   const [accountId, setAccountId] = useState("");
-  const [gatewaySlug, setGatewaySlug] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit() {
@@ -223,7 +217,6 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
     const credentials: Record<string, string> = { api_key: key };
     if (provider === "cloudflare") {
       credentials.account_id = accountId;
-      credentials.gateway_slug = gatewaySlug;
     }
     await apiPost("/integrations", { provider, label, credentials });
     setBusy(false);
@@ -236,12 +229,13 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
         Provider
         <select
           value={provider}
-          onChange={(e) => setProvider(e.target.value as "openai" | "gemini" | "cloudflare")}
+          onChange={(e) => setProvider(e.target.value as "openai" | "gemini" | "cloudflare" | "deepseek")}
           className="h-9 px-2 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
         >
           <option value="openai">OpenAI</option>
           <option value="gemini">Gemini</option>
           <option value="cloudflare">Cloudflare</option>
+          <option value="deepseek">DeepSeek</option>
         </select>
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -262,24 +256,14 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
         />
       </label>
       {provider === "cloudflare" && (
-        <>
-          <label className="flex flex-col gap-1 text-sm">
-            Cloudflare account ID
-            <input
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Gateway slug
-            <input
-              value={gatewaySlug}
-              onChange={(e) => setGatewaySlug(e.target.value)}
-              className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
-            />
-          </label>
-        </>
+        <label className="flex flex-col gap-1 text-sm md:col-span-2">
+          Cloudflare account ID
+          <input
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
+          />
+        </label>
       )}
       <div className="flex justify-end gap-2 md:col-span-2">
         <Button variant="outline" onClick={onClose}>

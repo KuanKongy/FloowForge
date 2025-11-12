@@ -5,7 +5,7 @@ session and exercise the full request lifecycle:
 
 - POST ``/flows`` creates a flow and a v1 version.
 - POST ``/flows/:id/versions`` snapshots a graph.
-- POST ``/flows/:id/runs`` enqueues a manual run; with no Arq pool the run
+- POST ``/flows/:id/runs`` enqueues a manual run; with no Redis pool the run
   executes inline (FastAPI awaits the async ``BackgroundTasks``).
 - GET ``/runs/:id`` returns the (now succeeded) run + emitted events.
 - POST ``/runs/:id/cancel`` flips status to cancelled and broadcasts.

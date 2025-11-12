@@ -11,22 +11,24 @@ from .base import BaseProvider, ProviderResult
 
 
 # UI labels (the strings the AIModelNode dropdown ships) -> google-genai
-# model ids. Google retired ``gemini-2.0-flash`` for new users, so the
-# default falls through to ``gemini-flash-latest`` which is the rolling alias
-# Google maintains for the current Flash generation.
+# model ids. Keep old saved labels mapped to current equivalents so existing
+# workflows do not call deprecated model ids.
 _LABEL_TO_ID: dict[str, str] = {
     "gemini": "gemini-flash-latest",
     "gemini 2.5": "gemini-2.5-flash",
     "gemini 2.5 flash": "gemini-2.5-flash",
+    "gemini 2.5 flash lite": "gemini-2.5-flash-lite",
+    "gemini 2.5 flash-lite": "gemini-2.5-flash-lite",
     "gemini 2.5 pro": "gemini-2.5-pro",
     "gemini 2.0": "gemini-2.0-flash",
     "gemini 2.0 flash": "gemini-2.0-flash",
-    "gemini 1.5 flash": "gemini-1.5-flash",
+    "gemini 1.5 flash": "gemini-2.5-flash-lite",
     "gemini 1.5 pro": "gemini-1.5-pro",
     "gemini-flash-latest": "gemini-flash-latest",
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini-2.0-flash": "gemini-2.0-flash",
-    "gemini-1.5-flash": "gemini-1.5-flash",
+    "gemini-1.5-flash": "gemini-2.5-flash-lite",
     "gemini-1.5-pro": "gemini-1.5-pro",
 }
 

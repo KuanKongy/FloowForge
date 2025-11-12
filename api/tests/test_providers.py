@@ -2,7 +2,7 @@
 
 These tests patch the HTTP client used by each provider to assert request
 shape and result mapping without hitting any real APIs. We avoid respx for
-the Cloudflare provider because the gateway path contains an ``@`` (e.g.
+the Cloudflare provider because the Workers AI model path contains an ``@`` (e.g.
 ``@cf/lykon/dreamshaper-8-lcm``), which respx's URL matcher mis-parses as
 user-info.
 """
@@ -32,7 +32,6 @@ def _settings_patch(**overrides):
         "OPENAI_API_KEY": "test-key",
         "CLOUDFLARE_ID": "acct",
         "CLOUDFLARE_KEY": "cf-key",
-        "CLOUDFLARE_GATEWAY_SLUG": "slug",
         "GEMINI_KEY": "gem-key",
         "SUPABASE_URL": "https://example.supabase.co",
         "SUPABASE_ANON_KEY": "anon",
@@ -166,7 +165,7 @@ async def test_cloudflare_image_decodes_base64():
 async def test_cloudflare_normalizes_ui_label_for_text():
     """The UI dropdown ships labels like ``"Llama 3 (Cloudflare)"`` which are
     NOT valid Workers AI model ids. The provider must rewrite them before
-    concatenating into the gateway URL; otherwise CF responds with 401, which
+    concatenating into the Workers AI URL; otherwise CF responds with 401, which
     is exactly the failure the user hit on run b676bf0a.
     """
     provider = CloudflareProvider()
@@ -213,7 +212,7 @@ async def test_cloudflare_normalizes_ui_label_for_image():
 
 @pytest.mark.asyncio
 async def test_cloudflare_401_error_points_user_at_account_setup():
-    """A 401 from the gateway typically means the model isn't enabled on
+    """A 401 from Workers AI typically means the model isn't enabled on
     the user's Cloudflare account, not that the API key is wrong. The
     provider should surface that in the exception message so the run
     sidebar can show actionable guidance.
@@ -235,9 +234,9 @@ async def test_cloudflare_401_error_points_user_at_account_setup():
         except httpx.HTTPStatusError as exc:
             msg = str(exc)
             assert "401" in msg
-            assert "Cloudflare dashboard" in msg
             # The hint must reference an actual recovery action.
             assert "Workers AI" in msg
+            assert "Read + Write" in msg
 
 
 @pytest.mark.asyncio
@@ -282,7 +281,8 @@ def test_gemini_normalizes_ui_label():
 
     assert _normalize_model("Gemini") == "gemini-flash-latest"
     assert _normalize_model("Gemini 2.5 Flash") == "gemini-2.5-flash"
-    assert _normalize_model("Gemini 1.5 Flash") == "gemini-1.5-flash"
+    assert _normalize_model("Gemini 2.5 Flash Lite") == "gemini-2.5-flash-lite"
+    assert _normalize_model("Gemini 1.5 Flash") == "gemini-2.5-flash-lite"
     assert _normalize_model("gemini-2.0-flash") == "gemini-2.0-flash"
     # Unknown labels are passed through verbatim so users can opt into
     # newer model ids without needing a code change.

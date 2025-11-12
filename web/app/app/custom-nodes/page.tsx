@@ -218,6 +218,8 @@ function CustomNodeForm({
             <option>GPT-4o-mini</option>
             <option>GPT o3-mini</option>
             <option>Gemini 2.5 Flash</option>
+            <option>Gemini 2.5 Flash Lite</option>
+            <option>DeepSeek V4 Flash</option>
             <option>Llama 3 (Cloudflare)</option>
           </select>
         </Field>

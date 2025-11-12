@@ -138,7 +138,7 @@ class CustomNodeUpdate(BaseModel):
 
 # ----- Integrations -----
 class IntegrationCreate(BaseModel):
-    provider: Literal["openai", "gemini", "cloudflare"]
+    provider: Literal["openai", "gemini", "cloudflare", "deepseek"]
     label: str = ""
     credentials: dict[str, Any]
 

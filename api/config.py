@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     REDIS_URL: str = _DEFAULT_REDIS_URL
 
     OPENAI_API_KEY: str = ""
+    DEEPSEEK_API_KEY: str = ""
     GEMINI_KEY: str = ""
     CLOUDFLARE_ID: str = ""
     CLOUDFLARE_KEY: str = ""
-    CLOUDFLARE_GATEWAY_SLUG: str = ""
 
     WEB_ORIGIN: str = ""
     PUBLIC_API_URL: str = ""

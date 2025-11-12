@@ -49,11 +49,12 @@ const MODELS_BY_TYPE: Record<ModelType, string[]> = {
     "GPT o3-mini",
     "GPT-4o-mini",
     "Gemini 2.5 Flash",
-    "Gemini 1.5 Flash",
+    "Gemini 2.5 Flash Lite",
     "Llama 3 (Cloudflare)",
+    "DeepSeek V4 Flash",
   ],
   image: ["DALLE 3", "DreamShaper", "Flux Schnell"],
-  audio: ["TTS-1"],
+  audio: ["TTS-1", "Aura 2 (Cloudflare)"],
   file: ["PDF"],
 };
 
@@ -65,13 +66,17 @@ const MODEL_ICON: Record<string, string> = {
   Ollama: "/images/ollama-icon.svg",
   Gemini: "/images/gemini-icon.svg",
   "Gemini 2.5 Flash": "/images/gemini-icon.svg",
+  "Gemini 2.5 Flash Lite": "/images/gemini-icon.svg",
   "Gemini 1.5 Flash": "/images/gemini-icon.svg",
+  "DeepSeek V4 Flash": "/images/deepseek-icon.svg",
+  DeepSeek: "/images/deepseek-icon.svg",
   Deepseek: "/images/deepseek-icon.svg",
   "DALLE 3": "/images/openai-icon-image.svg",
   Midjourney: "/images/midjourney-icon.svg",
   DreamShaper: "/images/cloudflare-icon.svg",
   "Flux Schnell": "/images/cloudflare-icon.svg",
   "TTS-1": "/images/openai-icon-audio.svg",
+  "Aura 2 (Cloudflare)": "/images/cloudflare-icon.svg",
   PDF: "/images/pdf-icon.svg",
 };
 
@@ -80,11 +85,14 @@ const MODEL_PROVIDER: Record<string, Integration["provider"]> = {
   "GPT-4o-mini": "openai",
   "DALLE 3": "openai",
   "TTS-1": "openai",
+  "DeepSeek V4 Flash": "deepseek",
+  DeepSeek: "deepseek",
   "Gemini 2.5 Flash": "gemini",
-  "Gemini 1.5 Flash": "gemini",
+  "Gemini 2.5 Flash Lite": "gemini",
   "Llama 3 (Cloudflare)": "cloudflare",
   DreamShaper: "cloudflare",
   "Flux Schnell": "cloudflare",
+  "Aura 2 (Cloudflare)": "cloudflare",
 };
 
 export default function AIModelNode({ id, data, isConnectable }: NodeProps) {

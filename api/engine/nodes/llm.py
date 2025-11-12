@@ -18,9 +18,12 @@ MODEL_TO_PROVIDER: dict[str, str] = {
     "Llama 3 (Cloudflare)": "cloudflare",
     "Gemini": "gemini",
     "Gemini 2.5 Flash": "gemini",
+    "Gemini 2.5 Flash Lite": "gemini",
     "Gemini 1.5 Flash": "gemini",
     "Gemini 1.5 Pro": "gemini",
-    "Deepseek": "openai",
+    "DeepSeek V4 Flash": "deepseek",
+    "DeepSeek": "deepseek",
+    "Deepseek": "deepseek",
 }
 
 

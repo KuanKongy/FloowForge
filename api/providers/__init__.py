@@ -5,6 +5,7 @@ from .base import BaseProvider
 from .openai_provider import OpenAIProvider
 from .gemini_provider import GeminiProvider
 from .cloudflare_provider import CloudflareProvider
+from .deepseek_provider import DeepSeekProvider
 
 
 _PROVIDERS: dict[str, BaseProvider] | None = None
@@ -17,8 +18,9 @@ def get_provider(name: str) -> BaseProvider | None:
             "openai": OpenAIProvider(),
             "gemini": GeminiProvider(),
             "cloudflare": CloudflareProvider(),
+            "deepseek": DeepSeekProvider(),
         }
     return _PROVIDERS.get(name)
 
 
-PROVIDER_NAMES = ("openai", "gemini", "cloudflare")
+PROVIDER_NAMES = ("openai", "gemini", "cloudflare", "deepseek")

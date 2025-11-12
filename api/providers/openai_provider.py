@@ -16,7 +16,6 @@ _MODEL_LABEL_TO_ID: dict[str, str] = {
     "gpt o3-mini": "gpt-4o-mini",
     "gpt-4o-mini": "gpt-4o-mini",
     "gpt-4.1-mini": "gpt-4.1-mini",
-    "deepseek": "gpt-4o-mini",  # DeepSeek not wired yet; fall back.
     "tts-1": "tts-1",
     "dalle 3": "dall-e-3",
     "dall-e-3": "dall-e-3",

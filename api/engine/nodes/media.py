@@ -24,6 +24,7 @@ IMAGE_MODEL_TO_PROVIDER: dict[str, str] = {
 }
 AUDIO_MODEL_TO_PROVIDER: dict[str, str] = {
     "TTS-1": "openai",
+    "Aura 2 (Cloudflare)": "cloudflare",
 }
 
 

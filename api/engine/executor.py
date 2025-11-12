@@ -214,7 +214,7 @@ async def run_flow(
 ) -> dict[str, Any]:
     """Execute a queued run end-to-end.
 
-    Called by the Arq worker, by the FastAPI ``BackgroundTasks`` fallback
+    Called by the Redis Streams worker, by the FastAPI ``BackgroundTasks`` fallback
     (when Redis is unavailable), and by ``run_flow_inline`` for subflows.
     """
     sc = SupabaseClient.as_service()

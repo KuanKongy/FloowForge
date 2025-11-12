@@ -175,7 +175,7 @@ export interface CustomNode {
 export interface Integration {
   id: string;
   user_id: string;
-  provider: "openai" | "gemini" | "cloudflare";
+  provider: "openai" | "gemini" | "cloudflare" | "deepseek";
   label: string;
   created_at: string;
 }
