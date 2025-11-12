@@ -17,7 +17,7 @@ flowforge/
 ## Stack
 
 - **Web:** Next.js 15, React 19, Tailwind v4, @xyflow/react 12, Supabase JS (Auth + Realtime), Framer Motion, wavesurfer.js
-- **API:** FastAPI, Pydantic v2, httpx, Arq (Redis), APScheduler, PyMuPDF, OpenAI/Gemini/Cloudflare Workers AI clients
+- **API:** FastAPI, Pydantic v2, httpx, Redis Streams worker, APScheduler, PyMuPDF, OpenAI/Gemini/Cloudflare Workers AI clients
 - **Data:** Supabase (Postgres + Auth + Storage + Realtime)
 
 ## Quick start
@@ -26,10 +26,12 @@ flowforge/
 2. Copy [`api/.env.example`](api/.env.example) to `api/.env` and fill in keys.
 3. Copy [`web/.env.example`](web/.env.example) to `web/.env.local` and fill in keys.
 4. Start Redis locally (`redis-server`) for the job queue.
-5. `cd api && pip install -r requirements.txt && uvicorn main:app --reload --port 5001` and in another terminal `python -m arq worker.WorkerSettings`.
+5. `pip install -r api/requirements.txt && uvicorn api.main:app --reload --port 5001` and in another terminal `python -m api.worker`.
 6. `cd web && npm install && npm run dev`.
 
 See each subdirectory's README for more details.
+
+For a deeper technical map, start with [`docs/README.md`](docs/README.md).
 
 ## Features
 
@@ -43,7 +45,7 @@ See each subdirectory's README for more details.
 - Floowbox-flavored UI: pink primary tokens, per-kind colored backend tiles, proximity-revealed handles, in-use direction dots, edge X delete badges, collapse/rename per node, framer-spring frontend/backend toggle.
 - Custom nodes: subflows (use a saved flow as a node) and Prompt Template builder
 - Built-in providers: OpenAI (chat + TTS + DALL-E 3), Google Gemini, Cloudflare Workers AI (Llama, DreamShaper), PDF text extraction
-- Inline-execution fallback: when no Arq worker is reachable the API runs flows in a FastAPI background task so dev / tests / small deployments stay functional without Redis.
+- Inline-execution fallback: when no Redis worker is reachable the API runs flows in a FastAPI background task so dev / tests / small deployments stay functional without Redis.
 
 ## Testing
 

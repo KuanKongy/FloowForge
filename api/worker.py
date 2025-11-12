@@ -5,7 +5,7 @@ Run with::
     python -m api.worker
 
 The worker blocks on ``XREADGROUP BLOCK`` so it issues ~120 Redis commands per
-hour when idle (vs arq's ~7200).  On crash, pending messages are recovered via
+hour when idle. On crash, pending messages are recovered via
 ``XAUTOCLAIM`` on the next startup.
 """
 from __future__ import annotations

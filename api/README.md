@@ -5,7 +5,7 @@ FastAPI service that backs FlowForge. Hosts:
 - REST endpoints (`/flows`, `/runs`, `/triggers`, `/custom-nodes`, `/integrations`, `/media`)
 - Public webhook trigger router (`/t/webhook/{token}`)
 - APScheduler for cron triggers
-- Arq worker (`worker.py`) that runs the execution engine
+- Redis Streams worker (`worker.py`) that runs the execution engine
 
 ## Local dev
 
@@ -29,12 +29,12 @@ python -m api.worker
   Supabase projects. The API normalizes `SUPABASE_URL`, so either
   `https://<ref>.supabase.co` or `https://<ref>.supabase.co/rest/v1` will work,
   but the project root URL is still preferred.
-- Runs are queued via Arq (`run_flow` job). The worker calls
+- Runs are queued via Redis Streams. The worker calls
   [`engine/executor.py`](engine/executor.py) which broadcasts each
   `node_started` / `node_succeeded` / `node_failed` event to the Supabase
   Realtime channel `run:{run_id}` — the editor subscribes to this channel.
 - Scheduler boots on app startup, loads active schedule triggers, and adds
-  cron jobs that enqueue runs via Arq.
+  cron jobs that enqueue runs via Redis Streams.
 
 ## AI model status
 
@@ -56,8 +56,8 @@ as of latest manual smoke test:
 
 ### When you see Cloudflare 401
 
-Cloudflare AI Gateway returns 401 for two distinct reasons; in both cases the
-gateway message gets surfaced in the editor's run sidebar:
+Cloudflare Workers AI returns 401 for two distinct reasons; in both cases the
+provider message gets surfaced in the editor's run sidebar:
 
 1. **Token scope missing**: API token doesn't have *Workers AI: Read* + *Workers
    AI: Edit*. Open Cloudflare Dashboard -> My Profile -> API Tokens, edit the
