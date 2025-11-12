@@ -10,7 +10,7 @@ import { useTopoStep, useInScope } from "../order-context";
 
 export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
   const rf = useReactFlow();
-  const { flow_id } = data as { flow_id?: string };
+  const { flow_id, isFrontend = true } = data as { flow_id?: string; isFrontend?: boolean };
   const [subflows, setSubflows] = useState<Flow[]>([]);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
@@ -44,7 +44,7 @@ export default function SubflowNode({ id, data, isConnectable }: NodeProps) {
       id={id}
       type="text"
       isConnectable={isConnectable}
-      hidden={false}
+      hidden={isFrontend}
       defaultName="Subflow"
       data={data as Record<string, unknown>}
       showWaitChip

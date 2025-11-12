@@ -38,11 +38,11 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
   if (!isFrontend) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
-        <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={false}>
-          <div className="backend-shell backend-shell--text" style={{ width: "36em", height: "252px" }}>
+        <div className="backend-shell backend-shell--text" style={{ width: "36em", height: "252px" }}>
+          <NodeHandleWrapper id={id} type="text" isConnectable={isConnectable} hidden={false}>
             <BackendBox kind="text" icon={<Type size={20} strokeWidth={1.5} />} label={ctrl.name} />
-          </div>
-        </NodeHandleWrapper>
+          </NodeHandleWrapper>
+        </div>
         {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
         {ctrl.renderWaitChip("top")}
         <ResumeOverlay nodeId={id} />

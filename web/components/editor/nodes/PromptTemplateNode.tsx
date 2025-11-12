@@ -10,7 +10,7 @@ import { useTopoStep, useInScope } from "../order-context";
 
 export default function PromptTemplateNode({ id, data, isConnectable }: NodeProps) {
   const rf = useReactFlow();
-  const { custom_node_id } = data as { custom_node_id?: string };
+  const { custom_node_id, isFrontend = true } = data as { custom_node_id?: string; isFrontend?: boolean };
   const [nodes, setNodes] = useState<CustomNode[]>([]);
   const step = useTopoStep(id);
   const inScope = useInScope(id);
@@ -48,7 +48,7 @@ export default function PromptTemplateNode({ id, data, isConnectable }: NodeProp
       id={id}
       type="text"
       isConnectable={isConnectable}
-      hidden={false}
+      hidden={isFrontend}
       defaultName="Custom Node"
       data={data as Record<string, unknown>}
       showWaitChip

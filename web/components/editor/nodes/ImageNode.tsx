@@ -19,11 +19,11 @@ export default function ImageNode({ id, data, isConnectable }: NodeProps) {
   if (!isFrontend) {
     return (
       <div className={`relative ${runStateClass(state)} ${inScope ? "scope-active" : "scope-dimmed"}`}>
-        <NodeHandleWrapper id={id} type="image" isConnectable={isConnectable} hidden={false}>
-          <div className="backend-shell backend-shell--image" style={{ width: "36em", height: "386px" }}>
+        <div className="backend-shell backend-shell--image" style={{ width: "36em", height: "386px" }}>
+          <NodeHandleWrapper id={id} type="image" isConnectable={isConnectable} hidden={false}>
             <BackendBox kind="image" icon={<ImageIcon size={20} strokeWidth={1.5} />} label={ctrl.name} />
-          </div>
-        </NodeHandleWrapper>
+          </NodeHandleWrapper>
+        </div>
         {step !== undefined && <span className="topo-badge" aria-label={`Step ${step}`}>{step}</span>}
         {ctrl.renderWaitChip("top")}
         <ResumeOverlay nodeId={id} />
