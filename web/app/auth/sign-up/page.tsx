@@ -16,7 +16,6 @@ function SignUpInner() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [oauthBusy, setOauthBusy] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,27 +41,6 @@ function SignUpInner() {
       router.refresh();
     } else {
       setInfo("Check your inbox to confirm your email.");
-    }
-  }
-
-  async function signUpWithGoogle() {
-    setOauthBusy(true);
-    setOauthError(null);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
-      });
-      if (error) {
-        setOauthError(error.message);
-        setOauthBusy(false);
-      }
-    } catch (e) {
-      setOauthError(e instanceof Error ? e.message : "Google sign-up failed");
-      setOauthBusy(false);
     }
   }
 
@@ -104,8 +82,10 @@ function SignUpInner() {
         </form>
         <div className="text-center text-xs text-[var(--muted-foreground)] my-4">or</div>
         {oauthError && <div className="text-sm text-red-500 mb-3">{oauthError}</div>}
-        <Button variant="outline" onClick={signUpWithGoogle} disabled={oauthBusy} className="w-full">
-          {oauthBusy ? "Redirecting…" : "Sign up with Google"}
+        <Button variant="outline" asChild className="w-full">
+          <a href={`/auth/google?next=${encodeURIComponent(next)}`}>
+            Sign up with Google
+          </a>
         </Button>
         <p className="mt-6 text-sm text-[var(--muted-foreground)] text-center">
           Already have an account?{" "}

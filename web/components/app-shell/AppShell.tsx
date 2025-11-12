@@ -111,7 +111,7 @@ function TopBar({ pathname }: { pathname: string }) {
       <div className="flex items-center gap-2 text-sm">
         <Sparkles size={16} className="text-[var(--primary)]" />
         <span className={label ? "text-[var(--muted-foreground)]" : "font-medium"}>
-          <BrandWordmark />
+          <TextWordmark />
         </span>
         {label && (
           <>
@@ -121,5 +121,14 @@ function TopBar({ pathname }: { pathname: string }) {
         )}
       </div>
     </header>
+  );
+}
+
+function TextWordmark() {
+  return (
+    <span className="inline-flex items-baseline leading-none">
+      <span className="text-[var(--primary)]">Flow</span>
+      <span>Forge</span>
+    </span>
   );
 }
