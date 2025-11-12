@@ -1,4 +1,16 @@
 FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
+
+ENV PIP_NO_CACHE_DIR=1
+
+COPY api/requirements-worker.txt ./api/requirements-worker.txt
+COPY api/requirements-runtime.txt ./api/requirements-runtime.txt
+RUN pip install -r api/requirements-worker.txt
+
 COPY api ./api
+
 CMD python -m api.worker

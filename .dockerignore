@@ -1,5 +1,14 @@
-node_modules
+.git
 .next
-.venv*
+node_modules
+web/node_modules
+web/.next
+api/.venv
+api/.pytest_cache
 __pycache__
+*.pyc
+.DS_Store
 .env
+api/.env
+web/.env
+web/.env.local
