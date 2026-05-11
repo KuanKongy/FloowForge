@@ -30,10 +30,7 @@ import datetime as _dt
 import json
 import logging
 import time
-from collections import defaultdict
 from typing import Any
-
-log = logging.getLogger(__name__)
 
 from ..db import SupabaseClient
 from .context import ExecutionContext
@@ -45,6 +42,8 @@ from .graph import (
     topo_order,
 )
 from .nodes import get_executor
+
+log = logging.getLogger(__name__)
 
 
 _MAX_CONCURRENCY = 8

@@ -480,7 +480,11 @@ function CreateTriggerWizard({
                         value={scheduleMode === "interval" ? intervalMinutes : delayMinutes}
                         onChange={(e) => {
                           const v = Math.min(60, Math.max(0, Number(e.target.value) || 0));
-                          scheduleMode === "interval" ? setIntervalMinutes(String(v)) : setDelayMinutes(String(v));
+                          if (scheduleMode === "interval") {
+                            setIntervalMinutes(String(v));
+                          } else {
+                            setDelayMinutes(String(v));
+                          }
                         }}
                       />
                       <span className="text-sm text-[var(--muted-foreground)]">m</span>
@@ -492,7 +496,11 @@ function CreateTriggerWizard({
                         value={scheduleMode === "interval" ? intervalSeconds : delaySeconds}
                         onChange={(e) => {
                           const v = Math.min(60, Math.max(0, Number(e.target.value) || 0));
-                          scheduleMode === "interval" ? setIntervalSeconds(String(v)) : setDelaySeconds(String(v));
+                          if (scheduleMode === "interval") {
+                            setIntervalSeconds(String(v));
+                          } else {
+                            setDelaySeconds(String(v));
+                          }
                         }}
                       />
                       <span className="text-sm text-[var(--muted-foreground)]">s</span>

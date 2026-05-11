@@ -25,7 +25,6 @@ from typing import Any
 import pytest
 
 from api.engine.executor import run_flow
-from api.engine.nodes import _REGISTRY as REGISTRY  # type: ignore[attr-defined]
 
 
 pytestmark = pytest.mark.asyncio
