@@ -1,6 +1,8 @@
 import { FlatCompat } from "@eslint/eslintrc";
+import { fileURLToPath } from "node:url";
 
-const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
+const rootDir = fileURLToPath(new URL(".", import.meta.url));
+const compat = new FlatCompat({ baseDirectory: rootDir });
 
 const config = [
   ...compat.config({

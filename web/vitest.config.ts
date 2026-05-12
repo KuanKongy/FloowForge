@@ -3,8 +3,7 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const rootDir = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
@@ -15,8 +14,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "."),
-      "@flowforge/shared": path.resolve(__dirname, "../packages/shared/src/index.ts"),
+      "@": rootDir,
+      "@flowforge/shared": path.resolve(rootDir, "../packages/shared/src/index.ts"),
     },
   },
 });
