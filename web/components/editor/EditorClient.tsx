@@ -19,7 +19,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import dynamic from "next/dynamic";
 import { Ghost } from "lucide-react";
 
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Flow, FlowVersion, NodeType } from "@flowforge/shared";
@@ -706,8 +705,9 @@ function Editor({ flowId }: { flowId: string }) {
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <div className="card-surface px-8 py-6 flex flex-col items-center gap-3">
                     <Ghost size={64} strokeWidth={1.3} className="text-[var(--font--light)]" />
-                    <div className="font-semibold text-2xl">
-                      <BrandWordmark />
+                    <div className="inline-flex items-baseline font-semibold text-2xl leading-none">
+                      <span className="text-[var(--primary)]">Floow</span>
+                      <span>Forge</span>
                     </div>
                     <div className="text-sm text-[var(--muted-foreground)] max-w-[20em] text-center">
                       This canvas is empty. Use the + button on the left to add your first node.

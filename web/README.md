@@ -1,4 +1,4 @@
-# FlowForge Web
+# FloowForge Web
 
 Next.js 15 (App Router) front-end.
 

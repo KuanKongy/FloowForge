@@ -1,4 +1,4 @@
-// Types shared between FlowForge web and api.
+// Types shared between FloowForge web and api.
 // Mirrors the Pydantic models in api/schemas.py.
 
 export type NodeType =

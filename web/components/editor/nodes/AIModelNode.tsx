@@ -24,7 +24,7 @@ import type { Integration } from "@flowforge/shared";
 /**
  * Direct port of the original Floowbox `AIModel` component (see
  * /Users/saikou/Documents/Projects/ReactProjects/Floowbox/frontend/app/components/models/AIModel.tsx)
- * with two adjustments to integrate with the FlowForge editor:
+ * with two adjustments to integrate with the FloowForge editor:
  * - The visible "name" is persisted to `data.name` via `useReactFlow().updateNodeData`
  *   instead of local state, so it round-trips across saves.
  * - The component reads inputs from `data` (the saved version) instead of
@@ -202,7 +202,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                     onMouseDown={(e) => e.stopPropagation()}
                     className="ai-model__input nodrag nopan w-full h-9 text-[0.85rem]"
                   >
-                    <option value="">FlowForge credits</option>
+                    <option value="">FloowForge credits</option>
                     {integrations
                       .filter((it) => it.provider === MODEL_PROVIDER[currentModel])
                       .map((it) => (

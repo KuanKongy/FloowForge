@@ -3,7 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
-  title: "FlowForge",
+  title: "FloowForge",
   description: "Build, save, and trigger AI workflows with no code.",
   icons: {
     icon: "/images/flowforge.png",

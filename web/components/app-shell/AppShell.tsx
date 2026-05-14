@@ -127,7 +127,7 @@ function TopBar({ pathname }: { pathname: string }) {
 function TextWordmark() {
   return (
     <span className="inline-flex items-baseline leading-none">
-      <span className="text-[var(--primary)]">Flow</span>
+      <span className="text-[var(--primary)]">Floow</span>
       <span>Forge</span>
     </span>
   );

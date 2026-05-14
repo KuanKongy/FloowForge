@@ -26,9 +26,9 @@ export default function IntegrationsPage() {
         <div>
           <h1 className="text-2xl font-semibold">Integrations</h1>
           <p className="text-sm text-[var(--muted-foreground)] mt-1 max-w-2xl">
-            Bring your own AI provider keys for the models FlowForge already supports.
+            Bring your own AI provider keys for the models FloowForge already supports.
             Platform-paid AI calls count toward workflow cost limits; calls made with your
-            own key do not consume FlowForge AI budget.
+            own key do not consume FloowForge AI budget.
           </p>
         </div>
         <Button onClick={() => setShowNew(true)}>
@@ -47,8 +47,8 @@ export default function IntegrationsPage() {
       )}
 
       <div className="grid gap-3 md:grid-cols-3 mb-6">
-        <InfoCard title="Platform default" body="Uses FlowForge credentials and counts AI calls toward workflow cost limits." />
-        <InfoCard title="User-paid calls" body="Your key pays the provider directly, so those AI calls are not limited by FlowForge AI spend." />
+        <InfoCard title="Platform default" body="Uses FloowForge credentials and counts AI calls toward workflow cost limits." />
+        <InfoCard title="User-paid calls" body="Your key pays the provider directly, so those AI calls are not limited by FloowForge AI spend." />
         <InfoCard title="Implemented models" body="Keys unlock supported providers only: OpenAI, Gemini, Cloudflare Workers AI, and DeepSeek." />
       </div>
 

@@ -47,7 +47,7 @@ export default function CustomNodesPage() {
       <div className="card-surface p-4 mb-6 flex items-start gap-3">
         <CheckCircle2 size={18} className="text-[var(--primary)] mt-0.5 shrink-0" />
         <div className="text-sm text-[var(--muted-foreground)]">
-          FlowForge does not have named output handles yet. The practical version is simpler:
+          FloowForge does not have named output handles yet. The practical version is simpler:
           rename upstream nodes clearly, then reference those names in your prompt. The custom node still
           emits one output that downstream nodes can use normally.
         </div>

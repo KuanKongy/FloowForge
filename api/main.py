@@ -1,4 +1,4 @@
-"""FlowForge FastAPI entrypoint.
+"""FloowForge FastAPI entrypoint.
 
 Run locally:
     uvicorn api.main:app --reload --port 5001
@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title="FlowForge API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="FloowForge API", version="0.1.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,

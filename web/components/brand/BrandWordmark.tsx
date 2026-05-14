@@ -20,7 +20,7 @@ export function BrandWordmark({
         className={cn("size-6 shrink-0 rounded-[7px]", iconClassName)}
       />
       <span className="inline-flex items-baseline">
-        <span className={cn("text-[var(--primary)]", flowClassName)}>Flow</span>
+        <span className={cn("text-[var(--primary)]", flowClassName)}>Floow</span>
         <span className={forgeClassName}>Forge</span>
       </span>
     </span>

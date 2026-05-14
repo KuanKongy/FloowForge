@@ -1,6 +1,6 @@
-# FlowForge API
+# FloowForge API
 
-FastAPI service that backs FlowForge. Hosts:
+FastAPI service that backs FloowForge. Hosts:
 
 - REST endpoints (`/flows`, `/runs`, `/triggers`, `/custom-nodes`, `/integrations`, `/media`)
 - Public webhook trigger router (`/t/webhook/{token}`)

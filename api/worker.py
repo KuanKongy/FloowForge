@@ -196,7 +196,7 @@ def main() -> None:
     )
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
-    log.info("FlowForge worker starting (PID %d)", os.getpid())
+    log.info("FloowForge worker starting (PID %d)", os.getpid())
     asyncio.run(_main_loop())
     log.info("Worker shut down cleanly")
 

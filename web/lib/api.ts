@@ -2,7 +2,15 @@
 
 import { createSupabaseBrowserClient } from "./supabase/client";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+const DEFAULT_API_URL = "http://localhost:5001";
+
+function normalizeApiUrl(value: string | undefined): string {
+  const url = value?.trim();
+  if (!url || url === "/") return DEFAULT_API_URL;
+  return url.replace(/\/+$/, "");
+}
+
+const API = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
 // Memoize the resolved access token so repeated requests don't issue a fresh
 // `getSession()` per call. Supabase keeps the token in localStorage and the
@@ -97,7 +105,14 @@ async function formatError(method: string, path: string, res: Response): Promise
   } catch {
     /* ignore body read errors */
   }
-  detail = detail.replace(/\s+/g, " ").trim().slice(0, 600);
+  const contentType = res.headers.get("content-type") ?? "";
+  const receivedHtml = contentType.includes("text/html") || /^<!doctype html/i.test(detail);
+  detail = detail.replace(/\s+/g, " ").trim().slice(0, receivedHtml ? 180 : 600);
+  if (receivedHtml) {
+    detail =
+      `received an HTML page from ${res.url || "the request URL"} instead of the FastAPI JSON response. ` +
+      `On Vercel, set NEXT_PUBLIC_API_URL to the deployed FastAPI origin (${API} is currently baked into this build) and redeploy.`;
+  }
   return detail
     ? `${method} ${path} failed (${res.status}): ${detail}`
     : `${method} ${path} failed: ${res.status}`;

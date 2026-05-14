@@ -1,8 +1,8 @@
-# FlowForge
+# FloowForge
 
 A no-code AI workflow platform: drag-and-drop nodes on a canvas, save flows to your account, expose them via webhooks or schedules, and compose larger pipelines with subflows and prompt-template custom nodes.
 
-FlowForge is the successor to Floowbox. The product is rebuilt on a server-side execution engine so flows can run from anywhere (manual button, public webhook, or cron) and stream live results back to the canvas.
+FloowForge is the successor to Floowbox. The product is rebuilt on a server-side execution engine so flows can run from anywhere (manual button, public webhook, or cron) and stream live results back to the canvas.
 
 ## Layout
 
