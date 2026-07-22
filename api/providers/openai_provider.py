@@ -36,6 +36,19 @@ _MODEL_LABEL_TO_ID: dict[str, str] = {
 # failing the run.
 _GPT_IMAGE_SIZES = frozenset({"1024x1024", "1024x1536", "1536x1024", "auto"})
 
+# Semantic aspect tokens the Image AI node emits, mapped onto the gpt-image
+# sizes. ``auto`` lets the model choose the best shape for the prompt instead
+# of squeezing every scene into a square — a square output made wide/tall
+# subjects look cropped, which is exactly what users reported.
+_ASPECT_TO_GPT_IMAGE_SIZE: dict[str, str] = {
+    "auto": "auto",
+    "square": "1024x1024",
+    "landscape": "1536x1024",
+    "wide": "1536x1024",
+    "portrait": "1024x1536",
+    "tall": "1024x1536",
+}
+
 
 def _normalize_model(label: str | None, default: str) -> str:
     if not label:
@@ -45,13 +58,25 @@ def _normalize_model(label: str | None, default: str) -> str:
 
 
 def _coerce_image_size(size: Any, model: str) -> str:
-    value = str(size or "1024x1024").strip().lower()
-    if not model.startswith("gpt-image") or value in _GPT_IMAGE_SIZES:
+    """Resolve a UI aspect/size hint to a size the target model accepts.
+
+    ``size`` may be a semantic token (``auto``/``square``/``landscape``/
+    ``portrait``), an explicit ``WxH`` string, or ``None``. When nothing is
+    specified we default to ``auto`` so gpt-image picks the shape that fits the
+    prompt rather than cropping it into a square.
+    """
+    value = str(size or "auto").strip().lower()
+    if not model.startswith("gpt-image"):
+        # DALL-E-era models keep whatever explicit size the caller asked for.
+        return "1024x1024" if value == "auto" else value
+    if value in _ASPECT_TO_GPT_IMAGE_SIZE:
+        return _ASPECT_TO_GPT_IMAGE_SIZE[value]
+    if value in _GPT_IMAGE_SIZES:
         return value
     try:
         width, height = (int(part) for part in value.split("x", 1))
     except ValueError:
-        return "1024x1024"
+        return "auto"
     if width > height:
         return "1536x1024"
     if height > width:
@@ -148,7 +173,7 @@ class OpenAIProvider(BaseProvider):
         params: dict[str, Any] = {
             "model": model,
             "prompt": str(prompt or ""),
-            "size": _coerce_image_size(options.get("size"), model),
+            "size": _coerce_image_size(options.get("size") or options.get("aspect"), model),
             "n": 1,
         }
         # ``gpt-image-*`` always returns base64 and rejects ``response_format``

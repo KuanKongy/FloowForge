@@ -47,6 +47,12 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     options.setdefault("voice", data.get("voice"))
     options.setdefault("speed", data.get("speed"))
     options.setdefault("negativePrompt", data.get("negativePrompt"))
+    # Image shape: the node stores a semantic aspect (auto/square/landscape/
+    # portrait); providers translate it to their own size params. Without it,
+    # OpenAI defaulted to a square that cropped wide/tall subjects.
+    options.setdefault("aspect", data.get("aspect"))
+    if data.get("size") is not None:
+        options.setdefault("size", data.get("size"))
     if data.get("prompt") is not None:
         options.setdefault("prompt", data.get("prompt"))
     if data.get("model") is not None:

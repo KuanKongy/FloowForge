@@ -8,6 +8,7 @@ user-info.
 """
 from __future__ import annotations
 
+import json
 from contextlib import ExitStack
 from unittest.mock import patch
 from typing import Any
@@ -480,3 +481,72 @@ async def test_openai_image_coerces_legacy_dalle_sizes():
             options={"model": "DALLE 3", "size": "1792x1024"},
         )
     assert captured["size"] == "1536x1024"
+
+
+@pytest.mark.asyncio
+async def test_openai_image_defaults_to_auto_not_square():
+    """No aspect hint -> ``auto`` so gpt-image sizes the scene to the prompt.
+
+    Forcing ``1024x1024`` cropped wide/tall subjects into a square, which is the
+    "images are cropped, not full" report.
+    """
+    from api.providers.openai_provider import OpenAIProvider
+
+    provider = OpenAIProvider()
+    captured: dict = {}
+    _stub_openai_images(provider, captured)
+
+    with _settings_patch():
+        await provider.generate(
+            input="a wide mountain panorama",
+            input_type="text",
+            output_type="image",
+            options={"model": "GPT Image 1"},
+        )
+    assert captured["size"] == "auto"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "aspect,expected",
+    [("square", "1024x1024"), ("landscape", "1536x1024"), ("portrait", "1024x1536")],
+)
+async def test_openai_image_maps_aspect_tokens(aspect, expected):
+    from api.providers.openai_provider import OpenAIProvider
+
+    provider = OpenAIProvider()
+    captured: dict = {}
+    _stub_openai_images(provider, captured)
+
+    with _settings_patch():
+        await provider.generate(
+            input="a subject",
+            input_type="text",
+            output_type="image",
+            options={"model": "GPT Image 1", "aspect": aspect},
+        )
+    assert captured["size"] == expected
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_image_uses_aspect_dimensions():
+    """A portrait aspect must widen/tallen the request, not stay 800x600."""
+    provider = CloudflareProvider()
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"result": {"image": "aGVsbG8="}},
+            headers={"content-type": "application/json"},
+            request=req,
+        )
+
+    with _settings_patch(), _stub_async_client(respond) as stub:
+        await provider.generate(
+            input="a cat",
+            input_type="text",
+            output_type="image",
+            options={"model": "DreamShaper", "aspect": "portrait"},
+        )
+    body = json.loads(stub.calls[-1].content.decode())
+    assert (body["width"], body["height"]) == (832, 1216)

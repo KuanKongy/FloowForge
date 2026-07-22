@@ -113,6 +113,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
     maxLength = 200,
     prompt = "",
     negativePrompt = "",
+    aspect = "auto",
     voice = "alloy",
     speed = 1,
     name,
@@ -125,6 +126,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
     maxLength?: number;
     prompt?: string;
     negativePrompt?: string;
+    aspect?: string;
     voice?: string;
     speed?: number;
     name?: string;
@@ -248,6 +250,21 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                     className="ai-model__input nodrag nopan nowheel node-scroll leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
                     placeholder="What not to include in the generated image."
                   />
+                </Field>
+              )}
+              {type === "image" && (
+                <Field label="Aspect ratio">
+                  <select
+                    value={aspect}
+                    onChange={(e) => set("aspect", e.target.value)}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="ai-model__input nodrag nopan w-full h-9 text-[0.85rem]"
+                  >
+                    <option value="auto">Auto (fit the prompt)</option>
+                    <option value="square">Square — 1:1</option>
+                    <option value="landscape">Landscape — 3:2</option>
+                    <option value="portrait">Portrait — 2:3</option>
+                  </select>
                 </Field>
               )}
               {type !== "file" && (

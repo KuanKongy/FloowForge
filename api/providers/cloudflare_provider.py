@@ -34,6 +34,43 @@ _AUDIO_LABEL_TO_ID: dict[str, str] = {
     "@cf/deepgram/aura-1": "@cf/deepgram/aura-1",
 }
 
+# Aspect token -> (width, height) for the diffusion models. Dimensions are
+# multiples of 64 and stay within the ~1 MP budget Workers AI image models
+# expect. ``auto`` has no model-side meaning here, so it maps to square.
+_CF_ASPECT_DIMS: dict[str, tuple[int, int]] = {
+    "auto": (1024, 1024),
+    "square": (1024, 1024),
+    "landscape": (1216, 832),
+    "wide": (1216, 832),
+    "portrait": (832, 1216),
+    "tall": (832, 1216),
+}
+
+
+def _cf_image_dims(options: dict[str, Any]) -> tuple[int, int]:
+    """Resolve the output dimensions from an explicit size or an aspect hint.
+
+    Explicit ``width``/``height`` win; otherwise a semantic ``aspect`` token or
+    a ``WxH`` ``size`` string is honoured; failing everything we default to a
+    1024x1024 square so nothing gets cropped into the old 800x600 letterbox.
+    """
+    width = options.get("width")
+    height = options.get("height")
+    if width and height:
+        return int(width), int(height)
+    aspect = str(options.get("aspect") or "").strip().lower()
+    if aspect in _CF_ASPECT_DIMS:
+        return _CF_ASPECT_DIMS[aspect]
+    size = str(options.get("size") or "").strip().lower()
+    if "x" in size:
+        try:
+            w, h = (int(part) for part in size.split("x", 1))
+            return w, h
+        except ValueError:
+            pass
+    return 1024, 1024
+
+
 _IMAGE_LABEL_TO_ID: dict[str, str] = {
     "dreamshaper": "@cf/lykon/dreamshaper-8-lcm",
     "@cf/lykon/dreamshaper-8-lcm": "@cf/lykon/dreamshaper-8-lcm",
@@ -176,10 +213,11 @@ class CloudflareProvider(BaseProvider):
     async def _image(self, input: Any, options: dict[str, Any]) -> ProviderResult:
         model = _normalize_image_model(options.get("model"), "@cf/lykon/dreamshaper-8-lcm")
         prompt = input if isinstance(input, str) and input.strip() else (options.get("prompt") or "")
+        width, height = _cf_image_dims(options)
         body: dict[str, Any] = {
             "prompt": str(prompt or ""),
-            "height": int(options.get("height") or 600),
-            "width": int(options.get("width") or 800),
+            "width": width,
+            "height": height,
         }
         if options.get("negativePrompt"):
             body["negative_prompt"] = options["negativePrompt"]
