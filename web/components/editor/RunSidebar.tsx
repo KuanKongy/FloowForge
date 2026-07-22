@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronRight, CircleSlash, Loader2, X } from "lucide-react";
 import type { Node } from "@xyflow/react";
+import { isAudioValue, isImageValue } from "@/lib/media";
 import type { NodeRunState } from "./run-state-context";
 
 export type RunEvent = {
@@ -293,11 +294,10 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 function ValueBlock({ label, value }: { label: string; value: unknown }) {
   const [showRaw, setShowRaw] = useState(false);
-  const isImage =
-    typeof value === "string" &&
-    (value.startsWith("data:image/") || /\.(png|jpg|jpeg|gif|webp)(\?|$)/i.test(value));
+  const isImage = isImageValue(value);
+  const isAudio = isAudioValue(value);
   const isUrl =
-    typeof value === "string" && /^https?:\/\//i.test(value) && !isImage;
+    typeof value === "string" && /^https?:\/\//i.test(value) && !isImage && !isAudio;
 
   // The "raw" view of huge data URLs can be megabytes of base64 even after
   // truncation; cap the displayed string at ~4 KB and add a clear "+N more"
@@ -315,7 +315,7 @@ function ValueBlock({ label, value }: { label: string; value: unknown }) {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-[var(--muted-foreground)]">{label}</span>
-        {(isImage || isUrl || typeof value === "object" || tooLong) && (
+        {(isImage || isAudio || isUrl || typeof value === "object" || tooLong) && (
           <button
             onClick={() => setShowRaw((s) => !s)}
             className="text-xs text-[var(--primary)] hover:underline"
@@ -331,6 +331,8 @@ function ValueBlock({ label, value }: { label: string; value: unknown }) {
           alt="Output preview"
           className="max-h-[360px] rounded-[10px] border border-[var(--border)] object-contain bg-[var(--muted)]"
         />
+      ) : !showRaw && isAudio ? (
+        <audio controls src={value as string} className="w-full" />
       ) : !showRaw && isUrl ? (
         <a
           href={value as string}

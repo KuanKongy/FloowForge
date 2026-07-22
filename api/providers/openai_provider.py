@@ -12,14 +12,29 @@ from .base import BaseProvider, ProviderResult
 
 
 # Friendly UI labels -> actual OpenAI model ids.
+#
+# ``dall-e-3`` was retired from the Images API — it now answers
+# "The model 'dall-e-3' does not exist" — so every saved flow that still
+# carries the old label is remapped onto ``gpt-image-1``.
 _MODEL_LABEL_TO_ID: dict[str, str] = {
     "gpt o3-mini": "gpt-4o-mini",
     "gpt-4o-mini": "gpt-4o-mini",
     "gpt-4.1-mini": "gpt-4.1-mini",
     "tts-1": "tts-1",
-    "dalle 3": "dall-e-3",
-    "dall-e-3": "dall-e-3",
+    "dalle 3": "gpt-image-1",
+    "dall-e 3": "gpt-image-1",
+    "dall-e-3": "gpt-image-1",
+    "dalle 2": "gpt-image-1",
+    "dall-e-2": "gpt-image-1",
+    "gpt image 1": "gpt-image-1",
+    "gpt-image-1": "gpt-image-1",
+    "gpt-image-1-mini": "gpt-image-1-mini",
 }
+
+# The only sizes ``gpt-image-*`` accepts. DALL-E-era sizes (512x512,
+# 1792x1024, …) are coerced to the closest supported aspect ratio rather than
+# failing the run.
+_GPT_IMAGE_SIZES = frozenset({"1024x1024", "1024x1536", "1536x1024", "auto"})
 
 
 def _normalize_model(label: str | None, default: str) -> str:
@@ -27,6 +42,21 @@ def _normalize_model(label: str | None, default: str) -> str:
         return default
     key = str(label).strip().lower()
     return _MODEL_LABEL_TO_ID.get(key, label)
+
+
+def _coerce_image_size(size: Any, model: str) -> str:
+    value = str(size or "1024x1024").strip().lower()
+    if not model.startswith("gpt-image") or value in _GPT_IMAGE_SIZES:
+        return value
+    try:
+        width, height = (int(part) for part in value.split("x", 1))
+    except ValueError:
+        return "1024x1024"
+    if width > height:
+        return "1536x1024"
+    if height > width:
+        return "1024x1536"
+    return "1024x1024"
 
 
 class OpenAIProvider(BaseProvider):
@@ -114,13 +144,18 @@ class OpenAIProvider(BaseProvider):
 
     async def _image(self, input: Any, options: dict[str, Any]) -> ProviderResult:
         prompt = input if isinstance(input, str) and input.strip() else (options.get("prompt") or "")
+        model = _normalize_model(options.get("model"), "gpt-image-1")
         params: dict[str, Any] = {
-            "model": _normalize_model(options.get("model"), "dall-e-3"),
+            "model": model,
             "prompt": str(prompt or ""),
-            "size": options.get("size") or "1024x1024",
-            "response_format": "b64_json",
+            "size": _coerce_image_size(options.get("size"), model),
             "n": 1,
         }
+        # ``gpt-image-*`` always returns base64 and rejects ``response_format``
+        # outright ("Unknown parameter: 'response_format'"), which is what made
+        # every image run fail. Only the older DALL-E models need it.
+        if not model.startswith("gpt-image"):
+            params["response_format"] = "b64_json"
         result = await self._client_for(options).images.generate(**params)
         b64 = result.data[0].b64_json or ""
         if not b64:

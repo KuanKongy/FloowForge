@@ -182,9 +182,52 @@ async def test_cloudflare_normalizes_ui_label_for_text():
         )
     assert stub.calls
     url = str(stub.calls[-1].url)
-    assert "@cf/meta/llama-3-8b-instruct" in url
+    # llama-3-8b was deprecated on 2026-05-30 and now answers HTTP 410, so the
+    # label — and the retired model id itself — must resolve to the 3.1 build.
+    assert "@cf/meta/llama-3.1-8b-instruct-fp8" in url
     # The literal UI label must NOT have been concatenated.
     assert "Llama" not in url
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_remaps_deprecated_llama_3_model_id():
+    """Graphs saved before the deprecation carry the raw ``llama-3-8b`` id."""
+    provider = CloudflareProvider()
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"result": {"response": "ok"}}, request=req)
+
+    with _settings_patch(), _stub_async_client(respond) as stub:
+        await provider.generate(
+            input="hi",
+            input_type="text",
+            output_type="text",
+            options={"model": "@cf/meta/llama-3-8b-instruct"},
+        )
+    assert "@cf/meta/llama-3.1-8b-instruct-fp8" in str(stub.calls[-1].url)
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_reads_openai_shaped_text_response():
+    """Newer Workers AI models answer with ``choices[0].message.content``
+    instead of ``response``; reading only the latter yielded empty output."""
+    provider = CloudflareProvider()
+
+    def respond(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"result": {"choices": [{"message": {"content": "hello there"}}]}},
+            request=req,
+        )
+
+    with _settings_patch(), _stub_async_client(respond):
+        result = await provider.generate(
+            input="hi",
+            input_type="text",
+            output_type="text",
+            options={"model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast"},
+        )
+    assert result.text == "hello there"
 
 
 @pytest.mark.asyncio
@@ -283,7 +326,13 @@ def test_gemini_normalizes_ui_label():
     assert _normalize_model("Gemini 2.5 Flash") == "gemini-2.5-flash"
     assert _normalize_model("Gemini 2.5 Flash Lite") == "gemini-2.5-flash-lite"
     assert _normalize_model("Gemini 1.5 Flash") == "gemini-2.5-flash-lite"
-    assert _normalize_model("gemini-2.0-flash") == "gemini-2.0-flash"
+    # 2.0 and 1.5 were retired upstream (404 on v1beta), so saved labels must
+    # resolve forward to a live model rather than failing the run.
+    assert _normalize_model("gemini-2.0-flash") == "gemini-2.5-flash"
+    # gemini-2.5-pro answers "no longer available to new users", so both the
+    # 1.5 and 2.5 Pro labels resolve to the rolling -latest alias.
+    assert _normalize_model("Gemini 1.5 Pro") == "gemini-pro-latest"
+    assert _normalize_model("Gemini 2.5 Pro") == "gemini-pro-latest"
     # Unknown labels are passed through verbatim so users can opt into
     # newer model ids without needing a code change.
     assert _normalize_model("gemini-3.0-flash") == "gemini-3.0-flash"
@@ -365,3 +414,69 @@ async def test_openai_uses_options_prompt_when_input_empty():
     assert captured["messages"][-1]["content"] == "Write a haiku"
     # 0.5 (UI) -> 1.0 (OpenAI scale 0..2).
     assert captured["temperature"] == 1.0
+
+
+def _stub_openai_images(provider, captured: dict):
+    """Replace ``client.images.generate`` with a recorder returning 1x1 b64."""
+
+    class _Datum:
+        b64_json = "aGVsbG8="  # b64("hello")
+
+    class _Result:
+        data = [_Datum()]
+
+    async def _generate(**params):
+        captured.update(params)
+        return _Result()
+
+    class _Client:
+        def __init__(self):
+            self.images = type("I", (), {"generate": staticmethod(_generate)})()
+
+    provider._client = _Client()
+
+
+@pytest.mark.asyncio
+async def test_openai_image_omits_response_format_and_retires_dalle():
+    """Every image run failed with ``Unknown parameter: 'response_format'``.
+
+    The Images API dropped that parameter and retired ``dall-e-3`` entirely
+    ("The model 'dall-e-3' does not exist"), so the saved ``DALLE 3`` label has
+    to resolve to ``gpt-image-1`` and the parameter must not be sent.
+    """
+    from api.providers.openai_provider import OpenAIProvider
+
+    provider = OpenAIProvider()
+    captured: dict = {}
+    _stub_openai_images(provider, captured)
+
+    with _settings_patch():
+        result = await provider.generate(
+            input="a red cube",
+            input_type="text",
+            output_type="image",
+            options={"model": "DALLE 3"},
+        )
+
+    assert "response_format" not in captured
+    assert captured["model"] == "gpt-image-1"
+    assert result.blob == b"hello"
+
+
+@pytest.mark.asyncio
+async def test_openai_image_coerces_legacy_dalle_sizes():
+    """``gpt-image-1`` rejects DALL-E-era sizes; map them by aspect ratio."""
+    from api.providers.openai_provider import OpenAIProvider
+
+    provider = OpenAIProvider()
+    captured: dict = {}
+    _stub_openai_images(provider, captured)
+
+    with _settings_patch():
+        await provider.generate(
+            input="a red cube",
+            input_type="text",
+            output_type="image",
+            options={"model": "DALLE 3", "size": "1792x1024"},
+        )
+    assert captured["size"] == "1536x1024"

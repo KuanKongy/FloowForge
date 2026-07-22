@@ -46,13 +46,21 @@ as of latest manual smoke test:
 | ------- | ---------------------- | --------------- | -------------------------------------------------------------------------------------- |
 | Text    | `GPT o3-mini`          | Working         | Mapped to `gpt-4o-mini` on the OpenAI side.                                            |
 | Text    | `GPT-4o-mini`          | Working         |                                                                                        |
-| Text    | `Gemini`               | Working         | Normalized to `gemini-2.0-flash`. Older "Gemini" label without normalization 400'd.    |
-| Text    | `Llama 3 (Cloudflare)` | Account-gated   | Works on accounts that have Workers AI: Read+Edit scope on the API token. See below.  |
-| Image   | `DALLE 3`              | Working         | Returned as `data:image/png;base64,...`.                                               |
+| Text    | `Gemini 2.5 Flash`     | Working         | Normalized to `gemini-2.5-flash`. 2.0 / 1.5 ids are retired upstream and remap forward. |
+| Text    | `Llama 3.1 (Cloudflare)` | Account-gated | `llama-3-8b` was deprecated 2026-05-30 (HTTP 410); all Llama labels map to `@cf/meta/llama-3.1-8b-instruct-fp8`. Needs Workers AI: Read+Edit on the token. |
+| Image   | `GPT Image 1`          | Working         | `dall-e-3` was retired upstream, so the old `DALLE 3` label maps to `gpt-image-1`.      |
 | Image   | `DreamShaper`          | Account-gated   | 401 from Cloudflare unless `@cf/lykon/dreamshaper-8-lcm` is enabled on the account.    |
 | Image   | `Midjourney`           | No CF Workers AI mapping — falls back to Stable Diffusion XL. Manual configuration needed. |
 | Audio   | `TTS-1`                | Working         | OpenAI text-to-speech.                                                                 |
 | File    | `PDF`                  | Working         | Uses pdfplumber server-side.                                                           |
+
+Generated images and audio are uploaded to the public `run-media` Supabase
+Storage bucket and the node returns the object URL. They used to be inlined as
+base64 `data:` URLs, which exceeded the ~256 KB Supabase Realtime message limit
+— the `node_succeeded` broadcast was rejected with 422 and the canvas silently
+never rendered the result. The bucket is created on first upload, so no manual
+provisioning is needed; `supabase/migrations/0002_run_media_bucket.sql` mirrors
+it for projects built from SQL alone.
 
 ### When you see Cloudflare 401
 

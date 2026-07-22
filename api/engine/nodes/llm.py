@@ -16,6 +16,7 @@ MODEL_TO_PROVIDER: dict[str, str] = {
     "GPT-4.1-mini": "openai",
     "Ollama": "cloudflare",
     "Llama 3 (Cloudflare)": "cloudflare",
+    "Llama 3.1 (Cloudflare)": "cloudflare",
     "Gemini": "gemini",
     "Gemini 2.5 Flash": "gemini",
     "Gemini 2.5 Flash Lite": "gemini",

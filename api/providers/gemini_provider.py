@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from google import genai
 
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
+
+log = logging.getLogger(__name__)
 
 
 # UI labels (the strings the AIModelNode dropdown ships) -> google-genai
@@ -19,18 +22,39 @@ _LABEL_TO_ID: dict[str, str] = {
     "gemini 2.5 flash": "gemini-2.5-flash",
     "gemini 2.5 flash lite": "gemini-2.5-flash-lite",
     "gemini 2.5 flash-lite": "gemini-2.5-flash-lite",
-    "gemini 2.5 pro": "gemini-2.5-pro",
-    "gemini 2.0": "gemini-2.0-flash",
-    "gemini 2.0 flash": "gemini-2.0-flash",
+    # ``gemini-2.5-pro`` answers "no longer available to new users"; the
+    # rolling ``-latest`` alias is the accessible Pro tier.
+    "gemini 2.5 pro": "gemini-pro-latest",
+    "gemini-2.5-pro": "gemini-pro-latest",
+    "gemini pro": "gemini-pro-latest",
+    "gemini-pro-latest": "gemini-pro-latest",
+    # 2.0 and 1.5 are retired ("no longer available" / 404 on v1beta), so the
+    # old labels now resolve to their closest live 2.5 equivalent.
+    "gemini 2.0": "gemini-2.5-flash",
+    "gemini 2.0 flash": "gemini-2.5-flash",
     "gemini 1.5 flash": "gemini-2.5-flash-lite",
-    "gemini 1.5 pro": "gemini-1.5-pro",
+    "gemini 1.5 pro": "gemini-pro-latest",
     "gemini-flash-latest": "gemini-flash-latest",
     "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
     "gemini-2.5-flash": "gemini-2.5-flash",
-    "gemini-2.0-flash": "gemini-2.0-flash",
+    "gemini-2.0-flash": "gemini-2.5-flash",
     "gemini-1.5-flash": "gemini-2.5-flash-lite",
-    "gemini-1.5-pro": "gemini-1.5-pro",
+    "gemini-1.5-pro": "gemini-pro-latest",
 }
+
+# Gemini answers 503 UNAVAILABLE ("experiencing high demand") often enough that
+# a single spike would otherwise fail a whole run. Retry a couple of times
+# before giving up.
+_RETRY_DELAYS = (1.0, 3.0)
+
+
+def _is_transient(exc: Exception) -> bool:
+    """True for overload / rate-limit errors that are worth retrying."""
+    code = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+    if code in (429, 500, 502, 503, 504):
+        return True
+    text = str(exc)
+    return any(marker in text for marker in ("503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "429"))
 
 
 def _normalize_model(label: str | None, default: str = "gemini-flash-latest") -> str:
@@ -113,5 +137,19 @@ class GeminiProvider(BaseProvider):
             response = self._client_for(options).models.generate_content(model=model, contents=contents)
             return response.text or ""
 
-        text = await asyncio.to_thread(_run)
+        for attempt in range(len(_RETRY_DELAYS) + 1):
+            try:
+                text = await asyncio.to_thread(_run)
+                break
+            except Exception as exc:
+                if attempt >= len(_RETRY_DELAYS) or not _is_transient(exc):
+                    raise
+                delay = _RETRY_DELAYS[attempt]
+                log.warning(
+                    "Gemini %s unavailable (%s); retrying in %.0fs",
+                    model,
+                    str(exc)[:120],
+                    delay,
+                )
+                await asyncio.sleep(delay)
         return ProviderResult(text=text)

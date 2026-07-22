@@ -71,6 +71,21 @@ const nodeTypes = {
 
 const AI_TYPES = new Set<NodeType>(["llm", "imagegen", "audiogen", "fileparser"]);
 const TRIGGER_TYPES = new Set<NodeType>(["button", "webhook_in", "manual_in", "schedule_in"]);
+/** The middle-ellipsis marker the executor writes when it trims a large value
+ * before persisting it to ``run_events``. Such a value is a lossy preview, not
+ * something we can render — an inline data URL cut this way yields a broken
+ * <img>. */
+const TRUNCATION_MARKER = "…(+";
+
+function isTruncatedPayload(value: unknown): boolean {
+  if (typeof value === "string") return value.includes(TRUNCATION_MARKER);
+  if (Array.isArray(value)) return value.some(isTruncatedPayload);
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(isTruncatedPayload);
+  }
+  return false;
+}
+
 /** Display nodes that should mirror the executor's output back into their
  * own ``data.value`` so the canvas reflects the current run's result. */
 const DISPLAY_TYPES = new Set<NodeType>([
@@ -297,7 +312,16 @@ function Editor({ flowId }: { flowId: string }) {
           if (status === "succeeded") {
             events.forEach((e) => {
               const out = (e.payload as Record<string, unknown> | undefined)?.output;
-              if (e.kind === "node_succeeded" && e.node_id && typeof out === "string") {
+              if (e.kind !== "node_succeeded" || !e.node_id) return;
+              // Restore results onto the canvas when a finished run is
+              // reopened. Persisted event payloads are truncated by the
+              // executor, so anything carrying the truncation marker (or a
+              // legacy inline data URL, which is always truncated) is skipped
+              // rather than rendered as a broken image.
+              if (out !== undefined && !isTruncatedPayload(out)) {
+                applyOutputToDisplayNode(e.node_id, out);
+              }
+              if (typeof out === "string") {
                 applyAiOutputToParentChats(e.node_id, out);
               }
             });

@@ -94,7 +94,7 @@ Each node declares a `wait_strategy`:
 | webhook_in       | trigger_input     | External HTTP trigger                    |
 | manual_in        | trigger_input     | API-driven trigger                       |
 | llm              | llm               | Text AI (GPT, Gemini, Llama)             |
-| imagegen         | media             | Image generation (DALL-E, Flux)          |
+| imagegen         | media             | Image generation (GPT Image 1, Flux)     |
 | audiogen         | media             | Audio generation (TTS)                   |
 | fileparser       | fileparser        | File parsing (PDF → text)                |
 | subflow          | subflow           | Run another flow as a step               |

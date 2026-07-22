@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { isAudioValue, isImageValue } from "@/lib/media";
 
 type RunResult = {
   id?: string;
@@ -120,7 +121,7 @@ function OutputDisplay({ value }: { value: unknown }) {
   }
 
   if (typeof value === "string") {
-    if (value.startsWith("data:image/")) {
+    if (isImageValue(value)) {
       return (
         <img
           src={value}
@@ -129,7 +130,7 @@ function OutputDisplay({ value }: { value: unknown }) {
         />
       );
     }
-    if (value.startsWith("data:audio/")) {
+    if (isAudioValue(value)) {
       return <audio controls src={value} className="w-full" />;
     }
     return (

@@ -10,11 +10,20 @@ from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
 
+# ``@cf/meta/llama-3-8b-instruct`` was deprecated on 2026-05-30 and now returns
+# HTTP 410, so every label that used to point at it — including the raw model
+# id saved in older graphs — is remapped onto the 3.1 replacement.
+_LLAMA_DEFAULT = "@cf/meta/llama-3.1-8b-instruct-fp8"
+
 _TEXT_LABEL_TO_ID: dict[str, str] = {
-    "llama 3 (cloudflare)": "@cf/meta/llama-3-8b-instruct",
-    "ollama": "@cf/meta/llama-3-8b-instruct",  # legacy label
-    "llama 3": "@cf/meta/llama-3-8b-instruct",
-    "@cf/meta/llama-3-8b-instruct": "@cf/meta/llama-3-8b-instruct",
+    "llama 3 (cloudflare)": _LLAMA_DEFAULT,
+    "llama 3.1 (cloudflare)": _LLAMA_DEFAULT,
+    "ollama": _LLAMA_DEFAULT,  # legacy label
+    "llama 3": _LLAMA_DEFAULT,
+    "llama 3.1": _LLAMA_DEFAULT,
+    "@cf/meta/llama-3-8b-instruct": _LLAMA_DEFAULT,
+    "@cf/meta/llama-3.1-8b-instruct": _LLAMA_DEFAULT,
+    _LLAMA_DEFAULT: _LLAMA_DEFAULT,
 }
 
 _AUDIO_LABEL_TO_ID: dict[str, str] = {
@@ -133,7 +142,7 @@ class CloudflareProvider(BaseProvider):
         max_length = options.get("maxLength")
         if isinstance(max_length, (int, float)) and max_length > 0:
             body["max_tokens"] = int(max_length)
-        model = _normalize_text_model(options.get("model"), "@cf/meta/llama-3-8b-instruct")
+        model = _normalize_text_model(options.get("model"), _LLAMA_DEFAULT)
         async with httpx.AsyncClient(timeout=60.0) as client:
             r = await client.post(
                 self._run_url(options, model),
@@ -146,7 +155,20 @@ class CloudflareProvider(BaseProvider):
         if isinstance(data, dict):
             result = data.get("result")
             if isinstance(result, dict):
+                # Older Workers AI models answer with ``{"response": "..."}``;
+                # the newer ones (llama 3.2/3.3, gpt-oss, …) use the
+                # OpenAI-shaped ``choices[0].message.content``.
                 text = result.get("response") or ""
+                if not text:
+                    choices = result.get("choices")
+                    if isinstance(choices, list) and choices:
+                        first = choices[0]
+                        if isinstance(first, dict):
+                            message = first.get("message")
+                            if isinstance(message, dict):
+                                text = message.get("content") or ""
+                            if not text:
+                                text = first.get("text") or ""
             elif isinstance(result, str):
                 text = result
         return ProviderResult(text=text)

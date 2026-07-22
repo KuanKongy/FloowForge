@@ -44,7 +44,8 @@ For a deeper technical map, start with [`docs/README.md`](docs/README.md).
 - Run sidebar with Gumloop-style per-node status + duration, expandable JSON payload, and total elapsed time.
 - Floowbox-flavored UI: pink primary tokens, per-kind colored backend tiles, proximity-revealed handles, in-use direction dots, edge X delete badges, collapse/rename per node, framer-spring frontend/backend toggle.
 - Custom nodes: subflows (use a saved flow as a node) and Prompt Template builder
-- Built-in providers: OpenAI (chat + TTS + DALL-E 3), Google Gemini, Cloudflare Workers AI (Llama, DreamShaper), PDF text extraction
+- Built-in providers: OpenAI (chat + TTS + GPT Image 1), Google Gemini, Cloudflare Workers AI (Llama, DreamShaper, Flux), PDF text extraction
+- Generated images/audio are stored in Supabase Storage and passed downstream as URLs, so results stay under the Realtime message limit and survive a page reload
 - Inline-execution fallback: when no Redis worker is reachable the API runs flows in a FastAPI background task so dev / tests / small deployments stay functional without Redis.
 
 ## Testing
