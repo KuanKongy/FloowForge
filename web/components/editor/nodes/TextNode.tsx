@@ -64,7 +64,7 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
       cardClassName="w-[36em]"
     >
       <textarea
-        className="w-full h-[200px] p-3 text-sm rounded-[14px] resize-none focus:outline-none bg-[var(--surface-2)] nodrag nopan overflow-y-auto"
+        className="w-full h-[200px] p-3 text-sm rounded-[14px] resize-none focus:outline-none bg-[var(--surface-2)] nodrag nopan nowheel node-scroll overflow-y-auto"
         placeholder="Start typing here…"
         value={localValue}
         onChange={(e) => {
@@ -80,7 +80,6 @@ export default function TextNode({ id, data, isConnectable }: NodeProps) {
           persist(localValue);
         }}
         onMouseDown={(e) => e.stopPropagation()}
-        onWheel={(e) => e.stopPropagation()}
       />
     </NodeFrame>
   );

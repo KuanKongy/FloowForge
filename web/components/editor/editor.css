@@ -1,3 +1,30 @@
+/* Scrollbar affordance for in-node scroll areas. `nowheel` marks every element
+   that scrolls internally (text box, chat list, AI Model textareas); the thin
+   thumb is faint by default and darkens on hover so it's easy to grab without
+   dominating the small node body. Colors are theme-aware (light + .dark). */
+.nowheel,
+.node-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border--container) transparent;
+}
+.nowheel::-webkit-scrollbar,
+.node-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.nowheel::-webkit-scrollbar-thumb,
+.node-scroll::-webkit-scrollbar-thumb {
+  background: var(--border--container);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.nowheel:hover::-webkit-scrollbar-thumb,
+.node-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--font--light);
+  background-clip: content-box;
+}
+
 .text-box,
 .image-box,
 .audio-box,

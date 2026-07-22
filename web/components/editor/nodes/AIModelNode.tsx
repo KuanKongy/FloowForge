@@ -223,7 +223,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                     value={context}
                     onChange={(e) => set("context", e.target.value)}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="ai-model__input nodrag nopan leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
+                    className="ai-model__input nodrag nopan nowheel node-scroll leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
                     placeholder="Context for the AI model that can be referenced in the prompt."
                   />
                 </Field>
@@ -234,7 +234,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                     value={prompt}
                     onChange={(e) => set("prompt", e.target.value)}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="ai-model__input nodrag nopan leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
+                    className="ai-model__input nodrag nopan nowheel node-scroll leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
                     placeholder="Prompt for the AI."
                   />
                 </Field>
@@ -245,7 +245,7 @@ export default function AIModelNode({ id, data, isConnectable }: NodeProps) {
                     value={negativePrompt}
                     onChange={(e) => set("negativePrompt", e.target.value)}
                     onMouseDown={(e) => e.stopPropagation()}
-                    className="ai-model__input nodrag nopan leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
+                    className="ai-model__input nodrag nopan nowheel node-scroll leading-tight w-full aspect-[4/1] text-[0.85rem] rounded-[10px] resize-none py-[0.5em] px-[0.8em] placeholder-[#BAB7C3]"
                     placeholder="What not to include in the generated image."
                   />
                 </Field>
