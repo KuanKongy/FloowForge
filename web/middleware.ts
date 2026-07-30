@@ -14,9 +14,14 @@ type CookieToSet = {
   options: {
     path: string;
     sameSite: "lax";
+    secure: boolean;
     maxAge?: number;
   };
 };
+
+// Session cookies must not travel over plain HTTP in production. Kept off in
+// development so localhost still works.
+const SECURE_COOKIES = process.env.NODE_ENV === "production";
 
 type SupabaseSession = {
   access_token?: string;
@@ -32,11 +37,19 @@ type AuthState = {
   cookiesToSet: CookieToSet[];
 };
 
-function getSupabaseConfig() {
-  const url = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!);
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
-  return { url, anonKey, storageKey };
+function getSupabaseConfig(): { url: string; anonKey: string; storageKey: string } | null {
+  // A missing env var used to throw inside `new URL()`, which 500s `/`,
+  // `/auth/*` and `/app/*` at once in the edge runtime.
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!rawUrl || !anonKey) return null;
+  try {
+    const url = normalizeSupabaseUrl(rawUrl);
+    const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
+    return { url, anonKey, storageKey };
+  } catch {
+    return null;
+  }
 }
 
 function base64UrlDecode(value: string): string {
@@ -96,7 +109,7 @@ function clearSessionCookies(names: string[]): CookieToSet[] {
   return names.map((name) => ({
     name,
     value: "",
-    options: { path: "/", sameSite: "lax" as const, maxAge: 0 },
+    options: { path: "/", sameSite: "lax" as const, secure: SECURE_COOKIES, maxAge: 0 },
   }));
 }
 
@@ -125,7 +138,12 @@ function createSessionCookies(
     ...chunks.map(({ name, value }) => ({
       name,
       value,
-      options: { path: "/", sameSite: "lax" as const, maxAge: SESSION_COOKIE_MAX_AGE },
+      options: {
+        path: "/",
+        sameSite: "lax" as const,
+        secure: SECURE_COOKIES,
+        maxAge: SESSION_COOKIE_MAX_AGE,
+      },
     })),
   ];
 }
@@ -149,7 +167,9 @@ async function refreshSession(
     return { hasSession: false, cookiesToSet: clearSessionCookies(staleCookieNames) };
   }
 
-  const { url, anonKey, storageKey } = getSupabaseConfig();
+  const config = getSupabaseConfig();
+  if (!config) return { hasSession: false, cookiesToSet: [] };
+  const { url, anonKey, storageKey } = config;
   const response = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
     method: "POST",
     headers: {
@@ -187,10 +207,11 @@ async function refreshSession(
 async function validateSession(session: SupabaseSession): Promise<boolean> {
   if (!session.access_token) return false;
 
-  const { url, anonKey } = getSupabaseConfig();
-  const response = await fetch(`${url}/auth/v1/user`, {
+  const config = getSupabaseConfig();
+  if (!config) return false;
+  const response = await fetch(`${config.url}/auth/v1/user`, {
     headers: {
-      apikey: anonKey,
+      apikey: config.anonKey,
       authorization: `Bearer ${session.access_token}`,
     },
   });
@@ -198,8 +219,9 @@ async function validateSession(session: SupabaseSession): Promise<boolean> {
 }
 
 async function getAuthState(request: NextRequest, validateAccessToken: boolean): Promise<AuthState> {
-  const { storageKey } = getSupabaseConfig();
-  const { session, names } = readSession(request, storageKey);
+  const config = getSupabaseConfig();
+  if (!config) return { hasSession: false, cookiesToSet: [] };
+  const { session, names } = readSession(request, config.storageKey);
   if (!session?.access_token) {
     return { hasSession: false, cookiesToSet: clearSessionCookies(names) };
   }
@@ -218,7 +240,10 @@ async function getAuthState(request: NextRequest, validateAccessToken: boolean):
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const authState = await getAuthState(request, !path.startsWith(PROTECTED_PREFIX));
+  // Verify the access token on the routes that actually gate private data.
+  // This was inverted: `/app/*` was the only prefix that skipped validation,
+  // while public routes paid for a Supabase round-trip they did not need.
+  const authState = await getAuthState(request, path.startsWith(PROTECTED_PREFIX));
 
   if (path.startsWith(PROTECTED_PREFIX) && !authState.hasSession) {
     const url = request.nextUrl.clone();

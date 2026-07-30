@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { Button } from "./button";
 
@@ -34,25 +34,56 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!open) return;
+    // Restore focus to whatever opened the dialog once it closes.
+    const opener = document.activeElement as HTMLElement | null;
+
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
+      if (e.key === "Escape") {
+        onCancel();
+        return;
+      }
+      // Trap Tab inside the panel; without this, tabbing walked into the page
+      // behind the overlay.
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
   }, [open, onCancel]);
 
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
       onClick={onCancel}
     >
       <div
+        ref={panelRef}
+        // role/aria live on the panel, not the click-to-close backdrop.
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby={description ? "confirm-dialog-description" : undefined}
         className="card-surface w-[min(480px,100%)] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -67,7 +98,12 @@ export function ConfirmDialog({
               {title}
             </h2>
             {description && (
-              <div className="text-sm text-[var(--muted-foreground)] mt-1">{description}</div>
+              <div
+                id="confirm-dialog-description"
+                className="text-sm text-[var(--muted-foreground)] mt-1"
+              >
+                {description}
+              </div>
             )}
           </div>
           <button

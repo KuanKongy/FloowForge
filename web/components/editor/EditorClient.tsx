@@ -124,6 +124,11 @@ function Editor({ flowId }: { flowId: string }) {
   const [runEnd, setRunEnd] = useState<number | null>(null);
   const [showRunHistory, setShowRunHistory] = useState(false);
   const [resumeMode, setResumeMode] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  // The editor had no dirty tracking at all, so navigating away silently
+  // discarded every unsaved edit.
+  const [dirty, setDirty] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const runFlowRef = useRef<(startIds?: string[]) => Promise<void>>(async () => {});
@@ -203,6 +208,7 @@ function Editor({ flowId }: { flowId: string }) {
   useEffect(() => {
     apiGet<{ flow: Flow; versions: FlowVersion[] }>(`/flows/${flowId}`).then(({ flow, versions }) => {
       setFlow(flow);
+      setHydrated(true);
       const latest = versions[0];
       if (latest) {
         setVersion(latest);
@@ -241,13 +247,54 @@ function Editor({ flowId }: { flowId: string }) {
         }));
         setNodes(hydratedNodes);
         setEdges(hydratedEdges);
+        // Fit the saved graph into view. React Flow only honours the `fitView`
+        // prop on init, and at mount `nodes` is still empty — so saved flows
+        // never actually fitted.
+        requestAnimationFrame(() => rf.fitView({ padding: 0.2, duration: 250 }));
       }
-    });
+    })
+      .catch((e: unknown) => {
+        // An unguarded rejection here left the title at "Loading…" and showed
+        // the empty-canvas card, which reads as "this flow is empty" rather
+        // than "we could not load it".
+        setHydrated(true);
+        setEditorError(
+          e instanceof Error ? e.message : "Could not load this flow."
+        );
+      });
     // We intentionally do not depend on `isFrontend` here: the visibility
     // effect below handles toggle changes; this effect must only run on
     // mount / flowId change to avoid wiping unsaved edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowId, setNodes, setEdges, onTriggerButton]);
+  }, [flowId, setNodes, setEdges, onTriggerButton, rf]);
+
+  // ---- Unsaved-changes tracking -------------------------------------------
+  const markDirty = useCallback(() => {
+    if (hydrated) setDirty(true);
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // Cmd/Ctrl+S saves, matching every other canvas tool.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveVersion().catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flowId, version]);
 
   // ---- Frontend/Backend visibility ----------------------------------------
   useEffect(() => {
@@ -480,6 +527,7 @@ function Editor({ flowId }: { flowId: string }) {
 
   async function saveVersion(): Promise<FlowVersion> {
     setSaving(true);
+    setEditorError(null);
     try {
       const graph = buildGraphSnapshot(rf.getNodes(), rf.getEdges());
       const v = await apiPost<FlowVersion>(`/flows/${flowId}/versions`, {
@@ -488,7 +536,11 @@ function Editor({ flowId }: { flowId: string }) {
         outputs: version?.outputs || [],
       });
       setVersion(v);
+      setDirty(false);
       return v;
+    } catch (e) {
+      setEditorError(e instanceof Error ? e.message : "Could not save this flow.");
+      throw e;
     } finally {
       setSaving(false);
     }
@@ -505,15 +557,26 @@ function Editor({ flowId }: { flowId: string }) {
     setRunStart(Date.now());
     setRunEnd(null);
     setShowSidebar(true);
+    setEditorError(null);
     if (!startIds || startIds.length === 0) setActiveTriggerId(null);
-    const v = await saveVersion();
-    const run = await apiPost<{ id: string }>(`/flows/${flowId}/runs`, {
-      input: null,
-      version_id: v.id,
-      start_node_ids: startIds,
-      input_overrides: inputOverrides,
-    });
-    setActiveRunId(run.id);
+    try {
+      const v = await saveVersion();
+      const run = await apiPost<{ id: string }>(`/flows/${flowId}/runs`, {
+        input: null,
+        version_id: v.id,
+        start_node_ids: startIds,
+        input_overrides: inputOverrides,
+      });
+      setActiveRunId(run.id);
+    } catch (e) {
+      // Previously this rejection was unhandled, so `isRunning` stayed true
+      // forever: the Run button became a Stop button that could never finish
+      // and nothing told the user why.
+      setIsRunning(false);
+      setSystemStatus("failed");
+      setRunEnd(Date.now());
+      setEditorError(e instanceof Error ? e.message : "Could not start this run.");
+    }
   }
 
   async function cancelRun() {
@@ -656,8 +719,24 @@ function Editor({ flowId }: { flowId: string }) {
             ref={wrapperRef}
             className={`h-screen w-screen relative ${isFrontend ? "editor--frontend" : "editor--backend"}`}
           >
+            {editorError && (
+              <div
+                role="alert"
+                className="absolute top-20 left-1/2 -translate-x-1/2 z-50 max-w-[42em] card-surface px-4 py-3 flex items-start gap-3 border-red-300"
+              >
+                <span className="text-sm text-red-600 flex-1">{editorError}</span>
+                <button
+                  onClick={() => setEditorError(null)}
+                  className="text-xs text-[var(--muted-foreground)] hover:underline"
+                  aria-label="Dismiss error"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
             <EditorTopBar
-              flowName={flow?.name || "Loading…"}
+              flowName={flow?.name || (hydrated ? "Untitled flow" : "Loading…")}
+              unsavedChanges={dirty}
               onRenameFlow={renameFlow}
               isFrontend={isFrontend}
               toggleFrontend={() => setIsFrontend((v) => !v)}
@@ -715,13 +794,21 @@ function Editor({ flowId }: { flowId: string }) {
               edges={edges}
               nodeTypes={nodeTypes as never}
               edgeTypes={edgeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
+              onNodesChange={(changes) => {
+                onNodesChange(changes);
+                // Selection and dimension changes are not user edits.
+                if (changes.some((c) => c.type !== "select" && c.type !== "dimensions")) {
+                  markDirty();
+                }
+              }}
+              onEdgesChange={(changes) => {
+                onEdgesChange(changes);
+                if (changes.some((c) => c.type !== "select")) markDirty();
+              }}
               onConnect={onConnect}
               onDrop={onDrop}
               onDragOver={onDragOver}
               fitViewOptions={{ padding: 0.2 }}
-              fitView={nodes.length > 0}
               attributionPosition="bottom-left"
               style={{ backgroundColor: "var(--background)" }}
               nodesDraggable={!isRunning}

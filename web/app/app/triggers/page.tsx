@@ -59,16 +59,28 @@ export default function TriggersPage() {
   const [detailsTrigger, setDetailsTrigger] = useState<TriggerWithWebhook | null>(null);
   const [pendingDelete, setPendingDelete] = useState<TriggerWithWebhook | null>(null);
 
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   async function refresh() {
-    const [f, t] = await Promise.all([
-      apiGet<Flow[]>("/flows"),
-      apiGet<TriggerWithWebhook[]>("/triggers"),
-    ]);
-    setFlows(f);
-    setTriggers(t);
+    setLoadError(null);
+    try {
+      const [f, t] = await Promise.all([
+        apiGet<Flow[]>("/flows"),
+        apiGet<TriggerWithWebhook[]>("/triggers"),
+      ]);
+      setFlows(f);
+      setTriggers(t);
+    } catch (e) {
+      // A failed load used to render "No triggers yet", which reads as
+      // "you have none" rather than "we could not fetch them".
+      setLoadError(e instanceof Error ? e.message : "Could not load triggers.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => { void refresh(); }, []);
 
   async function toggleActive(t: TriggerWithWebhook) {
     await apiPatch(`/triggers/${t.id}`, { is_active: !t.is_active });
@@ -119,7 +131,18 @@ export default function TriggersPage() {
       )}
 
       <div className="card-surface divide-y divide-[var(--border)] overflow-hidden">
-        {triggers.length === 0 ? (
+        {loading ? (
+          <div className="px-5 py-10 text-center text-[var(--muted-foreground)]">
+            Loading triggers…
+          </div>
+        ) : loadError ? (
+          <div className="px-5 py-10 text-center" role="alert">
+            <p className="text-sm text-red-600">{loadError}</p>
+            <Button variant="outline" className="mt-3" onClick={() => void refresh()}>
+              Retry
+            </Button>
+          </div>
+        ) : triggers.length === 0 ? (
           <div className="px-5 py-10 text-center text-[var(--muted-foreground)]">
             No triggers yet. Create one to automate your workflows.
           </div>
@@ -242,7 +265,14 @@ function CreateTriggerWizard({
 }) {
   const [step, setStep] = useState<WizardStep>("kind");
   const [kind, setKind] = useState<string>("");
+  // Seeded once from `flows[0]`, which is empty on the first render — so if the
+  // wizard opened before flows loaded, `submit()` bailed and Create appeared to
+  // do nothing. The effect below adopts the first flow as soon as it arrives.
   const [flowId, setFlowId] = useState(flows[0]?.id || "");
+
+  useEffect(() => {
+    if (!flowId && flows.length > 0) setFlowId(flows[0].id);
+  }, [flows, flowId]);
   const [entryNodeId, setEntryNodeId] = useState("");
   const [entryNodes, setEntryNodes] = useState<EntryNode[]>([]);
   const [sinkNodes, setSinkNodes] = useState<SinkNode[]>([]);
@@ -267,6 +297,7 @@ function CreateTriggerWizard({
   const [intervalSeconds, setIntervalSeconds] = useState("0");
   const [tz, setTz] = useState("UTC");
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!flowId || !kind) return;
@@ -345,8 +376,12 @@ function CreateTriggerWizard({
   }
 
   async function submit() {
-    if (!flowId) return;
+    if (!flowId) {
+      setSubmitError("Pick a workflow first.");
+      return;
+    }
     setBusy(true);
+    setSubmitError(null);
     try {
       const config: Record<string, unknown> = kind === "schedule"
         ? buildScheduleConfig()
@@ -362,6 +397,9 @@ function CreateTriggerWizard({
         output_node_ids: outputNodeIds.length ? outputNodeIds : undefined,
       });
       onCreated(created);
+    } catch (e) {
+      // A rejected create used to be an unhandled rejection with no feedback.
+      setSubmitError(e instanceof Error ? e.message : "Could not create this trigger.");
     } finally {
       setBusy(false);
     }
@@ -587,9 +625,16 @@ function CreateTriggerWizard({
             )}
           </div>
 
+          {submitError && (
+            <div role="alert" className="mt-4 text-sm text-red-600">
+              {submitError}
+            </div>
+          )}
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={submit} disabled={busy}>{busy ? "Creating…" : "Create"}</Button>
+            <Button onClick={submit} disabled={busy || !flowId}>
+              {busy ? "Creating…" : "Create"}
+            </Button>
           </div>
         </>
       )}
@@ -639,6 +684,7 @@ function TriggerDetailsPanel({
   const formUrl = webhookToken && typeof window !== "undefined" ? `${window.location.origin}/p/${webhookToken}` : null;
 
   const [copied, setCopied] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const [callbackUrl, setCallbackUrl] = useState(trigger.callback_url || "");
   const [showOutputs, setShowOutputs] = useState(trigger.show_outputs || false);
   const [outputNodeIds, setOutputNodeIds] = useState<string[]>(trigger.output_node_ids || []);
@@ -695,10 +741,17 @@ function TriggerDetailsPanel({
       .catch(() => setInputFields([]));
   }, [trigger.flow_id, activeEntryNodeId, savedInputModes]);
 
-  function copyText(text: string, label: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 1500);
+  async function copyText(text: string, label: string) {
+    try {
+      // `writeText` rejects on insecure origins and when permission is denied,
+      // yet the tick was shown unconditionally.
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      setCopyError("Copying isn't available here — select the text and copy manually.");
+      setTimeout(() => setCopyError(null), 4000);
+    }
   }
 
   async function save() {
@@ -750,6 +803,12 @@ function TriggerDetailsPanel({
         <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
       </div>
 
+      {copyError && (
+        <div role="alert" className="mb-3 text-xs text-red-600">
+          {copyError}
+        </div>
+      )}
+
       {/* Incoming webhook URL + dynamic cURL */}
       {(trigger.kind === "incoming_webhook" || trigger.kind === "webhook") && webhookUrl && (
         <div className="space-y-3 mb-4">
@@ -757,7 +816,7 @@ function TriggerDetailsPanel({
             <div className="text-xs text-[var(--muted-foreground)] font-medium mb-1">POST URL</div>
             <div className="flex items-center gap-2 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
               <code className="flex-1 text-xs truncate">{webhookUrl}</code>
-              <button type="button" onClick={() => copyText(webhookUrl, "url")} className="text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors">
+              <button type="button" aria-label="Copy webhook URL" onClick={() => copyText(webhookUrl, "url")} className="text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors">
                 {copied === "url" ? <Check size={14} /> : <Copy size={14} />}
               </button>
             </div>
@@ -768,6 +827,7 @@ function TriggerDetailsPanel({
               <pre className="text-[11px] whitespace-pre-wrap break-all">{curlText}</pre>
               <button
                 type="button"
+                aria-label="Copy example cURL"
                 onClick={() => copyText(curlText.replace(/\\\n\s*/g, " "), "curl")}
                 className="absolute top-2 right-2 text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors"
               >
@@ -785,7 +845,7 @@ function TriggerDetailsPanel({
             <div className="text-xs text-[var(--muted-foreground)] font-medium mb-1">Public Form URL</div>
             <div className="flex items-center gap-2 p-2 rounded-lg border border-[var(--border)] bg-[var(--surface-2)]">
               <code className="flex-1 text-xs truncate">{formUrl}</code>
-              <button type="button" onClick={() => copyText(formUrl, "form")} className="text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors">
+              <button type="button" aria-label="Copy public form URL" onClick={() => copyText(formUrl, "form")} className="text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors">
                 {copied === "form" ? <Check size={14} /> : <Copy size={14} />}
               </button>
               <a href={formUrl} target="_blank" rel="noopener noreferrer" className="text-[var(--muted-foreground)] hover:text-[var(--primary)] transition-colors">

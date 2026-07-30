@@ -211,16 +211,33 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
   const [key, setKey] = useState("");
   const [accountId, setAccountId] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    setBusy(true);
-    const credentials: Record<string, string> = { api_key: key };
-    if (provider === "cloudflare") {
-      credentials.account_id = accountId;
+    if (!key.trim()) {
+      setError("An API key is required.");
+      return;
     }
-    await apiPost("/integrations", { provider, label, credentials });
-    setBusy(false);
-    onCreated();
+    if (provider === "cloudflare" && !accountId.trim()) {
+      setError("Cloudflare needs an account ID as well as an API token.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const credentials: Record<string, string> = { api_key: key.trim() };
+    if (provider === "cloudflare") {
+      credentials.account_id = accountId.trim();
+    }
+    try {
+      await apiPost("/integrations", { provider, label, credentials });
+      onCreated();
+    } catch (e) {
+      // Without try/finally a failed save left `busy` true, permanently
+      // disabling the Save button with no explanation.
+      setError(e instanceof Error ? e.message : "Could not save this integration.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -264,6 +281,11 @@ function NewIntegrationCard({ onClose, onCreated }: { onClose: () => void; onCre
             className="h-9 px-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)]"
           />
         </label>
+      )}
+      {error && (
+        <div role="alert" className="md:col-span-2 text-sm text-red-600">
+          {error}
+        </div>
       )}
       <div className="flex justify-end gap-2 md:col-span-2">
         <Button variant="outline" onClick={onClose}>

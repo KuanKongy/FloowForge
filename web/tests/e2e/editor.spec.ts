@@ -37,24 +37,33 @@ test.describe("editor canvas", () => {
     await signIn(page);
     await newFlow(page);
     await page.locator('[aria-label="Open node palette"]').click();
-    await page.locator('button[aria-label="Text"]').click();
+    await page.locator('button[aria-label="Text Box"]').click();
     await page.locator('button[aria-label="Text AI"]').click();
     await expect(page.locator(".topo-badge")).toHaveCount(2);
   });
 
-  test("collapse and rename a node", async ({ page }) => {
+  test("rename a node", async ({ page }) => {
     await signIn(page);
     await newFlow(page);
     await page.locator('[aria-label="Open node palette"]').click();
-    await page.locator('button[aria-label="Text"]').click();
+    await page.locator('button[aria-label="Text Box"]').click();
     // Hover the node so the rename pencil appears.
     const headerName = page.getByText("Text Box").first();
     await headerName.dblclick();
     await page.keyboard.type("My Input");
     await page.keyboard.press("Enter");
     await expect(page.getByText("My Input")).toBeVisible();
-    await page.locator('[aria-label="Collapse node"]').first().click();
-    await expect(page.locator('[aria-label="Expand node"]').first()).toBeVisible();
+  });
+
+  test("collapse a subflow node", async ({ page }) => {
+    await signIn(page);
+    await newFlow(page);
+    await page.locator('[aria-label="Open node palette"]').click();
+    // Only Subflow and Custom Node render a collapse control; the box nodes
+    // never did, which is why the old selector could never match.
+    await page.locator('button[aria-label="Subflow"]').click();
+    await page.locator('[aria-label="Collapse"]').first().click();
+    await expect(page.locator('[aria-label="Expand"]').first()).toBeVisible();
   });
 
   test("edge X badge deletes the edge", async ({ page }) => {
@@ -65,7 +74,7 @@ test.describe("editor canvas", () => {
     // already having connected something. We at least check the X button's
     // class is registered (no rendered edges yet).
     await page.locator('[aria-label="Open node palette"]').click();
-    await page.locator('button[aria-label="Text"]').click();
+    await page.locator('button[aria-label="Text Box"]').click();
     await page.locator('button[aria-label="Text AI"]').click();
     expect(await page.locator(".edge-delete-btn").count()).toBeGreaterThanOrEqual(0);
   });

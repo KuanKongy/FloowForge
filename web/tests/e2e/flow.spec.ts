@@ -37,7 +37,7 @@ test.describe("flow lifecycle", () => {
     await expect(page).toHaveURL(/\/app\/flows\/[\w-]+$/);
 
     await page.locator('[aria-label="Open node palette"]').click();
-    await page.locator('button[aria-label="Text"]').click();
+    await page.locator('button[aria-label="Text Box"]').click();
     await page.locator('button[aria-label="Text AI"]').click();
     await page.getByRole("button", { name: /save flow/i }).click();
 
@@ -46,7 +46,7 @@ test.describe("flow lifecycle", () => {
     await page.getByRole("button", { name: /new trigger/i }).click();
     await page.locator("select").first().selectOption({ index: 0 });
     await page.getByRole("button", { name: /^create$/i }).click();
-    const copyBtn = page.getByRole("button", { name: /copy url/i }).first();
+    const copyBtn = page.getByRole("button", { name: /copy webhook url/i }).first();
     await copyBtn.click();
     const webhookUrl = await page.evaluate(() => navigator.clipboard.readText());
 

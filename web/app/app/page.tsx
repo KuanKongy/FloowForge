@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { apiGet, apiPost } from "@/lib/api";
 import type { Flow } from "@flowforge/shared";
+import { nextScheduleTime } from "@/lib/schedule";
 
 type Run = {
   id: string;
@@ -100,10 +101,20 @@ export default function DashboardPage() {
     }
   }
 
-  const scheduledTriggers = triggers
-    .filter((t) => t.kind === "schedule" && t.is_active)
-    .map((t) => ({ trigger: t, nextAt: nextScheduleTime(t) }))
-    .sort((a, b) => (a.nextAt?.getTime() ?? Number.MAX_SAFE_INTEGER) - (b.nextAt?.getTime() ?? Number.MAX_SAFE_INTEGER));
+  // Memoized: computing next-fire times walks the calendar per trigger, and
+  // doing that on every render made the dashboard janky with a few schedules.
+  const scheduledTriggers = useMemo(
+    () =>
+      triggers
+        .filter((t) => t.kind === "schedule" && t.is_active)
+        .map((t) => ({ trigger: t, nextAt: nextScheduleTime(t) }))
+        .sort(
+          (a, b) =>
+            (a.nextAt?.getTime() ?? Number.MAX_SAFE_INTEGER) -
+            (b.nextAt?.getTime() ?? Number.MAX_SAFE_INTEGER)
+        ),
+    [triggers]
+  );
 
   if (loading) {
     return (
@@ -230,76 +241,6 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function nextScheduleTime(trigger: Trigger): Date | null {
-  const config = trigger.config || {};
-  const mode = (config.schedule_mode as string) || "cron";
-  const now = new Date();
-  if (mode === "once") {
-    const onceAt = config.once_at as string | undefined;
-    if (!onceAt) return null;
-    const date = new Date(onceAt);
-    return date.getTime() > now.getTime() ? date : null;
-  }
-  if (mode === "delay") {
-    const base = new Date(trigger.created_at);
-    const seconds =
-      (Number(config.delay_hours) || 0) * 3600 +
-      (Number(config.delay_minutes) || 0) * 60 +
-      (Number(config.delay_seconds) || 0);
-    const date = new Date(base.getTime() + Math.max(seconds, 3600) * 1000);
-    return date.getTime() > now.getTime() ? date : null;
-  }
-  if (mode === "interval") {
-    const seconds =
-      (Number(config.interval_hours) || 0) * 3600 +
-      (Number(config.interval_minutes) || 0) * 60 +
-      (Number(config.interval_seconds) || 0);
-    if (seconds <= 0) return null;
-    const base = new Date(trigger.created_at).getTime();
-    const elapsed = Math.max(0, now.getTime() - base);
-    const periods = Math.floor(elapsed / (seconds * 1000)) + 1;
-    return new Date(base + periods * seconds * 1000);
-  }
-  const cron = config.cron as string | undefined;
-  return cron ? nextCronTime(cron, now) : null;
-}
-
-function nextCronTime(cron: string, from: Date): Date | null {
-  const parts = cron.trim().split(/\s+/);
-  if (parts.length !== 5) return null;
-  const [minExpr, hourExpr, dayExpr, monthExpr, weekdayExpr] = parts;
-  const start = new Date(from.getTime() + 60_000);
-  start.setSeconds(0, 0);
-  for (let i = 0; i < 366 * 24 * 60; i += 1) {
-    const d = new Date(start.getTime() + i * 60_000);
-    if (
-      cronMatches(d.getMinutes(), minExpr, 0, 59) &&
-      cronMatches(d.getHours(), hourExpr, 0, 23) &&
-      cronMatches(d.getDate(), dayExpr, 1, 31) &&
-      cronMatches(d.getMonth() + 1, monthExpr, 1, 12) &&
-      cronMatches(d.getDay(), weekdayExpr, 0, 6)
-    ) {
-      return d;
-    }
-  }
-  return null;
-}
-
-function cronMatches(value: number, expr: string, min: number, max: number): boolean {
-  if (expr === "*") return true;
-  return expr.split(",").some((part) => {
-    if (part.startsWith("*/")) {
-      const step = Number(part.slice(2));
-      return step > 0 && value % step === 0;
-    }
-    if (part.includes("-")) {
-      const [a, b] = part.split("-").map(Number);
-      return value >= Math.max(min, a) && value <= Math.min(max, b);
-    }
-    return Number(part) === value;
-  });
 }
 
 function timeUntil(date: Date): string {

@@ -103,13 +103,26 @@ export default function FlowsPage() {
       ) : filtered.length === 0 ? (
         <div className="card-surface p-10 text-center">
           <Workflow size={42} className="mx-auto text-[var(--font--light)]" />
-          <h2 className="font-semibold text-lg mt-3">No flows yet</h2>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Create your first flow to start building.
-          </p>
-          <Button onClick={createFlow} disabled={creating} className="mt-5">
-            <Plus size={16} /> {creating ? "Creating…" : "New flow"}
-          </Button>
+          {flows.length === 0 ? (
+            <>
+              <h2 className="font-semibold text-lg mt-3">No flows yet</h2>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                Create your first flow to start building.
+              </p>
+              <Button onClick={createFlow} disabled={creating} className="mt-5">
+                <Plus size={16} /> {creating ? "Creating…" : "New flow"}
+              </Button>
+            </>
+          ) : (
+            // Filtering everything out used to claim the account had no flows
+            // at all, which is alarming when you have dozens.
+            <>
+              <h2 className="font-semibold text-lg mt-3">No matching flows</h2>
+              <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                Nothing matches “{query}”. Try a different search.
+              </p>
+            </>
+          )}
         </div>
       ) : null}
 

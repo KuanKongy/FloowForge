@@ -24,6 +24,7 @@ import {
  */
 export function EditorTopBar({
   flowName,
+  unsavedChanges = false,
   onRenameFlow,
   isFrontend,
   toggleFrontend,
@@ -41,6 +42,7 @@ export function EditorTopBar({
   systemStatus = "idle",
 }: {
   flowName: string;
+  unsavedChanges?: boolean;
   onRenameFlow: (name: string) => void;
   isFrontend: boolean;
   toggleFrontend: () => void;
@@ -108,6 +110,14 @@ export function EditorTopBar({
           ) : (
             <>
               <span className="font-medium text-sm">{flowName}</span>
+              {unsavedChanges && (
+                <span
+                  className="size-[7px] rounded-full bg-[var(--primary)]"
+                  title="Unsaved changes"
+                  aria-label="Unsaved changes"
+                  role="status"
+                />
+              )}
               <button
                 onClick={() => setEditing(true)}
                 className="opacity-100 group-hover:opacity-100 transition-opacity text-[var(--muted-foreground)] hover:text-[var(--primary)]"
@@ -119,9 +129,12 @@ export function EditorTopBar({
             </>
           )}
         </div>
-        <div
+        {/* A div with role="switch" and only onClick was invisible to keyboard
+            users; a real button gives focus, Enter and Space for free. */}
+        <button
+          type="button"
           onClick={toggleFrontend}
-          className="cursor-pointer w-12 h-7 rounded-full bg-[var(--primary-grey)] p-[2px] flex items-center hover:brightness-95 transition-[filter]"
+          className="cursor-pointer w-12 h-7 rounded-full bg-[var(--primary-grey)] p-[2px] flex items-center hover:brightness-95 transition-[filter] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
           style={{ justifyContent: isFrontend ? "flex-start" : "flex-end" }}
           role="switch"
           aria-checked={isFrontend}
@@ -134,7 +147,7 @@ export function EditorTopBar({
           >
             <CodeXml size={14} className="text-[var(--muted-foreground)]" />
           </motion.div>
-        </div>
+        </button>
         <span
           className="pill"
           style={{

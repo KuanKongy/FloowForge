@@ -22,7 +22,27 @@ type CachedToken = { token: string; expiresAt: number } | null;
 let cached: CachedToken = null;
 const REFRESH_LEEWAY_MS = 60 * 1000;
 
+/** Drop the memoized bearer token. */
+export function clearTokenCache(): void {
+  cached = null;
+}
+
+// Signing out (or switching accounts in the same tab) left the previous user's
+// token in this module-level cache until it expired naturally, so requests kept
+// going out as the old identity.
+let authListenerBound = false;
+function bindAuthListener() {
+  if (authListenerBound || typeof window === "undefined") return;
+  authListenerBound = true;
+  createSupabaseBrowserClient().auth.onAuthStateChange((event) => {
+    if (event === "SIGNED_OUT" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      cached = null;
+    }
+  });
+}
+
 async function authHeaders(): Promise<Record<string, string>> {
+  bindAuthListener();
   const now = Date.now();
   if (cached && cached.expiresAt - now > REFRESH_LEEWAY_MS) {
     return { Authorization: `Bearer ${cached.token}` };
@@ -51,8 +71,23 @@ async function authHeaders(): Promise<Record<string, string>> {
   return {};
 }
 
-export async function apiGet<T = unknown>(path: string): Promise<T> {
+// Requests used to hang indefinitely if the API never answered.
+const REQUEST_TIMEOUT_MS = 30_000;
+
+async function request(method: string, path: string, init: RequestInit = {}): Promise<Response> {
   const res = await fetch(`${API}${path}`, {
+    ...init,
+    method,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  // A 401 means the memoized token is stale; drop it so the next call re-reads
+  // the session instead of replaying the rejected credential.
+  if (res.status === 401) clearTokenCache();
+  return res;
+}
+
+export async function apiGet<T = unknown>(path: string): Promise<T> {
+  const res = await request("GET", path, {
     headers: { ...(await authHeaders()) },
     cache: "no-store",
   });
@@ -61,8 +96,7 @@ export async function apiGet<T = unknown>(path: string): Promise<T> {
 }
 
 export async function apiPost<T = unknown>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    method: "POST",
+  const res = await request("POST", path, {
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -71,8 +105,7 @@ export async function apiPost<T = unknown>(path: string, body?: unknown): Promis
 }
 
 export async function apiPatch<T = unknown>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    method: "PATCH",
+  const res = await request("PATCH", path, {
     headers: { "Content-Type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(body),
   });
@@ -81,8 +114,7 @@ export async function apiPatch<T = unknown>(path: string, body: unknown): Promis
 }
 
 export async function apiDelete(path: string): Promise<void> {
-  const res = await fetch(`${API}${path}`, {
-    method: "DELETE",
+  const res = await request("DELETE", path, {
     headers: { ...(await authHeaders()) },
   });
   if (!res.ok && res.status !== 204) throw new Error(await formatError("DELETE", path, res));

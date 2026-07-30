@@ -26,7 +26,7 @@ test.describe("run lifecycle", () => {
   test("Run button triggers and shows status", async ({ page }) => {
     await bootstrap(page);
     await page.locator('[aria-label="Open node palette"]').click();
-    await page.locator('button[aria-label="Text"]').click();
+    await page.locator('button[aria-label="Text Box"]').click();
     await page.getByRole("button", { name: /run flow/i }).click();
     await expect(page.locator(".run-sidebar")).toBeVisible();
     await expect(page.getByText(/Running|Succeeded|Failed/)).toBeVisible({ timeout: 15000 });
@@ -37,7 +37,7 @@ test.describe("run lifecycle", () => {
     await page.locator('[aria-label="Open node palette"]').click();
     await page.locator('button[aria-label="Text AI"]').click();
     await page.getByRole("button", { name: /run flow/i }).click();
-    const cancelBtn = page.getByRole("button", { name: /cancel run/i });
+    const cancelBtn = page.getByRole("button", { name: /stop run/i });
     if (await cancelBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await cancelBtn.click();
       await expect(page.getByText(/Cancelled/)).toBeVisible({ timeout: 10000 });
