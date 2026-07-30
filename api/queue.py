@@ -14,6 +14,10 @@ import redis.asyncio as aioredis
 STREAM = "flowforge:jobs"
 GROUP = "workers"
 
+# Upper bound on stream length. Trimming used to happen only in the worker every
+# 100 messages, so with no worker running the stream grew without limit.
+STREAM_MAXLEN = 10_000
+
 
 async def enqueue(
     r: aioredis.Redis,
@@ -24,5 +28,5 @@ async def enqueue(
     fields: dict[str, Any] = {"run_id": run_id}
     if start_node_ids:
         fields["start_node_ids"] = json.dumps(start_node_ids)
-    msg_id: bytes = await r.xadd(STREAM, fields)
+    msg_id: bytes = await r.xadd(STREAM, fields, maxlen=STREAM_MAXLEN, approximate=True)
     return msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)

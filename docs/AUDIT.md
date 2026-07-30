@@ -29,13 +29,19 @@ finding says **PROVEN** it was reproduced at runtime.
 | Severity | Count | Fixed |
 |---|---|---|
 | P0 | 14 | **14** |
-| P1 | 15 | 2 |
+| P1 | 15 | **15** |
 | P2 | 8 | 2 |
 | P3 | 30 | 3 |
 | P4 | 9 | 0 |
 
-Suite after Phase 1: **105 pytest passing** (61 baseline + 44 new regression tests
-in `test_security.py` and `test_tenancy.py`), `tsc --noEmit` clean.
+Suite after Phase 2: **120 pytest passing** (61 baseline + 59 new regression tests),
+`tsc --noEmit` clean.
+
+> **Required deploy step.** Apply `supabase/migrations/0003_audit_fixes.sql` before
+> running this build. It adds `runs.trigger_id` (which the public webhook and
+> scheduler paths now write), the `deepseek` enum value, a `run_events` delete
+> policy, and it makes the `run-media` bucket private. The API logs a warning at
+> boot when the column is missing.
 
 ---
 
@@ -288,7 +294,7 @@ each job sequentially, **one such run blocks the entire queue permanently**.
 **Fix.** When all in-scope parents have terminally failed or been skipped, return
 `(False, None)` so the node is skipped.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E2. Cancelling a queued run is silently undone
 
@@ -300,7 +306,7 @@ and sees `running`, so it never stops.
 
 **Fix.** Compare-and-set `queued → running`; abort if the run is already terminal.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E3. No idempotency guard against double execution
 
@@ -312,7 +318,7 @@ events.
 
 **Fix.** Same CAS as E2.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E4. Worker ACKs failed jobs; dead-lettering is unreachable code
 
@@ -330,7 +336,7 @@ after run reaches terminal state" and "Dead-letter after 3 failed retries".
 **Fix.** ACK only on terminal state; persist retry counts in Redis; reconcile stuck
 `running` runs; run `_recover_pending` periodically rather than only at startup.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E5. No timeouts, and cancellation never interrupts work in flight
 
@@ -345,7 +351,7 @@ the process lifetime.
 **Fix.** Per-node and per-run timeouts; cancel outstanding tasks on cancellation;
 explicit client timeouts.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E6. Unbounded subflow recursion
 
@@ -356,7 +362,7 @@ subflow recurses until memory exhaustion, inserting a `runs` row per level.
 
 **Fix.** Depth cap plus ancestry check via `parent_run_id`.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E7. Final output is nondeterministic
 
@@ -370,7 +376,7 @@ The result is "the last sink in `completion_order`", so independent sinks race t
 **Fix.** Deterministic selection (topological rank, or the trigger's `output_node_ids`);
 do not record unexecutable nodes as completions.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E8. One-shot cleanup deletes unrelated triggers
 
@@ -399,7 +405,7 @@ No test catches this because the in-memory fake (`api/tests/conftest.py:104-106`
 
 **Fix.** Return `None` on 406/`PGRST116`; add a test asserting 404 rather than 500.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E10. Graph validation is too broad; duplicate edges double-feed
 
@@ -410,7 +416,7 @@ component — including one that would never execute — fails the entire run.
 `parents_of` does not deduplicate, so two edges between the same pair feed the parent's
 output twice.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E11. Input/metadata index skew corrupts chat roles
 
@@ -423,7 +429,7 @@ wrong roles to messages.
 
 **Fix.** Append to both lists inside the guard.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E12. Event emission is not best-effort
 
@@ -436,7 +442,7 @@ that is already marked `running`.
 
 **Fix.** Make persistence best-effort: log failures, never propagate.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E13. Scheduler is unsafe for more than one replica
 
@@ -451,7 +457,7 @@ discards any offset in the string, firing at the wrong instant for `...Z` or `+0
 inputs. No minimum interval is enforced (`* * * * *` and `interval_seconds: 1` are
 accepted).
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E14. Redis is probed once, and failures orphan runs
 
@@ -463,7 +469,7 @@ the API process with no concurrency cap and its exception swallowed. If Redis di
 `stream_enqueue` raises **after** the run row is inserted, leaving orphaned `queued`
 runs. `XADD` sets no `maxlen`, so with no worker consuming, the stream grows unbounded.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### E15. A new TLS client per query
 
@@ -476,7 +482,7 @@ call and never close it, leaking file descriptors in the long-lived worker.
 
 **Fix.** Shared pooled clients.
 
-- [ ] Fixed
+- [x] Fixed
 
 ---
 

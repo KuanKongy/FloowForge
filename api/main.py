@@ -8,6 +8,7 @@ Run worker (separate process):
 """
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 
@@ -17,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .db import SupabaseClient
+from .db import SupabaseClient, aclose_clients
 from .routers.custom_nodes import router as custom_nodes_router
 from .routers.flows import router as flows_router
 from .routers.integrations import router as integrations_router
@@ -31,33 +32,29 @@ log = logging.getLogger(__name__)
 
 
 async def _check_schema() -> None:
-    """Probe the Supabase schema for migration 0004 columns and warn loudly if
-    they're missing.
-    """
+    """Warn at boot when the database is missing columns the API depends on."""
     settings = get_settings()
     if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
         return
     db = SupabaseClient.as_service()
-    try:
-        await db.select("runs", params={"select": "start_node_ids", "limit": "1"})
-    except httpx.HTTPStatusError as exc:
-        body = (exc.response.text or "").strip()
-        if "start_node_ids" in body or exc.response.status_code in (400, 404):
-            log.warning(
-                "Supabase schema appears to be missing migration "
-                "0004_run_scope.sql (runs.start_node_ids). Apply it from "
-                "supabase/migrations/0004_run_scope.sql or runs will return "
-                "400. Detail: %s",
-                body[:200],
-            )
-    except Exception as exc:  # pragma: no cover - defensive
-        log.warning("Supabase schema probe failed: %s", exc)
+    for column in ("start_node_ids", "trigger_id"):
+        try:
+            await db.select("runs", params={"select": column, "limit": "1"})
+        except httpx.HTTPStatusError as exc:
+            body = (exc.response.text or "").strip()
+            if column in body or exc.response.status_code in (400, 404):
+                log.warning(
+                    "Supabase schema is missing runs.%s. Apply the migrations in "
+                    "supabase/migrations (latest: 0003_audit_fixes.sql). Detail: %s",
+                    column,
+                    body[:200],
+                )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning("Supabase schema probe failed: %s", exc)
+            return
 
 
-@contextlib.asynccontextmanager
-async def lifespan(app: FastAPI):
-    settings = get_settings()
-    app.state.public_api_url = settings.PUBLIC_API_URL
+async def _connect_redis(settings) -> aioredis.Redis | None:
     try:
         r = aioredis.from_url(
             settings.REDIS_URL,
@@ -65,18 +62,48 @@ async def lifespan(app: FastAPI):
             socket_connect_timeout=10,
         )
         await r.ping()
-        app.state.redis = r
-    except Exception:
-        app.state.redis = None
+        return r
+    except Exception as exc:
+        log.warning("Redis unavailable (%s); runs will execute inline", exc)
+        return None
+
+
+async def _redis_reconnect_loop(app: FastAPI) -> None:
+    """Retry the Redis connection while it is down.
+
+    Redis used to be probed once at startup: if it was down at boot, every run
+    for the lifetime of the process — including public webhooks — executed
+    inline in the API process.
+    """
+    settings = get_settings()
+    while True:
+        await asyncio.sleep(30)
+        if app.state.redis is not None:
+            continue
+        app.state.redis = await _connect_redis(settings)
+        if app.state.redis is not None:
+            log.info("Reconnected to Redis; resuming queued execution")
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    app.state.public_api_url = settings.PUBLIC_API_URL
+    app.state.redis = await _connect_redis(settings)
+    reconnect_task = asyncio.create_task(_redis_reconnect_loop(app))
     app.state.scheduler = FlowScheduler(redis=app.state.redis)
     await app.state.scheduler.start()
     await _check_schema()
     try:
         yield
     finally:
+        reconnect_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await reconnect_task
         await app.state.scheduler.stop()
         if app.state.redis is not None:
             await app.state.redis.aclose()
+        await aclose_clients()
 
 
 def create_app() -> FastAPI:

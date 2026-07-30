@@ -7,7 +7,9 @@ deployments.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -21,6 +23,31 @@ from ..utils.rate_limit import rate_limit
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/runs", tags=["runs"])
+
+
+# Inline execution runs inside the API process, so it needs its own ceiling —
+# otherwise a burst of public webhook calls spawns unbounded background tasks.
+_INLINE_LIMIT = asyncio.Semaphore(4)
+
+
+async def _mark_run_failed(run_id: str, message: str) -> None:
+    """Leave a terminal state behind instead of a run stuck in `queued`."""
+    try:
+        from ..db import SupabaseClient
+
+        sc = SupabaseClient.as_service()
+        await sc.update(
+            "runs",
+            {
+                "status": "failed",
+                "ended_at": datetime.now(timezone.utc).isoformat(),
+                "error": message,
+            },
+            params={"id": f"eq.{run_id}", "status": "in.(queued,running)"},
+            returning=False,
+        )
+    except Exception:
+        log.exception("Could not mark run %s as failed", run_id)
 
 
 async def _enqueue_or_run_inline(
@@ -37,16 +64,23 @@ async def _enqueue_or_run_inline(
 
     r = getattr(request.app.state, "redis", None)
     if r is not None:
-        await stream_enqueue(r, run_id, start_node_ids or None)
-        return "queued"
+        try:
+            await stream_enqueue(r, run_id, start_node_ids or None)
+            return "queued"
+        except Exception as exc:
+            # Redis died after the run row was written. Fall back to inline
+            # rather than stranding the run in `queued` forever.
+            log.warning("Enqueue failed for run %s, running inline: %s", run_id, exc)
 
     async def _inline() -> None:
         from ..engine.executor import run_flow
 
         try:
-            await run_flow(run_id, start_node_ids or None)
+            async with _INLINE_LIMIT:
+                await run_flow(run_id, start_node_ids or None)
         except Exception as exc:  # pragma: no cover - defensive
             log.exception("Inline run_flow %s failed: %s", run_id, exc)
+            await _mark_run_failed(run_id, f"Run failed to start: {exc}")
 
     background.add_task(_inline)
     return "inline"

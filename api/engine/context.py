@@ -1,10 +1,14 @@
 """ExecutionContext: shared services for node executors during a run."""
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from ..db import SupabaseClient
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,6 +41,10 @@ class ExecutionContext:
         ``payload.duration_ms`` (when present) is stored in the dedicated
         column so the editor's run sidebar can render per-node timing without
         re-parsing the JSON payload.
+
+        Emission is **best-effort**: telemetry must never fail a run. A transient
+        PostgREST error here used to propagate and fail the node with a
+        misleading message.
         """
         from ..db import realtime_broadcast
 
@@ -59,5 +67,15 @@ class ExecutionContext:
         if isinstance(duration_ms, (int, float)) and duration_ms >= 0:
             db_body["duration_ms"] = int(duration_ms)
             broadcast_body["duration_ms"] = int(duration_ms)
-        await self.db.insert("run_events", db_body, returning=False)
-        await realtime_broadcast(f"run:{self.run_id}", kind, broadcast_body)
+        try:
+            await self.db.insert("run_events", db_body, returning=False)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.warning("Could not persist %s event for run %s: %s", kind, self.run_id, exc)
+        try:
+            await realtime_broadcast(f"run:{self.run_id}", kind, broadcast_body)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            log.warning("Could not broadcast %s for run %s: %s", kind, self.run_id, exc)

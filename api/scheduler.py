@@ -13,7 +13,11 @@ One-shot triggers (delay, once) deactivate themselves after firing.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import socket
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -85,14 +89,91 @@ def validate_schedule_config(config: dict[str, Any]) -> None:
         raise ValueError(f"Incomplete configuration for schedule mode {mode!r}")
 
 
+# Only one API replica may own the schedule, otherwise every replica fires the
+# same cron and the flow runs N times.
+LEADER_KEY = "flowforge:scheduler:leader"
+LEADER_TTL_S = 60
+LEADER_RENEW_S = 20
+# Full resync interval. `add_trigger` from a request only reaches the replica
+# that served it, so the leader re-reads the table periodically.
+RESYNC_INTERVAL_S = 60
+
+
 class FlowScheduler:
     def __init__(self, *, redis):
         self._scheduler = AsyncIOScheduler()
         self._redis = redis
         self._jobs: dict[str, str] = {}  # trigger_id -> aps job id
+        self._is_leader = False
+        self._leader_id = f"{socket.gethostname()}-{os.getpid()}"
+        self._maintenance: asyncio.Task | None = None
+
+    @property
+    def is_leader(self) -> bool:
+        return self._is_leader
+
+    async def _acquire_leadership(self) -> bool:
+        """Claim (or renew) the scheduler lease.
+
+        With no Redis there is only one process by definition, so it leads.
+        """
+        if self._redis is None:
+            return True
+        try:
+            if self._is_leader:
+                # Renew only if we still hold it.
+                current = await self._redis.get(LEADER_KEY)
+                if current and current.decode() == self._leader_id:
+                    await self._redis.expire(LEADER_KEY, LEADER_TTL_S)
+                    return True
+                self._is_leader = False
+            acquired = await self._redis.set(
+                LEADER_KEY, self._leader_id, nx=True, ex=LEADER_TTL_S
+            )
+            return bool(acquired)
+        except Exception as exc:
+            log.warning("Scheduler leadership check failed: %s", exc)
+            return False
 
     async def start(self) -> None:
         self._scheduler.start()
+        self._is_leader = await self._acquire_leadership()
+        if self._is_leader:
+            log.info("Scheduler leader: %s", self._leader_id)
+            await self.sync_triggers()
+        else:
+            log.info("Scheduler standby: another replica holds the lease")
+        self._maintenance = asyncio.create_task(self._maintain())
+
+    async def _maintain(self) -> None:
+        """Renew the lease, take over if it lapses, and resync the trigger set."""
+        last_resync = 0.0
+        while True:
+            try:
+                await asyncio.sleep(LEADER_RENEW_S)
+                was_leader = self._is_leader
+                self._is_leader = await self._acquire_leadership()
+                if self._is_leader and not was_leader:
+                    log.info("Scheduler leadership acquired by %s", self._leader_id)
+                    await self.sync_triggers()
+                    last_resync = time.monotonic()
+                elif not self._is_leader and was_leader:
+                    log.info("Scheduler leadership lost; clearing jobs")
+                    self._clear_jobs()
+                elif self._is_leader and time.monotonic() - last_resync >= RESYNC_INTERVAL_S:
+                    await self.sync_triggers()
+                    last_resync = time.monotonic()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Scheduler maintenance cycle failed")
+
+    def _clear_jobs(self) -> None:
+        for trigger_id in list(self._jobs):
+            self.remove_trigger(trigger_id)
+
+    async def sync_triggers(self) -> None:
+        """Reconcile scheduled jobs with the triggers table."""
         sc = SupabaseClient.as_service()
         try:
             triggers = await sc.select(
@@ -102,18 +183,42 @@ class FlowScheduler:
         except Exception as e:
             log.warning("FlowScheduler could not load triggers: %s", e)
             return
+
+        wanted: set[str] = set()
         for trigger in triggers:
+            wanted.add(trigger["id"])
             try:
                 self.add_trigger(trigger)
             except Exception as e:
                 log.warning("Skipping malformed schedule trigger %s: %s", trigger.get("id"), e)
 
+        # Drop jobs whose trigger was deleted or paused on another replica.
+        for trigger_id in [t for t in self._jobs if t not in wanted]:
+            self.remove_trigger(trigger_id)
+
     async def stop(self) -> None:
+        if self._maintenance is not None:
+            self._maintenance.cancel()
+            try:
+                await self._maintenance
+            except (asyncio.CancelledError, Exception):
+                pass
+        if self._redis is not None and self._is_leader:
+            try:
+                current = await self._redis.get(LEADER_KEY)
+                if current and current.decode() == self._leader_id:
+                    await self._redis.delete(LEADER_KEY)
+            except Exception:
+                pass
         if self._scheduler.running:
             self._scheduler.shutdown(wait=False)
 
     def add_trigger(self, trigger: dict[str, Any]) -> None:
         if trigger.get("kind") != "schedule" or not trigger.get("is_active"):
+            return
+        if not self._is_leader:
+            # A standby replica must not fire jobs; the leader picks this trigger
+            # up on its next resync.
             return
         config = trigger.get("config") or {}
         mode = config.get("schedule_mode", "cron")
@@ -183,14 +288,14 @@ async def _enqueue_run(redis_conn, trigger_id: str, is_oneshot: bool = False) ->
         params={"id": f"eq.{trigger_id}", "select": "*"},
         single=True,
     )
-    if not trigger.get("is_active"):
+    if not trigger or not trigger.get("is_active"):
         return
     flow = await sc.select(
         "flows",
         params={"id": f"eq.{trigger['flow_id']}", "select": "*"},
         single=True,
     )
-    if not flow.get("current_version_id"):
+    if not flow or not flow.get("current_version_id"):
         return
     entry_node_id = trigger.get("entry_node_id")
     start_node_ids = [entry_node_id] if entry_node_id else None
@@ -202,6 +307,9 @@ async def _enqueue_run(redis_conn, trigger_id: str, is_oneshot: bool = False) ->
         "status": "queued",
         "trigger_kind": "schedule_in",
         "input": trigger.get("config", {}).get("input"),
+        # Lets the executor fire only this trigger's callback and clean up only
+        # this one-shot schedule.
+        "trigger_id": trigger_id,
     }
     if start_node_ids:
         insert_body["start_node_ids"] = start_node_ids

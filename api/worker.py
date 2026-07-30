@@ -32,6 +32,14 @@ AUTOCLAIM_MIN_IDLE_MS = 5 * 60 * 1000  # 5 min
 TRIM_INTERVAL = 100  # trim stream every N processed messages
 CONSUMER = f"worker-{os.getpid()}"
 
+# Delivery counts live in Redis so they survive reconnects and are shared by
+# every worker in the group.
+RETRY_HASH = "flowforge:jobs:retries"
+RETRY_TTL_S = 24 * 60 * 60
+
+# How often to sweep for messages abandoned by a crashed sibling worker.
+RECOVERY_INTERVAL_S = 60.0
+
 _shutdown = False
 
 
@@ -50,7 +58,7 @@ async def _ensure_group(r: aioredis.Redis) -> None:
             raise
 
 
-async def _recover_pending(r: aioredis.Redis, retry_counts: dict[str, int]) -> list[tuple[bytes, dict]]:
+async def _recover_pending(r: aioredis.Redis) -> list[tuple[bytes, dict]]:
     """Reclaim messages idle for longer than AUTOCLAIM_MIN_IDLE_MS."""
     reclaimed: list[tuple[bytes, dict]] = []
     start_id = b"0-0"
@@ -65,8 +73,6 @@ async def _recover_pending(r: aioredis.Redis, retry_counts: dict[str, int]) -> l
         for msg_id, fields in messages:
             if fields is None:
                 continue
-            key = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
-            retry_counts[key] = retry_counts.get(key, 0) + 1
             reclaimed.append((msg_id, fields))
         if next_start == b"0-0" or next_start == start_id:
             break
@@ -95,9 +101,17 @@ async def _dead_letter(r: aioredis.Redis, msg_id: bytes, run_id: str) -> None:
         log.exception("Failed to mark run %s as dead-lettered", run_id)
     await r.xack(STREAM, GROUP, msg_id)
     await r.xdel(STREAM, msg_id)
+    await _clear_retry(r, msg_id)
 
 
-async def _process_message(msg_id: bytes, fields: dict, r: aioredis.Redis) -> None:
+async def _process_message(msg_id: bytes, fields: dict, r: aioredis.Redis) -> bool:
+    """Execute one queued run.
+
+    Returns True when the message may be acknowledged. A raised exception leaves
+    the message **pending** so ``XAUTOCLAIM`` can retry it — acknowledging it
+    regardless (as this used to) meant a crashed run was never retried and its
+    row sat in ``running`` forever.
+    """
     run_id = _field(fields, "run_id")
     raw_start = _field(fields, "start_node_ids")
     start_node_ids: list[str] | None = json.loads(raw_start) if raw_start else None
@@ -112,9 +126,68 @@ async def _process_message(msg_id: bytes, fields: dict, r: aioredis.Redis) -> No
     except Exception:
         elapsed = time.monotonic() - t0
         log.exception("Run %s failed after %.1fs", run_id, elapsed)
+        return False
 
     await r.xack(STREAM, GROUP, msg_id)
     await r.xdel(STREAM, msg_id)
+    return True
+
+
+async def _retry_count(r: aioredis.Redis, msg_id: bytes) -> int:
+    """Read the persisted delivery count for a message.
+
+    Kept in Redis rather than a local dict: the old in-process counter was
+    re-created on every reconnect, so the dead-letter threshold was unreachable.
+    """
+    key = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
+    try:
+        value = await r.hget(RETRY_HASH, key)
+        return int(value) if value else 0
+    except Exception:
+        return 0
+
+
+async def _bump_retry(r: aioredis.Redis, msg_id: bytes) -> int:
+    key = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
+    try:
+        count = await r.hincrby(RETRY_HASH, key, 1)
+        await r.expire(RETRY_HASH, RETRY_TTL_S)
+        return int(count)
+    except Exception:
+        return 0
+
+
+async def _clear_retry(r: aioredis.Redis, msg_id: bytes) -> None:
+    key = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
+    try:
+        await r.hdel(RETRY_HASH, key)
+    except Exception:
+        pass
+
+
+async def _reconcile_stuck_run(run_id: str, message: str) -> None:
+    """Mark a run failed when its job could not be completed.
+
+    Without this a crashed or dead-lettered run stays `running` forever and the
+    editor spins indefinitely.
+    """
+    try:
+        from .db import SupabaseClient
+        import datetime as _dt
+
+        sc = SupabaseClient.as_service()
+        await sc.update(
+            "runs",
+            {
+                "status": "failed",
+                "ended_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "error": message,
+            },
+            params={"id": f"eq.{run_id}", "status": "in.(queued,running)"},
+            returning=False,
+        )
+    except Exception:
+        log.exception("Failed to reconcile stuck run %s", run_id)
 
 
 def _field(fields: dict, key: str) -> str | None:
@@ -142,24 +215,36 @@ async def _main_loop() -> None:
             backoff = 1.0
             log.info("Connected to Redis, consumer=%s", CONSUMER)
 
-            retry_counts: dict[str, int] = {}
-
-            # Recover any pending messages from previous crashes
-            reclaimed = await _recover_pending(r, retry_counts)
-            for msg_id, fields in reclaimed:
-                if _shutdown:
-                    break
-                key = msg_id.decode() if isinstance(msg_id, bytes) else str(msg_id)
-                run_id = _field(fields, "run_id") or "unknown"
-                if retry_counts.get(key, 0) > MAX_RETRIES:
-                    await _dead_letter(r, msg_id, run_id)
-                    continue
-                log.info("Retrying recovered message %s (run %s, attempt %d)", key, run_id, retry_counts[key])
-                await _process_message(msg_id, fields, r)
-                processed += 1
+            last_recovery = 0.0
 
             # Main blocking read loop
             while not _shutdown:
+                # Sweep for messages abandoned by a crashed sibling. Doing this
+                # only at startup meant a dead worker's jobs sat pending until
+                # some worker happened to restart.
+                now = time.monotonic()
+                if now - last_recovery >= RECOVERY_INTERVAL_S:
+                    last_recovery = now
+                    for msg_id, fields in await _recover_pending(r):
+                        if _shutdown:
+                            break
+                        run_id = _field(fields, "run_id") or "unknown"
+                        attempts = await _bump_retry(r, msg_id)
+                        if attempts > MAX_RETRIES:
+                            await _dead_letter(r, msg_id, run_id)
+                            await _reconcile_stuck_run(
+                                run_id,
+                                f"Exceeded {MAX_RETRIES} retries; moved to dead letter",
+                            )
+                            continue
+                        log.info(
+                            "Retrying recovered message %s (run %s, attempt %d)",
+                            msg_id, run_id, attempts,
+                        )
+                        if await _process_message(msg_id, fields, r):
+                            await _clear_retry(r, msg_id)
+                        processed += 1
+
                 result = await r.xreadgroup(
                     GROUP, CONSUMER, {STREAM: ">"}, count=1, block=BLOCK_MS,
                 )
@@ -170,7 +255,8 @@ async def _main_loop() -> None:
                         if fields is None:
                             await r.xack(STREAM, GROUP, msg_id)
                             continue
-                        await _process_message(msg_id, fields, r)
+                        if await _process_message(msg_id, fields, r):
+                            await _clear_retry(r, msg_id)
                         processed += 1
                         if processed % TRIM_INTERVAL == 0:
                             await r.xtrim(STREAM, maxlen=1000, approximate=True)

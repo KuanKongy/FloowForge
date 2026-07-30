@@ -52,6 +52,16 @@ log = logging.getLogger(__name__)
 _MAX_CONCURRENCY = 8
 _CANCEL_POLL_INTERVAL = 1.0  # seconds
 
+# Upper bound on a single node. Generous enough for slow image models, short
+# enough that a hung provider call cannot pin a worker indefinitely.
+_NODE_TIMEOUT_S = 300.0
+
+# Upper bound on a whole run, including waiting on parents.
+_RUN_TIMEOUT_S = 1800.0
+
+# How deep subflows may nest before we assume recursion.
+_MAX_SUBFLOW_DEPTH = 5
+
 
 def _now() -> str:
     return _dt.datetime.now(_dt.timezone.utc).isoformat()
@@ -249,12 +259,25 @@ async def run_flow(
         ctx.cache["__run_input__"] = raw_input
     ctx.cache["__input_overrides__"] = input_overrides
 
-    await sc.update(
+    # Claim the run: only `queued` may become `running`. This is both the
+    # cancellation guard (a run cancelled while queued must stay cancelled) and
+    # the idempotency guard (a redelivered Redis message, or a second worker,
+    # must not execute the same run twice).
+    claimed = await sc.update(
         "runs",
         {"status": "running", "started_at": _now()},
-        params={"id": f"eq.{run_id}"},
-        returning=False,
+        params={"id": f"eq.{run_id}", "status": "eq.queued"},
     )
+    if not claimed:
+        current = await sc.select(
+            "runs",
+            params={"id": f"eq.{run_id}", "select": "status"},
+            single=True,
+        )
+        state = (current or {}).get("status")
+        log.info("Skipping run %s: not claimable (status=%s)", run_id, state)
+        return {"ok": False, "skipped": True, "status": state}
+
     await ctx.emit("run_started", payload={"input": _event_value(run.get("input"))})
 
     nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph.get("nodes", [])}
@@ -363,11 +386,19 @@ async def run_flow(
                         return (False, None)
                 return (True, None)
 
-            wait_tasks = [
-                asyncio.ensure_future(events[p].wait())
-                for p in ips
+            pending = [
+                p for p in ips
                 if p not in outputs and p not in failed and p not in skipped
             ]
+            if not pending:
+                # Every in-scope parent has finished without producing a usable
+                # output — a race node whose parents all failed or were skipped.
+                # No event we could await will ever fire again, so skip rather
+                # than block forever. (Waiting here deadlocked the run, and with
+                # a sequential worker that stalled the whole queue.)
+                return (False, None)
+
+            wait_tasks = [asyncio.ensure_future(events[p].wait()) for p in pending]
             cancel_task = asyncio.ensure_future(cancel_event.wait())
             try:
                 await asyncio.wait(
@@ -414,20 +445,24 @@ async def run_flow(
         input_meta: list[dict[str, Any]] = []
 
         def add_input_from_parent(parent_id: str, value: Any) -> None:
-            node_inputs.append(value)
             parent = nodes_by_id.get(parent_id)
-            if parent:
-                name = _node_output_name(parent)
-                input_bindings[_binding_key(name)] = value
-                input_bindings.setdefault(f"input{len(node_inputs)}", value)
-                input_meta.append(
-                    {
-                        "node_id": parent_id,
-                        "type": parent.get("type"),
-                        "name": name,
-                        "binding": _binding_key(name),
-                    }
-                )
+            if not parent:
+                # Dangling edge: appending the value anyway shifted every later
+                # input out of step with `input_meta`, and chat.py indexes meta
+                # by position to decide message roles.
+                return
+            node_inputs.append(value)
+            name = _node_output_name(parent)
+            input_bindings[_binding_key(name)] = value
+            input_bindings.setdefault(f"input{len(node_inputs)}", value)
+            input_meta.append(
+                {
+                    "node_id": parent_id,
+                    "type": parent.get("type"),
+                    "name": name,
+                    "binding": _binding_key(name),
+                }
+            )
 
         for p in parents.get(node_id, []):
             if p in scope:
@@ -463,8 +498,10 @@ async def run_flow(
 
             executor = get_executor(node["type"])
             if executor is None:
+                # Display-only types (e.g. `header`) have no executor. Record the
+                # output so downstream nodes still resolve, but keep them out of
+                # `completion_order` so they can never win the final-output pick.
                 outputs[node_id] = None
-                completion_order.append(node_id)
                 events[node_id].set()
                 return
 
@@ -487,17 +524,32 @@ async def run_flow(
                 },
             )
             try:
-                value = await executor(node, node_inputs, ctx)
+                # Bound every node: without this a hung provider call (the SDK
+                # default is 600s) pins the run, and with a sequential worker
+                # that stalls the queue.
+                value = await asyncio.wait_for(
+                    executor(node, node_inputs, ctx), timeout=_NODE_TIMEOUT_S
+                )
+            except asyncio.CancelledError:
+                # Cancellation is driven by the watchdog, not a node defect.
+                skipped.add(node_id)
+                events[node_id].set()
+                raise
             except Exception as e:
                 duration_ms = int((time.perf_counter() - t0) * 1000)
                 failed.add(node_id)
+                message = (
+                    f"Node timed out after {_NODE_TIMEOUT_S}s"
+                    if isinstance(e, asyncio.TimeoutError)
+                    else str(e)
+                )
                 await ctx.emit(
                     "node_failed",
                     node_id=node_id,
-                    payload={"error": str(e), "duration_ms": duration_ms},
+                    payload={"error": message, "duration_ms": duration_ms},
                 )
                 events[node_id].set()
-                raise
+                raise RuntimeError(message) from e
             duration_ms = int((time.perf_counter() - t0) * 1000)
             outputs[node_id] = value
             completion_order.append(node_id)
@@ -519,15 +571,56 @@ async def run_flow(
 
     watchdog_task = asyncio.create_task(watchdog())
     node_tasks = [asyncio.create_task(execute_node(nid)) for nid in scope]
+
+    async def _abort_in_flight() -> None:
+        """Cancel node tasks still running so a cancelled run stops immediately.
+
+        Without this, cancellation only stopped *scheduling*: a node already
+        inside a provider call ran to completion, burning tokens, while the run
+        waited for it.
+        """
+        for t in node_tasks:
+            if not t.done():
+                t.cancel()
+        await asyncio.gather(*node_tasks, return_exceptions=True)
+
+    async def _cancel_watcher() -> None:
+        await cancel_event.wait()
+        for t in node_tasks:
+            if not t.done():
+                t.cancel()
+
+    cancel_watcher_task = asyncio.create_task(_cancel_watcher())
+
     try:
-        results = await asyncio.gather(*node_tasks, return_exceptions=True)
+        gather_task = asyncio.gather(*node_tasks, return_exceptions=True)
+        try:
+            results = await asyncio.wait_for(
+                asyncio.shield(gather_task), timeout=_RUN_TIMEOUT_S
+            )
+        except asyncio.TimeoutError:
+            cancel_event.set()
+            await _abort_in_flight()
+            await sc.update(
+                "runs",
+                {
+                    "status": "failed",
+                    "ended_at": _now(),
+                    "error": f"Run exceeded the {int(_RUN_TIMEOUT_S)}s limit",
+                },
+                params={"id": f"eq.{run_id}"},
+                returning=False,
+            )
+            await ctx.emit("run_failed", payload={"error": "Run timed out"})
+            return {"ok": False, "error": "Run timed out"}
     finally:
         cancel_event.set()
-        watchdog_task.cancel()
-        try:
-            await watchdog_task
-        except (asyncio.CancelledError, Exception):
-            pass
+        for task in (watchdog_task, cancel_watcher_task):
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
 
     # Surface cancellation first so an in-flight node failure that happened
     # because we cancelled it doesn't get reported as the failure cause.
@@ -556,13 +649,12 @@ async def run_flow(
         await ctx.emit("run_failed", payload={"error": str(err)})
         return {"ok": False, "error": str(err)}
 
-    # Final output: most recently completed sink in the scope.
-    final_value: Any = None
-    for nid in reversed(completion_order):
-        node_children = children.get(nid, [])
-        if not any(c in scope for c in node_children):
-            final_value = outputs.get(nid)
-            break
+    # Final output: the deepest sink in the scope, breaking ties by topological
+    # rank rather than by completion time. Picking "last to finish" made the
+    # result depend on which independent branch happened to win the race.
+    final_value: Any = _select_final_output(
+        graph, scope, outputs, completion_order, children, explicit_start
+    )
 
     await sc.update(
         "runs",
@@ -583,6 +675,43 @@ async def run_flow(
     await _cleanup_oneshot_trigger(sc, run)
 
     return {"ok": True, "output": final_value}
+
+
+def _select_final_output(
+    graph: dict[str, Any],
+    scope: set[str],
+    outputs: dict[str, Any],
+    completion_order: list[str],
+    children: dict[str, list[str]],
+    explicit_start: bool,
+) -> Any:
+    """Choose the run's headline output deterministically.
+
+    A sink is a node with no children inside the scope. When several sinks
+    produced a value we take the one that sits last in topological order, so the
+    result is a property of the graph rather than of scheduling luck. Ties at the
+    same depth fall back to completion order for stability.
+    """
+    sinks = [
+        nid for nid in completion_order
+        if nid in outputs and not any(c in scope for c in children.get(nid, []))
+    ]
+    if not sinks:
+        return None
+    if len(sinks) == 1:
+        return outputs.get(sinks[0])
+
+    try:
+        order = topo_order(graph, start_node_ids=list(scope) if explicit_start else None)
+        rank = {nid: i for i, nid in enumerate(order)}
+    except GraphError:
+        rank = {}
+
+    best = max(
+        sinks,
+        key=lambda nid: (rank.get(nid, -1), completion_order.index(nid)),
+    )
+    return outputs.get(best)
 
 
 async def _fire_callback(sc: SupabaseClient, run: dict, output: Any, outputs: dict[str, Any] | None = None) -> None:
@@ -712,6 +841,25 @@ async def _is_cancelled(sc: SupabaseClient, run_id: str) -> bool:
         return False
 
 
+async def _subflow_ancestry(sc: SupabaseClient, run_id: str | None) -> list[str]:
+    """Walk `parent_run_id` upward, returning the flow ids already on the stack."""
+    chain: list[str] = []
+    current = run_id
+    for _ in range(_MAX_SUBFLOW_DEPTH + 1):
+        if not current:
+            break
+        row = await sc.select(
+            "runs",
+            params={"id": f"eq.{current}", "select": "flow_id,parent_run_id"},
+            single=True,
+        )
+        if not row:
+            break
+        chain.append(row.get("flow_id"))
+        current = row.get("parent_run_id")
+    return chain
+
+
 async def run_flow_inline(
     *,
     flow_id: str,
@@ -725,11 +873,26 @@ async def run_flow_inline(
     via ``parent_run_id`` so the run-history UI can show subflow lineage.
     """
     sc = SupabaseClient.as_service()
+
+    # A flow that contains itself as a subflow used to recurse until the process
+    # ran out of memory, inserting a `runs` row per level.
+    ancestry = await _subflow_ancestry(sc, parent_run_id)
+    if flow_id in ancestry:
+        raise ValueError(
+            f"Subflow {flow_id} is already running in this chain (recursive subflow)"
+        )
+    if len(ancestry) >= _MAX_SUBFLOW_DEPTH:
+        raise ValueError(
+            f"Subflow nesting exceeded the limit of {_MAX_SUBFLOW_DEPTH} levels"
+        )
+
     flow = await sc.select(
         "flows",
         params={"id": f"eq.{flow_id}", "select": "*"},
         single=True,
     )
+    if not flow:
+        raise ValueError(f"Subflow {flow_id} not found")
     if not flow.get("current_version_id"):
         raise ValueError(f"Subflow {flow_id} has no current version")
     runs = await sc.insert(

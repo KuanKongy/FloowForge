@@ -35,14 +35,18 @@ def parents_of(graph: dict[str, Any]) -> dict[str, list[str]]:
     """
     out: dict[str, list[str]] = defaultdict(list)
     for e in _edges(graph):
-        out[e["target"]].append(e["source"])
+        # Two edges between the same pair are a UI artifact, not two inputs;
+        # keeping both fed the parent's output into the child twice.
+        if e["source"] not in out[e["target"]]:
+            out[e["target"]].append(e["source"])
     return out
 
 
 def children_of(graph: dict[str, Any]) -> dict[str, list[str]]:
     out: dict[str, list[str]] = defaultdict(list)
     for e in _edges(graph):
-        out[e["source"]].append(e["target"])
+        if e["target"] not in out[e["source"]]:
+            out[e["source"]].append(e["target"])
     return out
 
 
@@ -128,7 +132,11 @@ def topo_order(
                 queue.append(c)
 
     if len(order) != len(nodes):
-        raise GraphError("Graph contains a cycle or unreachable nodes")
+        stuck = sorted(set(nodes) - seen)
+        raise GraphError(
+            "Graph contains a cycle involving: " + ", ".join(stuck[:5])
+            + ("…" if len(stuck) > 5 else "")
+        )
     return order
 
 

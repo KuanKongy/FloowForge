@@ -20,6 +20,31 @@ log = logging.getLogger(__name__)
 
 _RETRY_DELAYS = (0.5, 1.5)
 
+# One pooled client per event loop. Building a fresh AsyncClient per query meant
+# a full TLS handshake on every select/insert/update — and `emit` does two round
+# trips per node event on the hot path.
+_CLIENTS: dict[asyncio.AbstractEventLoop, httpx.AsyncClient] = {}
+
+
+def _client() -> httpx.AsyncClient:
+    loop = asyncio.get_running_loop()
+    client = _CLIENTS.get(loop)
+    if client is None or client.is_closed:
+        client = httpx.AsyncClient(
+            timeout=20.0,
+            limits=httpx.Limits(max_connections=50, max_keepalive_connections=20),
+        )
+        _CLIENTS[loop] = client
+    return client
+
+
+async def aclose_clients() -> None:
+    """Close the pooled client for the current loop (used on shutdown)."""
+    loop = asyncio.get_running_loop()
+    client = _CLIENTS.pop(loop, None)
+    if client is not None and not client.is_closed:
+        await client.aclose()
+
 
 def _raise_with_supabase_body(r: httpx.Response, *, op: str, table: str | None = None) -> None:
     """Surface PostgREST error details in API logs and exception messages.
@@ -50,6 +75,24 @@ def _raise_with_supabase_body(r: httpx.Response, *, op: str, table: str | None =
         request=request,
         response=r,
     )
+
+
+def _is_no_rows(r: httpx.Response) -> bool:
+    """True when a ``single=True`` select matched zero rows.
+
+    PostgREST signals this with 406 (older) or 404 (newer) plus error code
+    ``PGRST116``. We check the code first and fall back to the status so this
+    keeps working across versions.
+    """
+    if r.is_success:
+        return False
+    if r.status_code not in (404, 406):
+        return False
+    body = r.text or ""
+    if "PGRST116" in body:
+        return True
+    # 406 on a single-object request has no other plausible cause.
+    return r.status_code == 406
 
 
 def _service_headers() -> dict[str, str]:
@@ -112,10 +155,16 @@ class SupabaseClient:
         headers = dict(self._headers)
         if single:
             headers["Accept"] = "application/vnd.pgrst.object+json"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.get(url, headers=headers, params=params)
-            _raise_with_supabase_body(r, op="select", table=table)
-            return r.json()
+        client = _client()
+        r = await client.get(url, headers=headers, params=params)
+        if single and _is_no_rows(r):
+            # PostgREST answers a single-object request with 406/PGRST116
+            # when nothing matched. Callers all expect `None` here, so
+            # raising made every `if not row: raise HTTPException(404)`
+            # branch unreachable and returned a 500 instead.
+            return None
+        _raise_with_supabase_body(r, op="select", table=table)
+        return r.json()
 
     async def insert(
         self,
@@ -127,10 +176,10 @@ class SupabaseClient:
         url = f"{self._base}/{table}"
         headers = dict(self._headers)
         headers["Prefer"] = "return=representation" if returning else "return=minimal"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(url, headers=headers, json=body)
-            _raise_with_supabase_body(r, op="insert", table=table)
-            return r.json() if returning else None
+        client = _client()
+        r = await client.post(url, headers=headers, json=body)
+        _raise_with_supabase_body(r, op="insert", table=table)
+        return r.json() if returning else None
 
     async def update(
         self,
@@ -143,37 +192,37 @@ class SupabaseClient:
         url = f"{self._base}/{table}"
         headers = dict(self._headers)
         headers["Prefer"] = "return=representation" if returning else "return=minimal"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            for attempt in range(len(_RETRY_DELAYS) + 1):
-                try:
-                    r = await client.patch(url, headers=headers, params=params, json=body)
-                    break
-                except (httpx.TransportError, ssl.SSLError) as exc:
-                    if attempt >= len(_RETRY_DELAYS):
-                        raise
-                    delay = _RETRY_DELAYS[attempt]
-                    log.warning(
-                        "Supabase update %s transient failure; retrying in %.1fs: %s",
-                        table,
-                        delay,
-                        exc,
-                    )
-                    await asyncio.sleep(delay)
-            _raise_with_supabase_body(r, op="update", table=table)
-            return r.json() if returning else None
+        client = _client()
+        for attempt in range(len(_RETRY_DELAYS) + 1):
+            try:
+                r = await client.patch(url, headers=headers, params=params, json=body)
+                break
+            except (httpx.TransportError, ssl.SSLError) as exc:
+                if attempt >= len(_RETRY_DELAYS):
+                    raise
+                delay = _RETRY_DELAYS[attempt]
+                log.warning(
+                    "Supabase update %s transient failure; retrying in %.1fs: %s",
+                    table,
+                    delay,
+                    exc,
+                )
+                await asyncio.sleep(delay)
+        _raise_with_supabase_body(r, op="update", table=table)
+        return r.json() if returning else None
 
     async def delete(self, table: str, *, params: dict[str, str]) -> None:
         url = f"{self._base}/{table}"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.delete(url, headers=self._headers, params=params)
-            _raise_with_supabase_body(r, op="delete", table=table)
+        client = _client()
+        r = await client.delete(url, headers=self._headers, params=params)
+        _raise_with_supabase_body(r, op="delete", table=table)
 
     async def rpc(self, name: str, args: dict[str, Any]) -> Any:
         url = f"{self._base}/rpc/{name}"
-        async with httpx.AsyncClient(timeout=20.0) as client:
-            r = await client.post(url, headers=self._headers, json=args)
-            _raise_with_supabase_body(r, op=f"rpc:{name}")
-            return r.json() if r.text else None
+        client = _client()
+        r = await client.post(url, headers=self._headers, json=args)
+        _raise_with_supabase_body(r, op=f"rpc:{name}")
+        return r.json() if r.text else None
 
 
 async def realtime_broadcast(channel: str, event: str, payload: dict[str, Any]) -> None:
@@ -199,8 +248,8 @@ async def realtime_broadcast(channel: str, event: str, payload: dict[str, Any]) 
         ]
     }
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(url, headers=headers, json=body)
-            response.raise_for_status()
+        client = _client()
+        response = await client.post(url, headers=headers, json=body)
+        response.raise_for_status()
     except httpx.HTTPError as exc:
         log.warning("realtime_broadcast %s/%s failed: %s", channel, event, exc)
