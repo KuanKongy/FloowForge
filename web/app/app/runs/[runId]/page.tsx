@@ -15,31 +15,55 @@ export default function RunDetailPage({ params }: { params: Promise<{ runId: str
   const [run, setRun] = useState<Run | null>(null);
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiGet<{ run: Run; events: RunEvent[] }>(`/runs/${runId}`).then((r) => {
-      setRun(r.run);
-      setEvents(r.events);
-    });
+    let alive = true;
+    setLoading(true);
+    setError(null);
+
+    apiGet<{ run: Run; events: RunEvent[] }>(`/runs/${runId}`)
+      .then((r) => {
+        if (!alive) return;
+        setRun(r.run);
+        setEvents(r.events);
+      })
+      .catch((e: unknown) => {
+        if (!alive) return;
+        setError(e instanceof Error ? e.message : "Could not load this run.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
     const supabase = createSupabaseBrowserClient();
-    const channel = supabase.channel(`run:${runId}`);
+    // Private channel so only the run's owner receives its events (audit S10).
+    const channel = supabase.channel(`run:${runId}`, { config: { private: true } });
     channel.on("broadcast", { event: "*" }, ({ event, payload }: { event: string; payload: unknown }) => {
-      setEvents((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          run_id: runId,
-          node_id: (payload as { node_id?: string | null }).node_id ?? null,
-          kind: event as RunEvent["kind"],
-          payload: (payload as { payload?: Record<string, unknown> }).payload ?? {},
-          duration_ms: (payload as { duration_ms?: number | null }).duration_ms ?? null,
-          ts: new Date().toISOString(),
-        },
-      ]);
+      if (!alive) return;
+      const nodeId = (payload as { node_id?: string | null }).node_id ?? null;
+      const incoming: RunEvent = {
+        id: `live-${event}-${nodeId ?? "run"}-${Date.now()}`,
+        run_id: runId,
+        node_id: nodeId,
+        kind: event as RunEvent["kind"],
+        payload: (payload as { payload?: Record<string, unknown> }).payload ?? {},
+        duration_ms: (payload as { duration_ms?: number | null }).duration_ms ?? null,
+        ts: new Date().toISOString(),
+      };
+      setEvents((prev) =>
+        // The initial fetch and the live stream overlap, so drop a broadcast we
+        // already have a persisted row for.
+        prev.some((p) => p.kind === incoming.kind && p.node_id === incoming.node_id)
+          ? prev
+          : [...prev, incoming]
+      );
     });
     channel.subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      alive = false;
+      void supabase.removeChannel(channel);
     };
   }, [runId]);
 
@@ -78,7 +102,13 @@ export default function RunDetailPage({ params }: { params: Promise<{ runId: str
         ))}
         {events.length === 0 && (
           <div className="px-5 py-10 text-center text-[var(--muted-foreground)]">
-            Waiting for events…
+            {loading
+              ? "Loading run…"
+              : error
+                ? error
+                : run
+                  ? "This run recorded no events."
+                  : "Run not found."}
           </div>
         )}
       </div>

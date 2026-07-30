@@ -1,17 +1,53 @@
 """Trigger CRUD + the public webhook endpoint."""
 from __future__ import annotations
 
+import json
 import secrets
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 
 from ..db import SupabaseClient
 from ..deps import CurrentUserDep
+from ..scheduler import validate_schedule_config
 from ..schemas import TriggerCreate, TriggerUpdate
+from ..utils.rate_limit import public_rate_limit
+from ..webhooks import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify_webhook_signature
 from .runs import _enqueue_or_run_inline
 
 router = APIRouter(prefix="/triggers", tags=["triggers"])
+
+# Public webhook bodies land in `runs.input` (jsonb). Cap them so an anonymous
+# caller cannot buffer an arbitrarily large request in the API process.
+MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024
+
+_PUBLIC_RUN_LIMIT = public_rate_limit(max_calls=20, window_s=60)
+_PUBLIC_READ_LIMIT = public_rate_limit(max_calls=120, window_s=60)
+
+
+async def _read_capped_body(request: Request) -> bytes:
+    """Read the request body, rejecting anything over the cap.
+
+    Checks ``Content-Length`` first, then streams so a lying or absent header
+    cannot be used to slip a huge body through.
+    """
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_WEBHOOK_BODY_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"Payload exceeds {MAX_WEBHOOK_BODY_BYTES} bytes",
+        )
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > MAX_WEBHOOK_BODY_BYTES:
+            raise HTTPException(
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                f"Payload exceeds {MAX_WEBHOOK_BODY_BYTES} bytes",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 _INPUT_NODE_TYPES = {"textbox", "imagebox", "audiobox", "filebox", "chatbox"}
 _TRIGGER_NODE_TYPES = {"webhook_in", "manual_in", "schedule_in", "button"}
@@ -34,8 +70,33 @@ async def list_triggers(user: CurrentUserDep, flow_id: str | None = None):
     return await user.db.select("triggers", params=params)
 
 
+async def _assert_flow_owned(flow_id: str, user: CurrentUserDep) -> dict[str, Any]:
+    """Confirm the caller owns ``flow_id``.
+
+    RLS on ``triggers`` only checks ``user_id``, which the handler sets itself, so
+    without this a trigger could be attached to another tenant's flow and then
+    fired through the service-role public webhook path.
+    """
+    flow = await user.db.select(
+        "flows",
+        params={"id": f"eq.{flow_id}", "user_id": f"eq.{user.id}", "select": "*"},
+        single=True,
+    )
+    if not flow:
+        raise HTTPException(404, "Flow not found")
+    return flow
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_trigger(body: TriggerCreate, user: CurrentUserDep, request: Request):
+    await _assert_flow_owned(body.flow_id, user)
+    if body.kind == "schedule":
+        # Validate the schedule before inserting so a bad cron can't leave an
+        # orphaned trigger row behind (the scheduler used to raise after insert).
+        try:
+            validate_schedule_config(body.config or {})
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
     insert: dict[str, Any] = {
         "flow_id": body.flow_id,
         "kind": body.kind,
@@ -98,10 +159,20 @@ async def update_trigger(
 
 @router.get("/{trigger_id}/webhook-info")
 async def get_webhook_info(trigger_id: str, user: CurrentUserDep, request: Request):
-    """Return the webhook token/URL for a trigger that has one."""
-    sc = SupabaseClient.as_service()
-    rows = await sc.select(
-        "webhook_secrets", params={"trigger_id": f"eq.{trigger_id}", "select": "token,secret"}
+    """Return the webhook token/URL for a trigger that has one.
+
+    Reads through ``user.db`` so RLS scopes the lookup to the caller. Using the
+    service role here (as this used to) let any authenticated user fetch any
+    trigger's token and fire someone else's flow.
+    """
+    owned = await user.db.select(
+        "triggers",
+        params={"id": f"eq.{trigger_id}", "user_id": f"eq.{user.id}", "select": "id"},
+    )
+    if not owned:
+        raise HTTPException(404, "Trigger not found")
+    rows = await user.db.select(
+        "webhook_secrets", params={"trigger_id": f"eq.{trigger_id}", "select": "token"}
     )
     if not rows:
         raise HTTPException(404, "No webhook secret for this trigger")
@@ -285,7 +356,7 @@ def _derive_header_text(graph: dict) -> str | None:
     return None
 
 
-@public_router.get("/webhook/{token}/info")
+@public_router.get("/webhook/{token}/info", dependencies=[Depends(_PUBLIC_READ_LIMIT)])
 async def webhook_info(token: str):
     sc = SupabaseClient.as_service()
     secrets_row = await sc.select(
@@ -296,12 +367,16 @@ async def webhook_info(token: str):
     trigger = secrets_row.get("triggers") if isinstance(secrets_row, dict) else None
     if not trigger or not trigger.get("is_active"):
         raise HTTPException(404, "Trigger not found")
+    # Only forms are meant to publish their input schema. A machine-to-machine
+    # webhook token should not disclose the flow's name and field defaults.
+    if trigger.get("kind") != "public_form":
+        raise HTTPException(404, "Trigger not found")
     flow_row = await sc.select(
         "flows",
         params={"id": f"eq.{trigger['flow_id']}", "select": "id,name,current_version_id"},
         single=True,
     )
-    if not flow_row.get("current_version_id"):
+    if not flow_row or not flow_row.get("current_version_id"):
         raise HTTPException(409, "Flow has no current version")
     version = await sc.select(
         "flow_versions",
@@ -342,7 +417,7 @@ async def webhook_info(token: str):
     }
 
 
-@public_router.post("/webhook/{token}")
+@public_router.post("/webhook/{token}", dependencies=[Depends(_PUBLIC_RUN_LIMIT)])
 async def webhook_run(token: str, request: Request, background: BackgroundTasks):
     sc = SupabaseClient.as_service()
     secrets_row = await sc.select(
@@ -359,17 +434,31 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
         params={"id": f"eq.{trigger['flow_id']}", "select": "*"},
         single=True,
     )
-    if not flow_rows.get("current_version_id"):
+    if not flow_rows or not flow_rows.get("current_version_id"):
         raise HTTPException(409, "Flow has no current version")
+
+    raw_body = await _read_capped_body(request)
+
+    # Public forms are opened in a browser and cannot hold a shared secret, so
+    # signatures are enforced for machine-to-machine webhook kinds only.
+    if trigger.get("kind") in {"webhook", "incoming_webhook"}:
+        ok, reason = verify_webhook_signature(
+            (secrets_row or {}).get("secret"),
+            raw_body,
+            request.headers.get(SIGNATURE_HEADER),
+            request.headers.get(TIMESTAMP_HEADER),
+        )
+        if not ok:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, reason)
 
     payload = None
     if request.headers.get("content-type", "").startswith("application/json"):
         try:
-            payload = await request.json()
-        except Exception:
+            payload = json.loads(raw_body) if raw_body else None
+        except ValueError:
             payload = None
     if payload is None:
-        payload = (await request.body()).decode(errors="ignore")
+        payload = raw_body.decode(errors="ignore")
 
     start_node_ids = None
     entry_node_id = trigger.get("entry_node_id")
@@ -392,6 +481,9 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
         "status": "queued",
         "trigger_kind": run_trigger_kind,
         "input": payload,
+        # Stamped so the public status/result endpoints can scope reads to runs
+        # this token actually created, instead of every run of the flow.
+        "trigger_id": trigger["id"],
     }
     if start_node_ids:
         insert_body["start_node_ids"] = start_node_ids
@@ -407,8 +499,12 @@ async def webhook_run(token: str, request: Request, background: BackgroundTasks)
     return {"run_id": run["id"], "show_outputs": trigger.get("show_outputs", False)}
 
 
-@public_router.get("/webhook/{token}/runs/{run_id}")
-async def webhook_run_status(token: str, run_id: str):
+async def _load_public_run(token: str, run_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Resolve a token to its trigger and fetch a run that trigger created.
+
+    Scoping on ``trigger_id`` rather than ``flow_id`` matters: a public form link
+    must not expose the owner's private editor runs on the same flow.
+    """
     sc = SupabaseClient.as_service()
     secrets_row = await sc.select(
         "webhook_secrets",
@@ -418,39 +514,48 @@ async def webhook_run_status(token: str, run_id: str):
     trigger = secrets_row.get("triggers") if isinstance(secrets_row, dict) else None
     if not trigger:
         raise HTTPException(404, "Trigger not found")
-    run = await sc.select(
-        "runs",
-        params={"id": f"eq.{run_id}", "flow_id": f"eq.{trigger['flow_id']}", "select": "id,status,output,ended_at,error"},
-        single=True,
-    )
-    if not run:
-        raise HTTPException(404, "Run not found")
-    return run
-
-
-@public_router.get("/webhook/{token}/result/{run_id}")
-async def webhook_run_result(token: str, run_id: str):
-    """Result endpoint that respects show_outputs."""
-    sc = SupabaseClient.as_service()
-    secrets_row = await sc.select(
-        "webhook_secrets",
-        params={"token": f"eq.{token}", "select": "*,triggers(*)"},
-        single=True,
-    )
-    trigger = secrets_row.get("triggers") if isinstance(secrets_row, dict) else None
-    if not trigger:
-        raise HTTPException(404, "Trigger not found")
-    if not trigger.get("show_outputs"):
-        return {"status": "results_disabled"}
     run = await sc.select(
         "runs",
         params={
             "id": f"eq.{run_id}",
-            "flow_id": f"eq.{trigger['flow_id']}",
+            "trigger_id": f"eq.{trigger['id']}",
             "select": "id,status,output,ended_at,error",
         },
         single=True,
     )
     if not run:
         raise HTTPException(404, "Run not found")
-    return run
+    return trigger, run
+
+
+def _public_run_view(trigger: dict[str, Any], run: dict[str, Any]) -> dict[str, Any]:
+    """Strip anything the link holder is not entitled to see.
+
+    ``error`` is never returned: it carries raw provider and PostgREST response
+    bodies. Outputs appear only when the owner enabled ``show_outputs``.
+    """
+    view: dict[str, Any] = {
+        "id": run.get("id"),
+        "status": run.get("status"),
+        "ended_at": run.get("ended_at"),
+    }
+    if run.get("error"):
+        view["error"] = "Run failed"
+    if trigger.get("show_outputs"):
+        view["output"] = run.get("output")
+    return view
+
+
+@public_router.get("/webhook/{token}/runs/{run_id}", dependencies=[Depends(_PUBLIC_READ_LIMIT)])
+async def webhook_run_status(token: str, run_id: str):
+    trigger, run = await _load_public_run(token, run_id)
+    return _public_run_view(trigger, run)
+
+
+@public_router.get("/webhook/{token}/result/{run_id}", dependencies=[Depends(_PUBLIC_READ_LIMIT)])
+async def webhook_run_result(token: str, run_id: str):
+    """Result endpoint that respects show_outputs."""
+    trigger, run = await _load_public_run(token, run_id)
+    if not trigger.get("show_outputs"):
+        return {"status": "results_disabled"}
+    return _public_run_view(trigger, run)

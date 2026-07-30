@@ -330,7 +330,12 @@ function Editor({ flowId }: { flowId: string }) {
       })
       .catch(() => {});
     const supabase = createSupabaseBrowserClient();
-    const channel = supabase.channel(`run:${activeRunId}`);
+    // Private channel: Realtime enforces RLS on `realtime.messages`, so only the
+    // run's owner receives its node inputs and outputs. As a public topic, anyone
+    // holding the anon key who knew a run UUID could stream them.
+    const channel = supabase.channel(`run:${activeRunId}`, {
+      config: { private: true },
+    });
     channel.on(
       "broadcast",
       { event: "*" },

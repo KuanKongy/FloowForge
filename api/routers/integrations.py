@@ -1,15 +1,14 @@
 """Per-user provider credentials.
 
-In v1 we store credentials as a JSON blob in `encrypted_credentials`. For
-production, wire pgsodium / Supabase Vault to encrypt at rest; the API server
-reads via the service role and decrypts before each run.
+Credentials are encrypted at rest with AES-256-GCM (see ``api/crypto.py``) under
+``CREDENTIALS_KEY``. They are decrypted only inside the worker, immediately
+before a provider call, and are never returned by this API.
 """
 from __future__ import annotations
 
-import json
-
 from fastapi import APIRouter, HTTPException, status
 
+from ..crypto import CredentialsKeyMissing, encrypt_credentials
 from ..deps import CurrentUserDep
 from ..schemas import IntegrationCreate, IntegrationUpdate
 
@@ -25,13 +24,25 @@ async def list_integrations(user: CurrentUserDep):
     return rows
 
 
+def _encrypt_or_503(credentials: dict) -> str:
+    try:
+        return encrypt_credentials(credentials)
+    except CredentialsKeyMissing as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Credential storage is not configured on this server (CREDENTIALS_KEY).",
+        ) from exc
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_integration(body: IntegrationCreate, user: CurrentUserDep):
+    if not body.credentials:
+        raise HTTPException(400, "Credentials are required")
     payload = {
         "user_id": user.id,
         "provider": body.provider,
         "label": body.label,
-        "encrypted_credentials": json.dumps(body.credentials),
+        "encrypted_credentials": _encrypt_or_503(body.credentials),
     }
     rows = await user.db.insert("integrations", payload)
     row = rows[0]
@@ -54,7 +65,7 @@ async def update_integration(
     if body.label is not None:
         payload["label"] = body.label
     if body.credentials is not None:
-        payload["encrypted_credentials"] = json.dumps(body.credentials)
+        payload["encrypted_credentials"] = _encrypt_or_503(body.credentials)
     if not payload:
         raise HTTPException(400, "Empty update")
 

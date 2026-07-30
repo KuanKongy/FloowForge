@@ -36,6 +36,37 @@ class Settings(BaseSettings):
     WEB_ORIGIN: str = ""
     PUBLIC_API_URL: str = ""
 
+    # "development" additionally trusts localhost for CORS and outbound callbacks.
+    ENVIRONMENT: str = "production"
+
+    # Symmetric key for encrypting `integrations.encrypted_credentials` at rest.
+    # Generate with: python -c "import secrets;print(secrets.token_urlsafe(32))"
+    CREDENTIALS_KEY: str = ""
+
+    @property
+    def is_dev(self) -> bool:
+        return self.ENVIRONMENT.lower() in {"dev", "development", "local", "test"}
+
+    @property
+    def ALLOW_PRIVATE_CALLBACKS(self) -> bool:
+        """Callbacks to localhost/private ranges are only sane in development."""
+        return self.is_dev
+
+    @property
+    def cors_origins(self) -> list[str]:
+        """Allowed browser origins.
+
+        Built from settings rather than hardcoding localhost, which previously
+        stayed in the allowlist in production and injected an empty-string origin
+        when WEB_ORIGIN was unset.
+        """
+        origins = [o.strip() for o in self.WEB_ORIGIN.split(",") if o.strip()]
+        if self.is_dev:
+            for dev_origin in ("http://localhost:3000", "http://127.0.0.1:3000"):
+                if dev_origin not in origins:
+                    origins.append(dev_origin)
+        return origins
+
     @field_validator("REDIS_URL", mode="before")
     @classmethod
     def empty_redis_url_fallback(cls, v: object) -> object:

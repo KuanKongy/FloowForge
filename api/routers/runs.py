@@ -85,7 +85,8 @@ async def delete_run(run_id: str, user: CurrentUserDep):
     )
     if not run:
         raise HTTPException(404, "Run not found")
-    await user.db.delete("run_events", params={"run_id": f"eq.{run_id}"})
+    # `run_events` has SELECT-only RLS, so a user-scoped delete here silently
+    # affects zero rows. The FK from run_events.run_id cascades instead.
     await user.db.delete("runs", params={"id": f"eq.{run_id}", "user_id": f"eq.{user.id}"})
 
 
@@ -122,12 +123,27 @@ async def enqueue_run(
 ) -> dict[str, Any]:
     flow = await user.db.select(
         "flows",
-        params={"id": f"eq.{flow_id}", "select": "*"},
+        params={"id": f"eq.{flow_id}", "user_id": f"eq.{user.id}", "select": "*"},
         single=True,
     )
+    if not flow:
+        raise HTTPException(404, "Flow not found")
     version_id = body.version_id or flow.get("current_version_id")
     if not version_id:
         raise HTTPException(400, "Flow has no current version")
+    if body.version_id and body.version_id != flow.get("current_version_id"):
+        # An explicit version_id used to be trusted verbatim, so passing another
+        # tenant's flow_version_id executed their graph under this user's run.
+        owned_version = await user.db.select(
+            "flow_versions",
+            params={
+                "id": f"eq.{body.version_id}",
+                "flow_id": f"eq.{flow_id}",
+                "select": "id",
+            },
+        )
+        if not owned_version:
+            raise HTTPException(404, "Flow version not found")
 
     trigger_kind = "manual" if body.start_node_ids else "whole"
     insert_body: dict[str, Any] = {
@@ -153,22 +169,17 @@ async def enqueue_run(
     try:
         rows = await user.db.insert("runs", insert_body)
     except httpx.HTTPStatusError as exc:
-        # Common cause: migration 0004_run_scope.sql not applied yet, so the
-        # `start_node_ids` column doesn't exist. Surface the Supabase body so
-        # the editor sidebar can show actionable feedback instead of a blank
-        # 500.
+        # Keep the PostgREST body in the server log only — it names columns and
+        # constraints. Clients get a hint for the one case they can act on.
         body_text = (exc.response.text or "").strip()
         log.warning("enqueue_run insert runs failed: %s", body_text)
-        hint = ""
+        detail = "Could not create run."
         if "start_node_ids" in body_text or "parent_run_id" in body_text:
-            hint = (
-                " (Hint: apply supabase/migrations/0004_run_scope.sql to your "
-                "Supabase project — the runs table is missing new columns.)"
+            detail += (
+                " The runs table is missing columns — apply the latest migrations"
+                " in supabase/migrations to your Supabase project."
             )
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Could not create run: {body_text[:400]}{hint}",
-        ) from exc
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail) from exc
     run = rows[0]
     await _enqueue_or_run_inline(
         request,

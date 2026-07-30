@@ -1,9 +1,9 @@
 """Helpers for resolving per-user provider credentials at execution time."""
 from __future__ import annotations
 
-import json
 from typing import Any
 
+from ...crypto import decrypt_credentials
 from ..context import ExecutionContext
 
 
@@ -30,10 +30,14 @@ async def apply_integration_options(
 
     raw = row.get("encrypted_credentials")
     credentials: dict[str, Any] = {}
-    if isinstance(raw, str) and raw:
-        credentials = json.loads(raw)
-    elif isinstance(raw, dict):
+    if isinstance(raw, dict):
         credentials = raw
+    elif isinstance(raw, str) and raw:
+        try:
+            credentials = decrypt_credentials(raw)
+        except Exception as exc:
+            # Never surface the cause: it would end up in `runs.error`.
+            raise ValueError("Stored credentials for this integration could not be read.") from exc
 
     return {
         **options,

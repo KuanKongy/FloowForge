@@ -32,7 +32,10 @@ import logging
 import time
 from typing import Any
 
+from ..config import get_settings
 from ..db import SupabaseClient
+from ..utils.ssrf import UnsafeCallbackURL, assert_safe_callback_url
+from ..webhooks import SIGNATURE_HEADER, TIMESTAMP_HEADER, sign_payload
 from .context import ExecutionContext
 from .graph import (
     GraphError,
@@ -574,7 +577,7 @@ async def run_flow(
     await ctx.emit("run_succeeded", payload={"output": _summarize(final_value)})
 
     # Outgoing webhook: POST results to callback_url if the trigger has one
-    await _fire_callback(sc, run, final_value)
+    await _fire_callback(sc, run, final_value, outputs)
 
     # Auto-delete one-time schedule triggers after successful execution
     await _cleanup_oneshot_trigger(sc, run)
@@ -582,54 +585,108 @@ async def run_flow(
     return {"ok": True, "output": final_value}
 
 
-async def _fire_callback(sc: SupabaseClient, run: dict, output: Any) -> None:
-    """POST run results to the trigger's callback_url (if configured)."""
+async def _fire_callback(sc: SupabaseClient, run: dict, output: Any, outputs: dict[str, Any] | None = None) -> None:
+    """POST run results to the callback_url of the trigger that caused this run.
+
+    Only the originating trigger is notified. Firing every callback on the flow
+    (as this used to) meant a manual run in the editor also hit production
+    webhooks.
+    """
     trigger_kind = run.get("trigger_kind")
     if not trigger_kind:
         return
     try:
+        trigger_id = run.get("trigger_id")
+        if not trigger_id:
+            return
         triggers = await sc.select(
             "triggers",
             params={
-                "flow_id": f"eq.{run['flow_id']}",
-                "select": "callback_url,output_node_ids",
+                "id": f"eq.{trigger_id}",
+                "select": "id,callback_url,output_node_ids",
             },
         )
-        for t in triggers:
-            url = t.get("callback_url")
-            if not url:
-                continue
-            payload_output = _serialize_output(output)
-            import httpx
-            backoff = [1, 5, 25]
-            async with httpx.AsyncClient(timeout=10) as client:
-                for attempt in range(3):
-                    try:
-                        resp = await client.post(url, json={
-                            "run_id": run["id"],
-                            "flow_id": run["flow_id"],
-                            "status": "succeeded",
-                            "output": payload_output,
-                        })
-                        resp.raise_for_status()
-                        break
-                    except Exception:
-                        if attempt < 2:
-                            await asyncio.sleep(backoff[attempt])
+        if not triggers:
+            return
+        trigger = triggers[0]
+        url = trigger.get("callback_url")
+        if not url:
+            return
+
+        settings = get_settings()
+        try:
+            assert_safe_callback_url(url, allow_private=settings.ALLOW_PRIVATE_CALLBACKS)
+        except UnsafeCallbackURL as exc:
+            log.warning("Refusing callback for run %s: %s", run.get("id"), exc)
+            return
+
+        # When the trigger names specific output nodes, send those instead of the
+        # single sink value.
+        payload_output = _serialize_output(output)
+        selected = trigger.get("output_node_ids")
+        if selected and outputs:
+            payload_output = {
+                nid: _serialize_output(outputs.get(nid)) for nid in selected if nid in outputs
+            }
+
+        body = {
+            "run_id": run["id"],
+            "flow_id": run["flow_id"],
+            "status": "succeeded",
+            "output": payload_output,
+        }
+        raw = json.dumps(body, default=str).encode()
+        headers = {"Content-Type": "application/json"}
+        secret = await _callback_secret(sc, trigger_id)
+        if secret:
+            timestamp = str(int(time.time()))
+            headers[TIMESTAMP_HEADER] = timestamp
+            headers[SIGNATURE_HEADER] = sign_payload(secret, raw, timestamp)
+
+        import httpx
+        backoff = [1, 5, 25]
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+            for attempt in range(3):
+                try:
+                    resp = await client.post(url, content=raw, headers=headers)
+                    resp.raise_for_status()
+                    break
+                except Exception:
+                    if attempt < 2:
+                        await asyncio.sleep(backoff[attempt])
     except Exception as exc:
         log.warning("Callback failed for run %s: %s", run.get("id"), exc)
 
 
+async def _callback_secret(sc: SupabaseClient, trigger_id: str) -> str | None:
+    """Fetch the trigger's shared secret so receivers can authenticate us."""
+    try:
+        rows = await sc.select(
+            "webhook_secrets",
+            params={"trigger_id": f"eq.{trigger_id}", "select": "secret"},
+        )
+        return rows[0].get("secret") if rows else None
+    except Exception:
+        return None
+
+
 async def _cleanup_oneshot_trigger(sc: SupabaseClient, run: dict) -> None:
-    """Auto-delete one-time schedule triggers (delay/once) after execution."""
+    """Auto-delete the one-time schedule trigger (delay/once) that fired.
+
+    Scoped to ``run.trigger_id``; keying on ``flow_id`` alone deleted every
+    delay/once schedule on the flow, including ones that had not fired.
+    """
     trigger_kind = run.get("trigger_kind")
     if trigger_kind not in {"schedule_in", "schedule"}:
+        return
+    trigger_id = run.get("trigger_id")
+    if not trigger_id:
         return
     try:
         triggers = await sc.select(
             "triggers",
             params={
-                "flow_id": f"eq.{run['flow_id']}",
+                "id": f"eq.{trigger_id}",
                 "kind": "eq.schedule",
                 "select": "id,config",
             },

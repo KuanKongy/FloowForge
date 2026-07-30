@@ -28,6 +28,10 @@ from .db import SupabaseClient
 log = logging.getLogger(__name__)
 
 
+# Guard against a user scheduling a flow every second and self-DoSing the queue.
+MIN_INTERVAL_SECONDS = 60
+
+
 def _parse_tz(name: str):
     """Return a timezone object. Falls back to UTC for unrecognised names."""
     if not name or name == "UTC":
@@ -37,6 +41,48 @@ def _parse_tz(name: str):
         return zoneinfo.ZoneInfo(name)
     except Exception:
         return timezone.utc
+
+
+def _parse_once_at(once_at: str, tz):
+    """Parse an ISO datetime, honouring an explicit offset when one is present.
+
+    ``.replace(tzinfo=tz)`` would silently discard the offset in values like
+    ``2026-01-01T00:00:00Z`` or ``...+05:00`` and fire at the wrong instant, so
+    only naive strings get the configured timezone attached.
+    """
+    parsed = datetime.fromisoformat(once_at.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=tz)
+    return parsed
+
+
+def validate_schedule_config(config: dict[str, Any]) -> None:
+    """Raise ``ValueError`` if a schedule config cannot produce a valid trigger.
+
+    Called before the trigger row is inserted so a malformed cron cannot leave an
+    orphaned row behind.
+    """
+    mode = (config or {}).get("schedule_mode", "cron")
+    tz = _parse_tz((config or {}).get("timezone"))
+    if mode == "interval":
+        total = (
+            int(config.get("interval_hours", 0) or 0) * 3600
+            + int(config.get("interval_minutes", 0) or 0) * 60
+            + int(config.get("interval_seconds", 0) or 0)
+        )
+        if total <= 0:
+            raise ValueError("Interval schedule needs a non-zero interval")
+        if total < MIN_INTERVAL_SECONDS:
+            raise ValueError(
+                f"Interval must be at least {MIN_INTERVAL_SECONDS} seconds"
+            )
+        return
+    try:
+        built = FlowScheduler._build_aps_trigger(mode, config or {}, tz)
+    except ValueError as exc:
+        raise ValueError(f"Invalid schedule: {exc}") from exc
+    if built is None:
+        raise ValueError(f"Incomplete configuration for schedule mode {mode!r}")
 
 
 class FlowScheduler:
@@ -107,8 +153,7 @@ class FlowScheduler:
             once_at = config.get("once_at")
             if not once_at:
                 return None
-            run_date = datetime.fromisoformat(once_at).replace(tzinfo=tz)
-            return DateTrigger(run_date=run_date, timezone=tz)
+            return DateTrigger(run_date=_parse_once_at(once_at, tz), timezone=tz)
         if mode == "interval":
             hours = int(config.get("interval_hours", 0))
             minutes = int(config.get("interval_minutes", 0))

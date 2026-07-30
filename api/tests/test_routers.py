@@ -243,8 +243,11 @@ async def test_run_400_surfaces_supabase_message(client, fake_supabase, monkeypa
     )
     assert r.status_code == 400, r.text
     detail = r.json().get("detail", "")
-    assert "start_node_ids" in detail
-    assert "0004_run_scope.sql" in detail
+    # The response must stay actionable without echoing the PostgREST body,
+    # which names internal columns and constraints (audit S13).
+    assert "migrations" in detail
+    assert "PGRST204" not in detail
+    assert "schema cache" not in detail
 
 
 async def test_cancel_run_marks_cancelled(client, fake_supabase, stub_executors):

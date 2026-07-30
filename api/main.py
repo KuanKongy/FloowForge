@@ -25,6 +25,7 @@ from .routers.media import router as media_router
 from .routers.runs import flow_runs_router, router as runs_router
 from .routers.triggers import public_router as triggers_public_router, router as triggers_router
 from .scheduler import FlowScheduler
+from .webhooks import SIGNATURE_HEADER, TIMESTAMP_HEADER
 
 log = logging.getLogger(__name__)
 
@@ -84,10 +85,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.WEB_ORIGIN, "http://localhost:3000"],
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", SIGNATURE_HEADER, TIMESTAMP_HEADER],
     )
 
     app.include_router(flows_router)

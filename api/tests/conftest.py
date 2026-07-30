@@ -66,6 +66,15 @@ def _apply_query(
     return [deepcopy(r) for r in out]
 
 
+# Column defaults the real schema applies on insert. Without these the fake
+# returns NULL where Postgres would return the default, so code that reads e.g.
+# `trigger.is_active` behaves differently in tests than in production.
+_COLUMN_DEFAULTS: dict[str, dict[str, Any]] = {
+    "triggers": {"is_active": True, "show_outputs": False},
+    "flows": {"is_subflow": False, "is_published": False},
+}
+
+
 class FakeSupabaseDB:
     """Process-wide singleton holding all tables for a test run."""
 
@@ -82,9 +91,13 @@ class FakeSupabaseDB:
         bucket = self.tables.setdefault(table, [])
         rows = body if isinstance(body, list) else [body]
         out: list[dict[str, Any]] = []
+        defaults = _COLUMN_DEFAULTS.get(table, {})
         for row in rows:
             r = deepcopy(row)
             r.setdefault("id", str(uuid.uuid4()))
+            for col, value in defaults.items():
+                if r.get(col) is None:
+                    r[col] = value
             bucket.append(r)
             out.append(deepcopy(r))
         return out
@@ -213,6 +226,22 @@ _ACTIVE_DB: FakeSupabaseDB | None = None
 # ---------------------------------------------------------------------------
 # Pytest fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def test_settings(monkeypatch):
+    """Give every test a credentials key and dev-mode settings.
+
+    `CREDENTIALS_KEY` is required to store provider credentials at rest, and
+    ENVIRONMENT=test relaxes the outbound-callback guard for localhost.
+    """
+    from api import config as config_module
+
+    monkeypatch.setenv("CREDENTIALS_KEY", "test-credentials-key-not-a-real-secret")
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    config_module.get_settings.cache_clear()
+    yield
+    config_module.get_settings.cache_clear()
 
 
 @pytest_asyncio.fixture(autouse=True)

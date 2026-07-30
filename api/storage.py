@@ -10,9 +10,12 @@ URLs. A single 1024x1024 image is ~500 KB-3 MB once base64-encoded, which:
   ``run_events``, so reopening a run showed a corrupt data URL;
 * bloated ``runs.output`` with half-megabyte blobs per run.
 
-We now upload the bytes once to a public bucket and pass a short https URL
+We now upload the bytes once to a **private** bucket and pass a short signed URL
 through the graph instead. The bucket is created on first use so deployments
 need no manual provisioning step.
+
+The bucket used to be public with a blanket read policy, which left every
+tenant's generated media world-readable forever; signed URLs expire instead.
 """
 from __future__ import annotations
 
@@ -31,6 +34,10 @@ BUCKET = "run-media"
 
 # 50 MB, matching the bucket's own file_size_limit.
 _MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+# Signed media links last a week: long enough to reopen a recent run in the
+# editor, short enough that a leaked URL stops working.
+SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60
 
 _EXT_BY_MIME: dict[str, str] = {
     "image/png": "png",
@@ -100,7 +107,9 @@ async def _ensure_bucket(client: httpx.AsyncClient, root: str) -> None:
             json={
                 "id": BUCKET,
                 "name": BUCKET,
-                "public": True,
+                # Private: media is served through short-lived signed URLs so a
+                # leaked link cannot expose a tenant's generated output forever.
+                "public": False,
                 "file_size_limit": _MAX_UPLOAD_BYTES,
             },
         )
@@ -123,7 +132,7 @@ async def upload_media(
     run_id: str,
     node_id: str,
 ) -> str:
-    """Upload generated media and return its public URL.
+    """Upload generated media and return a signed, expiring URL.
 
     Raises on failure so the node fails loudly instead of emitting a payload
     the editor silently drops.
@@ -157,6 +166,27 @@ async def upload_media(
                 response=response,
             )
 
-    url = f"{root}/storage/v1/object/public/{BUCKET}/{path}"
+        url = await _sign_url(client, root, path)
+
     log.info("Uploaded %d bytes of %s to %s", len(blob), resolved_mime, path)
     return url
+
+
+async def _sign_url(client: httpx.AsyncClient, root: str, path: str) -> str:
+    """Return a time-limited signed URL for an object in the private bucket."""
+    response = await client.post(
+        f"{root}/storage/v1/object/sign/{BUCKET}/{path}",
+        headers={**_headers(), "Content-Type": "application/json"},
+        json={"expiresIn": SIGNED_URL_TTL_SECONDS},
+    )
+    if not response.is_success:
+        raise httpx.HTTPStatusError(
+            f"Could not sign URL for {path}: {response.status_code} "
+            f"{(response.text or '')[:300]}",
+            request=response.request,
+            response=response,
+        )
+    signed = (response.json() or {}).get("signedURL") or ""
+    if not signed:
+        raise ValueError(f"Storage returned no signed URL for {path}")
+    return f"{root}/storage/v1{signed}" if signed.startswith("/") else f"{root}/storage/v1/{signed}"
