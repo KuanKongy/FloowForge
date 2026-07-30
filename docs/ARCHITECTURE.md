@@ -1,6 +1,6 @@
 # Architecture
 
-FlowForge has three main runtime layers:
+FloowForge has three main runtime layers:
 
 - `web/`: Next.js application for public pages, auth pages, the dashboard, and
   the React Flow editor.

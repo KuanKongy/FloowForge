@@ -8,7 +8,6 @@ from ..context import ExecutionContext
 from .inputs import merge_inputs
 from .integrations import apply_integration_options
 
-
 # Display labels (kept compatible with the existing UI dropdowns) -> backend providers.
 MODEL_TO_PROVIDER: dict[str, str] = {
     "GPT o3-mini": "openai",

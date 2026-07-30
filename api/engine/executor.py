@@ -64,7 +64,7 @@ _MAX_SUBFLOW_DEPTH = 5
 
 
 def _now() -> str:
-    return _dt.datetime.now(_dt.timezone.utc).isoformat()
+    return _dt.datetime.now(_dt.UTC).isoformat()
 
 
 def _summarize(value: Any, max_len: int = 240) -> Any:
@@ -390,7 +390,7 @@ async def run_flow(
                 pass
             try:
                 await asyncio.wait_for(cancel_event.wait(), timeout=_CANCEL_POLL_INTERVAL)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
     def in_scope_parents(node_id: str) -> list[str]:
@@ -435,9 +435,9 @@ async def run_flow(
                     if not winner and ips:
                         return (False, None)
                     return (True, {winner} if winner else set())
-                else:  # barrier
-                    if any(p in failed for p in ips):
-                        return (False, None)
+                # barrier
+                if any(p in failed for p in ips):
+                    return (False, None)
                 return (True, None)
 
             pending = [
@@ -682,7 +682,7 @@ async def run_flow(
             results = await asyncio.wait_for(
                 asyncio.shield(gather_task), timeout=_RUN_TIMEOUT_S
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             cancel_event.set()
             await _abort_in_flight()
             await sc.update(

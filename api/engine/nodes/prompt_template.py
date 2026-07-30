@@ -16,10 +16,9 @@ from jinja2.exceptions import SecurityError
 from jinja2.sandbox import SandboxedEnvironment
 
 from ...providers import get_provider
-from .llm import MODEL_TO_PROVIDER
-from .integrations import apply_integration_options
 from ..context import ExecutionContext
-
+from .integrations import apply_integration_options
+from .llm import MODEL_TO_PROVIDER
 
 # Prompt bodies are user-authored and rendered inside the worker, which holds the
 # Supabase service-role key and every provider credential. A plain Environment
@@ -90,9 +89,9 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     try:
         rendered = _jinja.from_string(template_str).render(**bindings)
     except SecurityError as e:
-        raise ValueError(f"Prompt template blocked an unsafe expression: {e}")
+        raise ValueError(f"Prompt template blocked an unsafe expression: {e}") from e
     except TemplateError as e:
-        raise ValueError(f"Prompt template error: {e}")
+        raise ValueError(f"Prompt template error: {e}") from e
 
     provider_name = MODEL_TO_PROVIDER.get(model_label, "openai")
     provider = get_provider(provider_name)

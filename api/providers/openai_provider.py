@@ -10,7 +10,6 @@ from openai import AsyncOpenAI
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
-
 # Friendly UI labels -> actual OpenAI model ids.
 #
 # ``dall-e-3`` was retired from the Images API — it now answers

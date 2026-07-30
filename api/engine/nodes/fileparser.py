@@ -15,7 +15,6 @@ import pymupdf
 
 from ..context import ExecutionContext
 
-
 _TEXT_MIME_TYPES = {
     "application/json",
     "application/x-ndjson",
@@ -68,7 +67,7 @@ async def _resolve_bytes(input_value: Any) -> bytes:
                 return base64.b64decode(encoded)
             except Exception as exc:
                 raise ValueError(f"Invalid file data URL: {exc}") from exc
-        if input_value.startswith("http://") or input_value.startswith("https://"):
+        if input_value.startswith(("http://", "https://")):
             async with httpx.AsyncClient(timeout=30.0) as client:
                 r = await client.get(input_value)
                 r.raise_for_status()

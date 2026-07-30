@@ -19,7 +19,9 @@ The current tracked migrations define the product tables used by the API:
 - `triggers`: manual, webhook, and schedule trigger definitions.
 - `webhook_secrets`: public webhook token records.
 - `custom_nodes`: prompt-template custom node definitions.
-- `integrations`: encrypted or masked provider credential records.
+- `integrations`: provider credentials, encrypted at rest with AES-256-GCM
+  under `CREDENTIALS_KEY` (see `api/crypto.py`). Decrypted only in the worker,
+  immediately before a provider call, and never returned by the API.
 
 ## Auth
 

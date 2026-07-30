@@ -1,20 +1,36 @@
 """Built-in node executors. Each module exports `execute(node, inputs, ctx)`."""
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from . import (
     chat as _chat,
+)
+from . import (
     file as _file,
+)
+from . import (
     fileparser as _fileparser,
+)
+from . import (
     llm as _llm,
+)
+from . import (
     media as _media,
+)
+from . import (
     passthrough as _passthrough,
+)
+from . import (
     prompt_template as _prompt_template,
+)
+from . import (
     subflow as _subflow,
+)
+from . import (
     trigger_input as _trigger_input,
 )
-
 
 NodeExecutor = Callable[[dict, list[Any], Any], Awaitable[Any]]
 

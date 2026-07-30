@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -40,7 +40,7 @@ async def _mark_run_failed(run_id: str, message: str) -> None:
             "runs",
             {
                 "status": "failed",
-                "ended_at": datetime.now(timezone.utc).isoformat(),
+                "ended_at": datetime.now(UTC).isoformat(),
                 "error": message,
             },
             params={"id": f"eq.{run_id}", "status": "in.(queued,running)"},

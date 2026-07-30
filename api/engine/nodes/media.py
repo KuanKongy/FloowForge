@@ -17,7 +17,6 @@ from ..context import ExecutionContext
 from .inputs import merge_inputs
 from .integrations import apply_integration_options
 
-
 # Below this size a base64 data URL still fits inside a Realtime message
 # (base64 inflates by 4/3), so it stays usable as a fallback when Storage is
 # not configured — e.g. local dev without Supabase credentials.

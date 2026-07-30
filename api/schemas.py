@@ -5,7 +5,6 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-
 NodeType = Literal[
     "textbox", "imagebox", "audiobox", "filebox", "chatbox",
     "header", "button",

@@ -299,7 +299,7 @@ async def test_entry_run_ignores_out_of_scope_parent_for_barrier(
 
     async def trigger(node, inputs, ctx):
         visited.append(node["id"])
-        return None
+        return
 
     async def boom(node, inputs, ctx):
         visited.append(node["id"])

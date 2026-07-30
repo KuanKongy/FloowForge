@@ -22,7 +22,7 @@ flowforge/
 
 ## Quick start
 
-1. Create a Supabase project, then apply the SQL in [`supabase/migrations`](supabase/migrations) via the Supabase SQL editor or CLI.
+1. Create a Supabase project, then apply every file in [`supabase/migrations`](supabase/migrations) **in order** via the Supabase SQL editor or CLI.
 2. Copy [`api/.env.example`](api/.env.example) to `api/.env` and fill in keys.
 3. Copy [`web/.env.example`](web/.env.example) to `web/.env.local` and fill in keys.
 4. Start Redis locally (`redis-server`) for the job queue.
@@ -45,25 +45,25 @@ For a deeper technical map, start with [`docs/README.md`](docs/README.md).
 - Floowbox-flavored UI: pink primary tokens, per-kind colored backend tiles, proximity-revealed handles, in-use direction dots, edge X delete badges, collapse/rename per node, framer-spring frontend/backend toggle.
 - Custom nodes: subflows (use a saved flow as a node) and Prompt Template builder
 - Built-in providers: OpenAI (chat + TTS + GPT Image 1), Google Gemini, Cloudflare Workers AI (Llama, DreamShaper, Flux), PDF text extraction
-- Generated images/audio are stored in Supabase Storage and passed downstream as URLs, so results stay under the Realtime message limit and survive a page reload
+- Generated images/audio are stored in a private Supabase Storage bucket and passed downstream as short-lived signed URLs, so results stay under the Realtime message limit and survive a page reload
 - Inline-execution fallback: when no Redis worker is reachable the API runs flows in a FastAPI background task so dev / tests / small deployments stay functional without Redis.
 
 ## Testing
 
-Backend tests cover the executor (8 scenarios), routers, providers, and graph utilities; they run on an in-memory Supabase fake.
+Backend tests cover the executor (barrier/race/cancellation/deadlock scenarios), routers, providers, graph utilities, tenancy and access control, webhook signing, credential encryption, worker delivery semantics, and public-form field routing. They run on an in-memory Supabase fake.
 
 ```bash
 cd api
 pip install -r requirements.txt
-pytest tests -q --count=5         # 31 tests x 5 iterations = 155 runs
+pytest tests -q --count=5         # 125 tests x 5 iterations
 ```
 
-Frontend has Vitest unit tests for the topo-order/scope utilities (used to drive badges and dimming):
+Frontend has Vitest unit tests for the topo-order/scope utilities (badges and dimming) and the dashboard schedule maths:
 
 ```bash
 cd web
 npm install
-npm test                          # vitest (8 tests)
+npm test                          # vitest (29 tests)
 npm run lint
 npm run build
 ```
@@ -73,7 +73,7 @@ The Playwright e2e specs in `web/tests/e2e` exercise the full editor (sign-in ->
 ```bash
 E2E_BASE_URL=http://localhost:3000 \
 E2E_EMAIL=demo@flowforge.dev E2E_PASSWORD=... \
-npm run e2e:ci                    # repeat-each=3 across the 5 scenarios
+npm run e2e:ci                    # repeat-each=3 across the e2e specs
 ```
 
-CI runs lint + unit tests + build for `web/` and `pytest --count=3` for `api/`.
+CI runs lint + typecheck + unit tests + build for `web/`, `pytest --count=3` for `api/`, and builds both Docker images. Playwright runs on push when `E2E_BASE_URL` is configured.

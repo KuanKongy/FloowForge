@@ -31,11 +31,11 @@ finding says **PROVEN** it was reproduced at runtime.
 | P0 | 14 | **14** |
 | P1 | 15 | **15** |
 | P2 | 8 | **8** |
-| P3 | 30 | 3 |
-| P4 | 9 | 0 |
+| P3 | 30 | **26** |
+| P4 | 9 | **9** |
 
-Suite after Phase 3: **125 pytest passing** (61 baseline + 64 new regression tests),
-`tsc --noEmit` clean.
+Suite after Phase 5: **125 pytest** + **29 vitest** passing (baseline was 61 + 11),
+`ruff check` clean, `tsc --noEmit` clean, `next build` clean.
 
 > **Required deploy step.** Apply `supabase/migrations/0003_audit_fixes.sql` before
 > running this build. It adds `runs.trigger_id` (which the public webhook and

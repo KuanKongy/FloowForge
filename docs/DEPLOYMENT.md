@@ -1,6 +1,6 @@
 # Deployment
 
-FlowForge needs four hosted pieces:
+FloowForge needs four hosted pieces:
 
 1. Next.js frontend.
 2. FastAPI backend.

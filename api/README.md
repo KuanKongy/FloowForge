@@ -52,7 +52,7 @@ as of latest manual smoke test:
 | Image   | `DreamShaper`          | Account-gated   | 401 from Cloudflare unless `@cf/lykon/dreamshaper-8-lcm` is enabled on the account.    |
 | Image   | `Midjourney`           | No CF Workers AI mapping — falls back to Stable Diffusion XL. Manual configuration needed. |
 | Audio   | `TTS-1`                | Working         | OpenAI text-to-speech.                                                                 |
-| File    | `PDF`                  | Working         | Uses pdfplumber server-side.                                                           |
+| File    | `PDF`                  | Working         | Uses PyMuPDF server-side.                                                           |
 
 Generated images and audio are uploaded to the public `run-media` Supabase
 Storage bucket and the node returns the object URL. They used to be inlined as

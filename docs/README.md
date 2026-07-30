@@ -1,6 +1,6 @@
-# FlowForge Technical Documentation
+# FloowForge Technical Documentation
 
-This folder is the project map for engineers working on FlowForge. The root
+This folder is the project map for engineers working on FloowForge. The root
 README stays short and product-facing; these docs explain how the system is
 put together, where each responsibility lives, and how to operate it.
 
@@ -15,7 +15,7 @@ put together, where each responsibility lives, and how to operate it.
 
 ## Product Surface
 
-FlowForge lets a user build no-code AI workflows on a canvas, save immutable
+FloowForge lets a user build no-code AI workflows on a canvas, save immutable
 flow versions, trigger runs manually, through webhooks, from public forms, or
 from schedules, and inspect each node execution afterward.
 

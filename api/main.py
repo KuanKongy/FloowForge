@@ -23,8 +23,10 @@ from .routers.custom_nodes import router as custom_nodes_router
 from .routers.flows import router as flows_router
 from .routers.integrations import router as integrations_router
 from .routers.media import router as media_router
-from .routers.runs import flow_runs_router, router as runs_router
-from .routers.triggers import public_router as triggers_public_router, router as triggers_router
+from .routers.runs import flow_runs_router
+from .routers.runs import router as runs_router
+from .routers.triggers import public_router as triggers_public_router
+from .routers.triggers import router as triggers_router
 from .scheduler import FlowScheduler
 from .webhooks import SIGNATURE_HEADER, TIMESTAMP_HEADER
 

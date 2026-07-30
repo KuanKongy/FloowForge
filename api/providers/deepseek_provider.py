@@ -8,7 +8,6 @@ from openai import AsyncOpenAI
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
-
 _MODEL_LABEL_TO_ID: dict[str, str] = {
     "deepseek": "deepseek-v4-flash",
     "deepseek v4 flash": "deepseek-v4-flash",

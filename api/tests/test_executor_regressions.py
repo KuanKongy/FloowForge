@@ -228,7 +228,6 @@ async def test_final_output_prefers_the_deepest_sink(
 
 async def test_self_referencing_subflow_is_rejected(fake_supabase, stub_executors):
     """E6: a flow containing itself recursed until memory death."""
-    from api.engine.executor import run_flow_inline
 
     flow = fake_supabase.insert("flows", {"user_id": "user-1", "name": "Loop"})[0]
     version = fake_supabase.insert(

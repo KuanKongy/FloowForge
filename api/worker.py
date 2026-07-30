@@ -22,7 +22,7 @@ import redis.asyncio as aioredis
 from redis.exceptions import ResponseError
 
 from .config import get_settings
-from .queue import STREAM, GROUP
+from .queue import GROUP, STREAM
 
 log = logging.getLogger("flowforge.worker")
 
@@ -84,14 +84,15 @@ async def _dead_letter(r: aioredis.Redis, msg_id: bytes, run_id: str) -> None:
     """ACK a poison message and mark its run as failed."""
     log.error("Dead-lettering message %s (run %s) after %d retries", msg_id, run_id, MAX_RETRIES)
     try:
-        from .db import SupabaseClient
         import datetime as _dt
+
+        from .db import SupabaseClient
         sc = SupabaseClient.as_service()
         await sc.update(
             "runs",
             {
                 "status": "failed",
-                "ended_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "ended_at": _dt.datetime.now(_dt.UTC).isoformat(),
                 "error": f"Exceeded {MAX_RETRIES} retries; moved to dead letter",
             },
             params={"id": f"eq.{run_id}"},
@@ -172,15 +173,16 @@ async def _reconcile_stuck_run(run_id: str, message: str) -> None:
     editor spins indefinitely.
     """
     try:
-        from .db import SupabaseClient
         import datetime as _dt
+
+        from .db import SupabaseClient
 
         sc = SupabaseClient.as_service()
         await sc.update(
             "runs",
             {
                 "status": "failed",
-                "ended_at": _dt.datetime.now(_dt.timezone.utc).isoformat(),
+                "ended_at": _dt.datetime.now(_dt.UTC).isoformat(),
                 "error": message,
             },
             params={"id": f"eq.{run_id}", "status": "in.(queued,running)"},

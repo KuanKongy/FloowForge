@@ -1,0 +1,29 @@
+# Lint configuration for the API.
+#
+# CI previously ran `ruff check .` with no config and an unpinned ruff, so the
+# effective rule set changed whenever ruff shipped new defaults — the job was
+# red on rules the codebase had never opted into.
+
+target-version = "py312"
+line-length = 110
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import sorting
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "RET",  # return-statement hygiene
+    "PIE",  # misc lints
+]
+
+ignore = [
+    "E501",   # line length is handled by the formatter, not the linter
+    "B008",   # FastAPI's Depends()/File() in defaults is the framework idiom
+    "RET504", # a named result before return is often clearer
+]
+
+[lint.per-file-ignores]
+# Tests deliberately import inside functions to exercise module-level state.
+"tests/**" = ["E402", "I001"]

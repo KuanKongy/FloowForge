@@ -18,7 +18,7 @@ import logging
 import os
 import socket
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -27,7 +27,6 @@ from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from .db import SupabaseClient
-
 
 log = logging.getLogger(__name__)
 
@@ -39,12 +38,12 @@ MIN_INTERVAL_SECONDS = 60
 def _parse_tz(name: str):
     """Return a timezone object. Falls back to UTC for unrecognised names."""
     if not name or name == "UTC":
-        return timezone.utc
+        return UTC
     try:
         import zoneinfo
         return zoneinfo.ZoneInfo(name)
     except Exception:
-        return timezone.utc
+        return UTC
 
 
 def _parse_once_at(once_at: str, tz):

@@ -1,11 +1,15 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
 
-ENV PIP_NO_CACHE_DIR=1
+# curl is only needed for the healthcheck below.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY api/requirements-api.txt ./api/requirements-api.txt
 COPY api/requirements-runtime.txt ./api/requirements-runtime.txt
@@ -13,4 +17,16 @@ RUN pip install -r api/requirements-api.txt
 
 COPY api ./api
 
-CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-5001}
+# Run unprivileged: a container compromise should not also be root.
+RUN useradd --create-home --uid 10001 flowforge \
+    && chown -R flowforge:flowforge /app
+USER flowforge
+
+EXPOSE 5001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT:-5001}/health" || exit 1
+
+# --proxy-headers so client IPs (used by the public rate limiter) survive the
+# load balancer.
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-5001} --proxy-headers --forwarded-allow-ips '*'

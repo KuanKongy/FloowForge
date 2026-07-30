@@ -1,6 +1,6 @@
-# FlowForge Architecture
+# FloowForge Architecture
 
-FlowForge is an event-driven, no-code AI workflow builder. Users design
+FloowForge is an event-driven, no-code AI workflow builder. Users design
 directed acyclic graphs (DAGs) of nodes in a visual canvas, then execute them
 via manual triggers, webhooks, schedules, or public forms.
 
@@ -34,7 +34,7 @@ FlowForge/
 │   └── lib/                # API client, Supabase helpers, utils
 ├── packages/shared/        # TypeScript types shared between web and API
 ├── supabase/
-│   └── migrations/         # SQL migrations (0001–0005)
+│   └── migrations/         # SQL migrations (0001–0003)
 └── ARCHITECTURE.md         # This file
 ```
 
@@ -49,7 +49,7 @@ FlowForge/
 | Job Queue      | Redis Streams (custom blocking worker)           |
 | Scheduling     | APScheduler (in-process, async)                  |
 | Database       | Supabase (PostgreSQL, Auth, Realtime, RLS)       |
-| AI Providers   | OpenAI, Google Gemini, Cloudflare Workers AI     |
+| AI Providers   | OpenAI, Google Gemini, Cloudflare Workers AI, DeepSeek |
 | Auth           | Supabase Auth (JWT, SSR middleware)              |
 
 ## Execution Pipeline
@@ -87,16 +87,17 @@ Each node declares a `wait_strategy`:
 | textbox          | passthrough       | Static text, pass-through I/O            |
 | imagebox         | passthrough       | Image display/pass-through               |
 | audiobox         | passthrough       | Audio display/pass-through               |
-| filebox          | file              | PDF upload + text extraction             |
+| filebox          | file              | File upload; opaque pass-through         |
 | chatbox          | chat              | Multi-turn conversation                  |
 | header           | passthrough       | Display-only heading                     |
 | button           | trigger_input     | Manual run trigger                       |
 | webhook_in       | trigger_input     | External HTTP trigger                    |
-| manual_in        | trigger_input     | API-driven trigger                       |
+| manual_in        | trigger_input     | API / public-form trigger                |
+| schedule_in      | trigger_input     | Cron / scheduled trigger                 |
 | llm              | llm               | Text AI (GPT, Gemini, Llama)             |
 | imagegen         | media             | Image generation (GPT Image 1, Flux)     |
 | audiogen         | media             | Audio generation (TTS)                   |
-| fileparser       | fileparser        | File parsing (PDF → text)                |
+| fileparser       | fileparser        | File parsing (PDF → text, via PyMuPDF)   |
 | subflow          | subflow           | Run another flow as a step               |
 | prompt_template  | prompt_template   | Custom Jinja2 prompt → LLM              |
 
@@ -107,8 +108,13 @@ The worker uses Redis Streams with consumer groups for reliable job delivery:
 1. `XGROUP CREATE flowforge:jobs workers $ MKSTREAM` on startup
 2. `XAUTOCLAIM` to recover pending messages from crashed consumers
 3. `XREADGROUP GROUP workers {consumer} BLOCK 30000` for new jobs
-4. `XACK` + `XDEL` only after run reaches terminal state
-5. Dead-letter after 3 failed retries
+4. `XACK` + `XDEL` only when `run_flow` returns. A raised exception leaves the
+   message pending so `XAUTOCLAIM` can redeliver it.
+5. Delivery counts are kept in the Redis hash `flowforge:jobs:retries`, so they
+   survive reconnects. After `MAX_RETRIES` (3) the message is dead-lettered and
+   its run is marked `failed`.
+6. `_recover_pending` sweeps for messages abandoned by crashed workers every
+   60s, not only at startup.
 
 Idle overhead: ~120 Redis commands/hour (vs ~7200 with polling).
 
@@ -124,7 +130,9 @@ Key tables (Supabase/PostgreSQL):
 - `custom_nodes` — user-defined prompt templates
 - `integrations` — BYO API keys for AI providers
 
-All tables use RLS (Row Level Security) scoped to `auth.uid()`.
+All tables use RLS (Row Level Security) scoped to `auth.uid()`. Note that
+`run_events` and `webhook_secrets` are read-only to owners; writes go through
+the service role. See `docs/AUDIT.md` for the full policy matrix.
 
 ## Deployment
 
@@ -145,6 +153,9 @@ Copy `api/.env.example` and `web/.env.example`, then fill in:
 | `REDIS_URL`                  | API    | Redis connection string            |
 | `OPENAI_API_KEY`             | API    | OpenAI API key                     |
 | `GEMINI_KEY`                 | API    | Google Gemini API key              |
+| `DEEPSEEK_API_KEY`           | API    | DeepSeek API key                   |
+| `CREDENTIALS_KEY`            | API    | AES key encrypting BYO provider credentials |
+| `ENVIRONMENT`                | API    | `production` (default) or `development` |
 | `CLOUDFLARE_ID`              | API    | Cloudflare account ID              |
 | `CLOUDFLARE_KEY`             | API    | Cloudflare API token               |
 | `WEB_ORIGIN`                 | API    | Frontend URL for CORS              |

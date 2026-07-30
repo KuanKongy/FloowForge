@@ -153,7 +153,7 @@ project.
 
 ## Shared Package
 
-- `packages/shared/src/index.ts`: shared FlowForge TypeScript types.
+- `packages/shared/src/index.ts`: shared FloowForge TypeScript types.
 - `packages/shared/package.json`: package metadata.
 - `packages/shared/tsconfig.json`: package TypeScript config.
 

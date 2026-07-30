@@ -9,7 +9,6 @@ import httpx
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
-
 # ``@cf/meta/llama-3-8b-instruct`` was deprecated on 2026-05-30 and now returns
 # HTTP 410, so every label that used to point at it — including the raw model
 # id saved in older graphs — is remapped onto the 3.1 replacement.

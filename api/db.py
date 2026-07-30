@@ -129,11 +129,11 @@ class SupabaseClient:
         self._access_token = access_token
 
     @classmethod
-    def as_user(cls, access_token: str) -> "SupabaseClient":
+    def as_user(cls, access_token: str) -> SupabaseClient:
         return cls(access_token=access_token, service=False)
 
     @classmethod
-    def as_service(cls) -> "SupabaseClient":
+    def as_service(cls) -> SupabaseClient:
         return cls(service=True)
 
     @property

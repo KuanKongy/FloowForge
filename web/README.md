@@ -15,7 +15,7 @@ Next.js 15 (App Router) front-end.
   - `/app/profile` — account email and sign out
 - `components/` — shared UI (app shell, editor, ui primitives)
 - `lib/` — Supabase client/server, fetch helpers
-- `middleware.ts` — protects `/app/*`; sends logged-in users from `/`, `/auth/sign-in`, `/auth/sign-up` to `/app/flows`
+- `middleware.ts` — protects `/app/*` (verifying the access token against Supabase); sends logged-in users from `/`, `/auth/sign-in`, `/auth/sign-up` to `/app`
 
 ## Google sign-in setup
 

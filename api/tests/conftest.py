@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 import uuid
 from copy import deepcopy
-from typing import Any, Iterable
+from typing import Any
+from collections.abc import Iterable
 
 import pytest
 import pytest_asyncio
@@ -168,7 +169,7 @@ class FakeSupabaseClient:
         self._db = db
 
     @classmethod
-    def as_service(cls) -> "FakeSupabaseClient":
+    def as_service(cls) -> FakeSupabaseClient:
         # Singleton lookup via global db; bound by the autouse fixture below.
         global _ACTIVE_DB
         if _ACTIVE_DB is None:
@@ -176,7 +177,7 @@ class FakeSupabaseClient:
         return cls(_ACTIVE_DB)
 
     @classmethod
-    def as_user(cls, access_token: str) -> "FakeSupabaseClient":
+    def as_user(cls, access_token: str) -> FakeSupabaseClient:
         return cls.as_service()
 
     async def select(

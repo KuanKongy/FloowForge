@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 from .base import BaseProvider
-from .openai_provider import OpenAIProvider
-from .gemini_provider import GeminiProvider
 from .cloudflare_provider import CloudflareProvider
 from .deepseek_provider import DeepSeekProvider
-
+from .gemini_provider import GeminiProvider
+from .openai_provider import OpenAIProvider
 
 _PROVIDERS: dict[str, BaseProvider] | None = None
 

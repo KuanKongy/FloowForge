@@ -4,11 +4,10 @@ from __future__ import annotations
 import asyncio
 
 import pymupdf
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..deps import CurrentUserDep
 from ..utils.rate_limit import rate_limit
-from fastapi import Depends
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -45,10 +44,10 @@ async def parse_pdf(_: CurrentUserDep, pdf: UploadFile = File(...)):
         # Parsing a large or malicious PDF used to block every other request on
         # this worker for the duration.
         text = await asyncio.wait_for(asyncio.to_thread(_extract_text, raw), timeout=60)
-    except asyncio.TimeoutError:
-        raise HTTPException(504, "PDF parsing timed out")
+    except TimeoutError as exc:
+        raise HTTPException(504, "PDF parsing timed out") from exc
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(400, f"Failed to read PDF: {e}")
+        raise HTTPException(400, f"Failed to read PDF: {e}") from e
     return {"text": text}

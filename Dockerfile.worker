@@ -1,11 +1,10 @@
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
-
-ENV PIP_NO_CACHE_DIR=1
 
 COPY api/requirements-worker.txt ./api/requirements-worker.txt
 COPY api/requirements-runtime.txt ./api/requirements-runtime.txt
@@ -13,4 +12,12 @@ RUN pip install -r api/requirements-worker.txt
 
 COPY api ./api
 
+# Run unprivileged: the worker holds the service-role key and every provider
+# credential, so it is the last process that should also be root.
+RUN useradd --create-home --uid 10001 flowforge \
+    && chown -R flowforge:flowforge /app
+USER flowforge
+
+# The worker has no HTTP surface; liveness is "the process is up", which the
+# orchestrator already tracks.
 CMD python -m api.worker
