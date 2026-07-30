@@ -34,8 +34,15 @@ finding says **PROVEN** it was reproduced at runtime.
 | P3 | 30 | **26** |
 | P4 | 9 | **9** |
 
-Suite after Phase 5: **125 pytest** + **29 vitest** passing (baseline was 61 + 11),
-`ruff check` clean, `tsc --noEmit` clean, `next build` clean.
+All phases complete. Suite: **125 pytest** + **29 vitest** passing (baseline was
+61 + 11), `ruff check` clean, `tsc --noEmit` clean, `next build` clean.
+
+Two findings did **not** survive verification and were withdrawn rather than
+"fixed": provider temperature doubling (the UI slider is 0–1, so scaling to the
+providers' 0–2 range is intentional) and the whole-flow cycle check (a
+disconnected cycle *is* in scope for a whole-flow run, so failing fast is
+correct). Node collapse was partially withdrawn: it works on Subflow and Custom
+Node; only `NodeFrame.renderCollapseButton` was unreachable.
 
 > **Required deploy step.** Apply `supabase/migrations/0003_audit_fixes.sql` before
 > running this build. It adds `runs.trigger_id` (which the public webhook and
