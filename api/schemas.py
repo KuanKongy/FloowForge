@@ -46,6 +46,10 @@ class IoPort(BaseModel):
     name: str
     type: IoType
     required: bool = False
+    # The custom-node builder sends a per-input default. Without this field
+    # Pydantic dropped it, so prompt_template's `spec.get("default")` fallback
+    # could never fire.
+    default: Any | None = None
 
 
 # ----- Flow CRUD -----

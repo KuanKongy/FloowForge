@@ -14,7 +14,10 @@ type RunResult = {
   error?: string;
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001").replace(/\/+$/, "");
+
+// Give up after ~5 minutes rather than polling a dead run forever.
+const MAX_POLL_ATTEMPTS = 150;
 
 export default function ResultPage() {
   const params = useParams<{ token: string; runId: string }>();
@@ -26,37 +29,52 @@ export default function ResultPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    let attempts = 0;
+    const stop = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+
     async function poll() {
+      attempts += 1;
+      if (attempts > MAX_POLL_ATTEMPTS) {
+        stop();
+        setError("Stopped waiting for this run. Refresh to check again.");
+        return;
+      }
       try {
         const res = await fetch(`${API}/t/webhook/${token}/result/${runId}`);
         if (!res.ok) {
-          setError(`Error: ${res.status}`);
+          // A 404 is terminal (bad link); other codes may be transient.
+          if (res.status === 404) {
+            stop();
+            setError("This result is no longer available.");
+          } else {
+            setError(`Error: ${res.status}`);
+          }
           return;
         }
+        setError(null);
         const data = await res.json();
         if (data.status === "results_disabled") {
           setDisabled(true);
-          if (pollRef.current) clearInterval(pollRef.current);
+          stop();
           return;
         }
         setResult(data);
-        if (
-          data.status === "succeeded" ||
-          data.status === "failed" ||
-          data.status === "cancelled"
-        ) {
-          if (pollRef.current) clearInterval(pollRef.current);
+        if (["succeeded", "failed", "cancelled"].includes(data.status)) {
+          stop();
         }
       } catch {
-        /* ignore transient */
+        /* ignore transient network errors; the attempt cap bounds this */
       }
     }
 
     void poll();
     pollRef.current = setInterval(poll, 2000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return stop;
   }, [token, runId]);
 
   const isTerminal =

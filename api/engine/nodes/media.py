@@ -61,12 +61,17 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
 
     node_type = node.get("type")
     label = data.get("model") or ("GPT Image 1" if node_type == "imagegen" else "TTS-1")
+    # An unknown label used to silently route to a different vendor (Cloudflare
+    # for images, OpenAI for audio), producing a confusing upstream error.
     if node_type == "imagegen":
-        provider_name = IMAGE_MODEL_TO_PROVIDER.get(label, "cloudflare")
-        output_type = "image"
+        known, output_type = IMAGE_MODEL_TO_PROVIDER, "image"
     else:
-        provider_name = AUDIO_MODEL_TO_PROVIDER.get(label, "openai")
-        output_type = "audio"
+        known, output_type = AUDIO_MODEL_TO_PROVIDER, "audio"
+    provider_name = known.get(label)
+    if provider_name is None:
+        raise ValueError(
+            f"Unsupported model {label!r}. Pick one of: " + ", ".join(sorted(known))
+        )
 
     provider = get_provider(provider_name)
     if provider is None:

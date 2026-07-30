@@ -186,6 +186,57 @@ def _binding_key(name: str) -> str:
     return key or "input"
 
 
+# Sentinel: `None` is a legitimate submitted value, so "no value" needs its own
+# marker.
+_NO_VALUE = object()
+
+# Node types that represent a user-facing input on a public form.
+_FORM_INPUT_TYPES = {"textbox", "imagebox", "audiobox", "filebox", "chatbox"}
+
+# Entry nodes whose output is the raw run payload.
+_TRIGGER_TYPES = {"button", "webhook_in", "manual_in", "schedule_in"}
+
+
+def _payload_is_addressed(run_input: Any, nodes_by_id: dict[str, dict[str, Any]]) -> bool:
+    """True when the payload keys name specific input nodes.
+
+    Distinguishes a public-form submission (``{node_id: value}``) from an
+    arbitrary webhook body that merely happens to be a JSON object.
+    """
+    if not isinstance(run_input, dict) or not run_input:
+        return False
+    for node in nodes_by_id.values():
+        if node.get("type") in _FORM_INPUT_TYPES and _addressed_input(run_input, node) is not _NO_VALUE:
+            return True
+    return False
+
+
+def _addressed_input(run_input: Any, node: dict[str, Any]) -> Any:
+    """Return the submitted value addressed to this node, if any.
+
+    Public forms post ``{node_id: value}``. Display names are also accepted so a
+    hand-written webhook payload like ``{"Prompt": "hi"}`` still routes.
+    """
+    if not isinstance(run_input, dict) or not run_input:
+        return _NO_VALUE
+    if node.get("type") not in _FORM_INPUT_TYPES:
+        return _NO_VALUE
+
+    node_id = node.get("id")
+    if node_id in run_input:
+        return run_input[node_id]
+
+    name = _node_output_name(node)
+    if name in run_input:
+        return run_input[name]
+    # Tolerate case/spacing differences between the form label and the payload.
+    wanted = _binding_key(name)
+    for key, value in run_input.items():
+        if isinstance(key, str) and _binding_key(key) == wanted:
+            return value
+    return _NO_VALUE
+
+
 def _coerce_start_node_ids(value: Any) -> list[str] | None:
     """Normalize persisted/queued start ids.
 
@@ -258,6 +309,10 @@ async def run_flow(
     else:
         ctx.cache["__run_input__"] = raw_input
     ctx.cache["__input_overrides__"] = input_overrides
+    nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph.get("nodes", [])}
+    ctx.cache["__addressed_payload__"] = _payload_is_addressed(
+        ctx.cache.get("__run_input__"), nodes_by_id
+    )
 
     # Claim the run: only `queued` may become `running`. This is both the
     # cancellation guard (a run cancelled while queued must stay cancelled) and
@@ -280,7 +335,6 @@ async def run_flow(
 
     await ctx.emit("run_started", payload={"input": _event_value(run.get("input"))})
 
-    nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph.get("nodes", [])}
     explicit_start = bool(effective_start_node_ids)
     if explicit_start:
         scope = scope_for(graph, effective_start_node_ids or [])
@@ -464,9 +518,22 @@ async def run_flow(
                 }
             )
 
+        is_form_input = node.get("type") in _FORM_INPUT_TYPES
+        addressed_payload = bool(ctx.cache.get("__addressed_payload__"))
+
         for p in parents.get(node_id, []):
             if p in scope:
                 if p in outputs and (strategy != "race" or race_parent_ids is None or p in race_parent_ids):
+                    # On an addressed form submission a trigger's raw payload
+                    # must not flood input nodes: each one takes only its own
+                    # field, and a node the form didn't address keeps its saved
+                    # canvas value.
+                    if (
+                        addressed_payload
+                        and is_form_input
+                        and nodes_by_id.get(p, {}).get("type") in _TRIGGER_TYPES
+                    ):
+                        continue
                     add_input_from_parent(p, outputs[p])
                 # In race mode some parents may not have fired yet; skip them.
             else:
@@ -477,9 +544,26 @@ async def run_flow(
                 elif not explicit_start and p in nodes_by_id:
                     add_input_from_parent(p, _snapshot_value(nodes_by_id[p]))
 
+        # Per-field routing. A public form (or an API caller) addresses each
+        # input node directly, keyed by node id or by the node's display name.
+        # Without this the entry node handed the *whole* payload dict to every
+        # child, so a two-field form sent both values to both nodes and even a
+        # one-field form fed the model `{'Prompt': 'hello'}` instead of `hello`.
+        addressed = _addressed_input(ctx.cache.get("__run_input__"), node)
+        if addressed is not _NO_VALUE:
+            node_inputs = [addressed]
+            input_bindings = {"input1": addressed}
+            input_meta = [
+                {
+                    "node_id": None,
+                    "type": "form_field",
+                    "name": _node_output_name(node),
+                    "binding": "input1",
+                }
+            ]
         # When the user runs the WHOLE flow (no explicit starts), root nodes
         # receive ``runs.input`` so a webhook payload reaches the graph.
-        if not parents.get(node_id) and not explicit_start:
+        elif not parents.get(node_id) and not explicit_start:
             run_input = ctx.cache.get("__run_input__")
             if run_input is not None and not node_inputs:
                 node_inputs = [run_input]

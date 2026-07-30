@@ -47,6 +47,10 @@ _CF_ASPECT_DIMS: dict[str, tuple[int, int]] = {
 }
 
 
+_MIN_IMAGE_DIM = 64
+_MAX_IMAGE_DIM = 2048
+
+
 def _cf_image_dims(options: dict[str, Any]) -> tuple[int, int]:
     """Resolve the output dimensions from an explicit size or an aspect hint.
 
@@ -57,7 +61,20 @@ def _cf_image_dims(options: dict[str, Any]) -> tuple[int, int]:
     width = options.get("width")
     height = options.get("height")
     if width and height:
-        return int(width), int(height)
+        # These come straight from node options, so a non-numeric value used to
+        # raise an uncaught ValueError and an enormous one just burned money.
+        try:
+            w, h = int(width), int(height)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"Image width/height must be numbers, got {width!r}x{height!r}"
+            ) from None
+        if not (_MIN_IMAGE_DIM <= w <= _MAX_IMAGE_DIM and _MIN_IMAGE_DIM <= h <= _MAX_IMAGE_DIM):
+            raise ValueError(
+                f"Image dimensions must be between {_MIN_IMAGE_DIM} and "
+                f"{_MAX_IMAGE_DIM} pixels, got {w}x{h}"
+            )
+        return w, h
     aspect = str(options.get("aspect") or "").strip().lower()
     if aspect in _CF_ASPECT_DIMS:
         return _CF_ASPECT_DIMS[aspect]
@@ -135,11 +152,23 @@ class CloudflareProvider(BaseProvider):
         s = get_settings()
         credentials = self._credentials(options)
         account_id = credentials.get("account_id") or s.CLOUDFLARE_ID
+        if not account_id:
+            # Without this the URL became `/accounts//ai/run/...` and Cloudflare
+            # answered 404 with a message about token permissions.
+            raise ValueError(
+                "Cloudflare account id is not configured. Set CLOUDFLARE_ID or "
+                "add an account_id to the integration."
+            )
         return f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}"
 
     def _headers(self, options: dict[str, Any]) -> dict[str, str]:
         credentials = self._credentials(options)
         token = credentials.get("api_key") or credentials.get("token") or get_settings().CLOUDFLARE_KEY
+        if not token:
+            raise ValueError(
+                "Cloudflare API token is not configured. Set CLOUDFLARE_KEY or "
+                "add an api_key to the integration."
+            )
         return {"Authorization": f"Bearer {token}"}
 
     async def generate(

@@ -140,11 +140,19 @@ async def update_trigger(
     user: CurrentUserDep,
     request: Request,
 ):
-    payload = {k: v for k, v in body.model_dump().items() if v is not None}
+    # `exclude_unset` keeps explicit nulls, so callback_url / entry_node_id and a
+    # saved input map can actually be cleared. Filtering on `is not None` meant
+    # they could only ever be set, never removed.
+    payload = body.model_dump(exclude_unset=True)
     if not payload:
         raise HTTPException(400, "Empty update")
+    if "config" in payload and (payload.get("kind") or "") == "schedule":
+        try:
+            validate_schedule_config(payload.get("config") or {})
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
     rows = await user.db.update(
-        "triggers", payload, params={"id": f"eq.{trigger_id}"}
+        "triggers", payload, params={"id": f"eq.{trigger_id}", "user_id": f"eq.{user.id}"}
     )
     if not rows:
         raise HTTPException(404, "Trigger not found")

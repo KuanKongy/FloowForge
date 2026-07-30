@@ -182,7 +182,10 @@ class OpenAIProvider(BaseProvider):
         if not model.startswith("gpt-image"):
             params["response_format"] = "b64_json"
         result = await self._client_for(options).images.generate(**params)
-        b64 = result.data[0].b64_json or ""
+        # `data` can come back empty or None; indexing it blind raised an opaque
+        # TypeError/IndexError instead of the intended message.
+        entries = getattr(result, "data", None) or []
+        b64 = (getattr(entries[0], "b64_json", None) or "") if entries else ""
         if not b64:
             return ProviderResult(text="OpenAI image generation returned no data.")
         return ProviderResult(blob=base64.b64decode(b64), mime="image/png")

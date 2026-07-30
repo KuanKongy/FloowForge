@@ -22,7 +22,14 @@ type FlowInfo = {
   outputs: unknown[];
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
+const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001").replace(/\/+$/, "");
+
+/** Address a field by node id, falling back to its label for legacy payloads. */
+function fieldKey(field: FormField): string {
+  return field.node_id || field.name;
+}
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 export default function PublicFormPage() {
   const params = useParams<{ token: string }>();
@@ -51,7 +58,10 @@ export default function PublicFormPage() {
       .then((data: FlowInfo) => {
         setInfo(data);
         const initial: Record<string, string> = {};
-        for (const p of data.inputs) initial[p.name] = p.default_value || "";
+        // Keyed by node_id so each field reaches its own node. Keying by the
+        // display name meant two fields with the same label collided, and the
+        // engine had no way to tell which node a value belonged to.
+        for (const p of data.inputs) initial[fieldKey(p)] = p.default_value || "";
         setValues(initial);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load form"))
@@ -124,9 +134,12 @@ export default function PublicFormPage() {
               </div>
               {info.inputs.length > 0 &&
                 info.inputs.map((p) => (
-                  <FormField key={p.node_id || p.name} label={p.name} type={p.type || "textbox"}>
-                    {renderInput(p, values[p.name] ?? "", (v) =>
-                      setValues((prev) => ({ ...prev, [p.name]: v }))
+                  <FormField key={fieldKey(p)} label={p.name} type={p.type || "textbox"}>
+                    {renderInput(
+                      p,
+                      values[fieldKey(p)] ?? "",
+                      (v) => setValues((prev) => ({ ...prev, [fieldKey(p)]: v })),
+                      (msg) => setError(msg)
                     )}
                   </FormField>
                 ))}
@@ -149,36 +162,32 @@ function renderInput(
   field: FormField,
   value: string,
   onChange: (v: string) => void,
+  onError: (message: string) => void,
 ) {
   const cls = "w-full p-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-2)] text-sm";
+
+  /** Read a picked file as a data URL, rejecting anything over the cap. */
+  const readFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      onError(`${file.name} is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB.`);
+      e.target.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => onError(`Could not read ${file.name}.`);
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   switch (field.type) {
     case "imagebox":
-      return <input type="file" accept="image/*" className={cls} onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = () => onChange(reader.result as string);
-          reader.readAsDataURL(file);
-        }
-      }} />;
+      return <input type="file" accept="image/*" className={cls} onChange={readFile} />;
     case "audiobox":
-      return <input type="file" accept="audio/*" className={cls} onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = () => onChange(reader.result as string);
-          reader.readAsDataURL(file);
-        }
-      }} />;
+      return <input type="file" accept="audio/*" className={cls} onChange={readFile} />;
     case "filebox":
-      return <input type="file" className={cls} onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          const reader = new FileReader();
-          reader.onload = () => onChange(reader.result as string);
-          reader.readAsDataURL(file);
-        }
-      }} />;
+      return <input type="file" className={cls} onChange={readFile} />;
     default:
       return (
         <textarea

@@ -30,11 +30,11 @@ finding says **PROVEN** it was reproduced at runtime.
 |---|---|---|
 | P0 | 14 | **14** |
 | P1 | 15 | **15** |
-| P2 | 8 | 2 |
+| P2 | 8 | **8** |
 | P3 | 30 | 3 |
 | P4 | 9 | 0 |
 
-Suite after Phase 2: **120 pytest passing** (61 baseline + 59 new regression tests),
+Suite after Phase 3: **125 pytest passing** (61 baseline + 64 new regression tests),
 `tsc --noEmit` clean.
 
 > **Required deploy step.** Apply `supabase/migrations/0003_audit_fixes.sql` before
@@ -510,7 +510,7 @@ feeds the model `{'Prompt': 'hello'}` instead of `hello`. Only the defaults-only
 **Fix.** Key the submitted payload by `node_id` and have the executor route
 `run_input[node_id]` to the matching input node. *(Breaking change — approved.)*
 
-- [ ] Fixed
+- [x] Fixed
 
 ### F2. DeepSeek integrations cannot be created
 
@@ -530,7 +530,7 @@ The custom-node UI sends a `default` for each declared input, but `IoPort`
 fallback `spec.get("default")` (`api/engine/nodes/prompt_template.py:77`) is therefore
 permanently dead.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### F4. `update_trigger` can never clear a field
 
@@ -540,7 +540,7 @@ through the API.
 
 **Fix.** `model_dump(exclude_unset=True)`.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### F5. Deleting run events is a silent no-op
 
@@ -556,14 +556,14 @@ returns 204. It only appears to work because deleting the run cascades.
 concurrent saves compute the same number and collide with `unique(flow_id, version)`,
 surfacing as a 500.
 
-- [ ] Fixed
+- [x] Fixed
 
 ### F7. Provider adapter defects
 
 `api/providers/*`
 
-- Temperature is doubled unconditionally in three adapters (`openai:145`, `cloudflare:176`,
-  `deepseek:81`); newer reasoning models reject the parameter outright.
+- ~~Temperature doubling~~ — **not a defect.** Verified the UI slider is 0–1
+  (`AIModelNode.tsx:273`), so scaling to the providers' 0–2 range is intentional.
 - Unknown model labels silently fall back to a **different provider** (`llm.py:51` → openai,
   `media.py:65` → cloudflare) instead of erroring — precisely the failure mode the last two
   commits were chasing.
@@ -577,7 +577,7 @@ surfacing as a 500.
 - `chat.py` may emit a system message that adapters then prepend a second system message to.
 - BYO-key paths construct a client per call and never close it (see E15).
 
-- [ ] Fixed
+- [x] Fixed
 
 ### F8. PDF parsing blocks the event loop
 
@@ -586,7 +586,7 @@ runs `pymupdf.open`/`get_text` **synchronously on the event loop**, stalling eve
 request for the duration. The endpoint is also unused by the web app, which inlines
 base64 data URLs instead.
 
-- [ ] Fixed
+- [x] Fixed
 
 ---
 

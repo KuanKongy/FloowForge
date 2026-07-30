@@ -48,7 +48,15 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     options = await apply_integration_options(data, ctx, options)
 
     label = data.get("model") or "GPT o3-mini"
-    provider_name = MODEL_TO_PROVIDER.get(label, "openai")
+    provider_name = MODEL_TO_PROVIDER.get(label)
+    if provider_name is None:
+        # Falling back to OpenAI for an unrecognised label sent Gemini and
+        # Llama selections to the wrong vendor, which surfaced as an opaque
+        # upstream 400 instead of a fixable error.
+        raise ValueError(
+            f"Unsupported model {label!r}. Pick one of: "
+            + ", ".join(sorted(MODEL_TO_PROVIDER))
+        )
     provider = get_provider(provider_name)
     if provider is None:
         raise ValueError(f"Unknown provider: {provider_name}")
