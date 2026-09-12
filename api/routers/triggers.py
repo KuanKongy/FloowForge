@@ -9,9 +9,9 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 
 from ..db import SupabaseClient
 from ..deps import CurrentUserDep
+from ..ratelimit.dependencies import public_read_limit, public_submit_limit
 from ..scheduler import validate_schedule_config
 from ..schemas import TriggerCreate, TriggerUpdate
-from ..utils.rate_limit import public_rate_limit
 from ..webhooks import SIGNATURE_HEADER, TIMESTAMP_HEADER, verify_webhook_signature
 from .runs import _enqueue_or_run_inline
 
@@ -21,8 +21,9 @@ router = APIRouter(prefix="/triggers", tags=["triggers"])
 # caller cannot buffer an arbitrarily large request in the API process.
 MAX_WEBHOOK_BODY_BYTES = 1 * 1024 * 1024
 
-_PUBLIC_RUN_LIMIT = public_rate_limit(max_calls=20, window_s=60)
-_PUBLIC_READ_LIMIT = public_rate_limit(max_calls=120, window_s=60)
+# Submissions get three windows (device / IP / token); reads two.
+_PUBLIC_RUN_LIMIT = public_submit_limit()
+_PUBLIC_READ_LIMIT = public_read_limit()
 
 
 async def _read_capped_body(request: Request) -> bytes:

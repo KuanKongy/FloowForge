@@ -43,6 +43,24 @@ class Settings(BaseSettings):
     # Generate with: python -c "import secrets;print(secrets.token_urlsafe(32))"
     CREDENTIALS_KEY: str = ""
 
+    # --- Rate limiting -----------------------------------------------------
+    # Master switch; the test suite turns it off so repeated runs never trip
+    # the global windows.
+    RATE_LIMIT_ENABLED: bool = True
+    # Number of trusted reverse proxies in front of the API. 0 = trust only
+    # the socket peer; N = read the Nth-from-the-right X-Forwarded-For hop.
+    TRUSTED_PROXY_HOPS: int = 0
+    # Per-identity default applied to every route (user > fingerprint > IP).
+    RL_GLOBAL_PER_MIN: int = 300
+    # Flood ceiling per IP. Shared by everyone behind a campus NAT, so huge.
+    RL_IP_PER_MIN: int = 1200
+    # Hourly cap on run creation per account (bounds sustained AI spend).
+    RL_RUNS_PER_HOUR: int = 500
+    # Client-signal event log (IP, fingerprint, OS/browser, tz, language).
+    CLIENT_EVENTS_ENABLED: bool = True
+    # Share of ordinary GETs persisted; errors/mutations always are.
+    CLIENT_EVENT_SAMPLE_RATE: float = 0.1
+
     @property
     def is_dev(self) -> bool:
         return self.ENVIRONMENT.lower() in {"dev", "development", "local", "test"}

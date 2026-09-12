@@ -7,7 +7,7 @@ import pymupdf
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from ..deps import CurrentUserDep
-from ..utils.rate_limit import rate_limit
+from ..ratelimit.dependencies import rate_limit
 
 router = APIRouter(prefix="/media", tags=["media"])
 

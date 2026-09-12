@@ -240,6 +240,11 @@ def test_settings(monkeypatch):
 
     monkeypatch.setenv("CREDENTIALS_KEY", "test-credentials-key-not-a-real-secret")
     monkeypatch.setenv("ENVIRONMENT", "test")
+    # The suite runs with --count=3 in one process; the shared in-memory
+    # windows would otherwise trip the global limits mid-suite. The rate-limit
+    # tests re-enable this per test.
+    monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
+    monkeypatch.setenv("CLIENT_EVENTS_ENABLED", "false")
     config_module.get_settings.cache_clear()
     yield
     config_module.get_settings.cache_clear()

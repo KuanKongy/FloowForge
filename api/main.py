@@ -19,6 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .db import SupabaseClient, aclose_clients
+from .ratelimit import events as client_events
+from .ratelimit import middleware as ratelimit_middleware
 from .routers.custom_nodes import router as custom_nodes_router
 from .routers.flows import router as flows_router
 from .routers.integrations import router as integrations_router
@@ -96,12 +98,20 @@ async def lifespan(app: FastAPI):
     app.state.scheduler = FlowScheduler(redis=app.state.redis)
     await app.state.scheduler.start()
     await _check_schema()
+    events_task = asyncio.create_task(client_events.flush_loop(app))
     try:
         yield
     finally:
         reconnect_task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await reconnect_task
+        events_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await events_task
+        # Best-effort final drain so a clean shutdown doesn't lose the buffer.
+        if settings.CLIENT_EVENTS_ENABLED and settings.SUPABASE_SERVICE_ROLE_KEY:
+            with contextlib.suppress(Exception):
+                await client_events.flush_once(app.state.redis)
         await app.state.scheduler.stop()
         if app.state.redis is not None:
             await app.state.redis.aclose()
@@ -112,12 +122,29 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="FloowForge API", version="0.1.0", lifespan=lifespan)
 
+    # Registered before CORS so CORS ends up outermost: a browser must be able
+    # to read the RateLimit-*/Retry-After headers on a 429.
+    app.middleware("http")(ratelimit_middleware.dispatch)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", SIGNATURE_HEADER, TIMESTAMP_HEADER],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            SIGNATURE_HEADER,
+            TIMESTAMP_HEADER,
+            "X-Client-Id",
+            "X-Client-Tz",
+        ],
+        expose_headers=[
+            "RateLimit-Limit",
+            "RateLimit-Remaining",
+            "RateLimit-Reset",
+            "Retry-After",
+        ],
     )
 
     app.include_router(flows_router)

@@ -17,8 +17,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 
 from ..db import realtime_broadcast
 from ..deps import CurrentUser, CurrentUserDep
+from ..ratelimit.dependencies import run_rate_limit
 from ..schemas import RunCreate
-from ..utils.rate_limit import rate_limit
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ async def enqueue_run(
     body: RunCreate,
     request: Request,
     background: BackgroundTasks,
-    user: CurrentUser = Depends(rate_limit(max_calls=30, window_s=60)),
+    user: CurrentUser = Depends(run_rate_limit()),
 ) -> dict[str, Any]:
     flow = await user.db.select(
         "flows",

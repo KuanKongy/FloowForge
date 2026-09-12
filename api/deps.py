@@ -5,10 +5,11 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 import httpx
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 
 from .config import get_settings
 from .db import SupabaseClient
+from .ratelimit import authcache
 from .supabase_url import normalize_supabase_url
 
 
@@ -61,14 +62,32 @@ async def _fetch_supabase_user(access_token: str) -> dict[str, Any]:
 
 
 async def current_user(
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
 ) -> CurrentUser:
     token = _extract_bearer(authorization)
-    payload = await _fetch_supabase_user(token)
+
+    # Verification is a network round trip to Supabase; a short-TTL cache of
+    # successful verifications (hashed token -> user id) bounds that to at
+    # most one call per token per minute. Failures are never cached, and a
+    # 401 invalidates the entry so a revoked session dies within the TTL.
+    redis = getattr(request.app.state, "redis", None)
+    th = authcache.token_hash(token)
+    cached = await authcache.get_cached_user_id(redis, th)
+    if cached is not None:
+        return CurrentUser(user_id=cached, access_token=token)
+
+    try:
+        payload = await _fetch_supabase_user(token)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+            await authcache.invalidate(redis, th)
+        raise
 
     uid = payload.get("id")
     if not uid:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid token payload")
+    await authcache.store_user_id(redis, th, str(uid))
     return CurrentUser(user_id=str(uid), access_token=token)
 
 
