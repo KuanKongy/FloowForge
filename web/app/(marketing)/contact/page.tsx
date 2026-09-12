@@ -43,7 +43,9 @@ export default function ContactPage() {
 
       <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl mx-auto">
         {CONTACTS.map((contact, i) => (
-          <Reveal key={contact.title} delay={0.08 + i * 0.06}>
+          // onMount: this page is short enough that the cards are above the
+          // fold — whileInView can miss content already visible on load.
+          <Reveal key={contact.title} onMount delay={0.08 + i * 0.06}>
             <a
               href={contact.href}
               target={contact.href.startsWith("mailto:") ? undefined : "_blank"}
@@ -63,7 +65,7 @@ export default function ContactPage() {
         ))}
       </div>
 
-      <Reveal delay={0.3} className="mt-14 text-center">
+      <Reveal onMount delay={0.3} className="mt-14 text-center">
         <p className="text-sm font-medium">FloowForge</p>
         <p className="mt-1 text-xs text-[var(--muted-foreground)]">
           An independent project maintained by Nam Le.
