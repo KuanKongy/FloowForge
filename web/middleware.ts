@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { supabaseStorageKey } from "./lib/supabase/storage-key";
 import { normalizeSupabaseUrl } from "./lib/supabase/supabase-url";
 
 const PROTECTED_PREFIX = "/app";
@@ -45,7 +46,8 @@ function getSupabaseConfig(): { url: string; anonKey: string; storageKey: string
   if (!rawUrl || !anonKey) return null;
   try {
     const url = normalizeSupabaseUrl(rawUrl);
-    const storageKey = `sb-${new URL(url).hostname.split(".")[0]}-auth-token`;
+    const storageKey = supabaseStorageKey();
+    if (!storageKey) return null;
     return { url, anonKey, storageKey };
   } catch {
     return null;

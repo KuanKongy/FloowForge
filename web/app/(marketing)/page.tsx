@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ArrowRight,
+  BookOpen,
   BotMessageSquare,
   Boxes,
   CalendarClock,
   CheckCircle2,
+  Eye,
   FileText,
-  Github,
+  History,
   ImageIcon,
+  KeyRound,
   MessagesSquare,
   Play,
   ShieldCheck,
@@ -18,9 +21,8 @@ import {
   Workflow,
   Zap,
 } from "lucide-react";
-import { BrandWordmark } from "@/components/brand/BrandWordmark";
 import { Button } from "@/components/ui/button";
-import { FlowDemo } from "@/components/landing/FlowDemo";
+import { DemoFrame } from "@/components/landing/DemoFrame";
 import { Reveal } from "@/components/landing/Reveal";
 import { TryItLive } from "@/components/landing/TryItLive";
 
@@ -30,47 +32,24 @@ export const metadata: Metadata = {
     "Drag AI nodes onto a canvas, wire them together, and expose the result as a webhook, a schedule, or a public form. Watch every node execute live.",
 };
 
+/**
+ * The landing narrative, top to bottom: what it is (hero + live demo) → the
+ * numbers → what you get → how it works → try it yourself → what's in the
+ * box → how your data is handled → what it costs → start.
+ */
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[var(--surface-1)] text-[var(--foreground)]">
-      <SiteHeader />
+    <main>
       <Hero />
-      <TrySection />
+      <StatsBand />
+      <WhatYouGet />
       <HowItWorks />
-      <TriggerSection />
+      <TrySection />
       <NodeCatalogue />
       <Transparency />
+      <TransparentCosts />
       <ClosingCta />
-      <SiteFooter />
     </main>
-  );
-}
-
-/* ---------------------------------------------------------------- header */
-
-function SiteHeader() {
-  return (
-    <header className="sticky top-0 z-40 backdrop-blur-md bg-[var(--surface-1)]/80 border-b border-[var(--border)]">
-      <div className="mx-auto max-w-6xl flex items-center justify-between px-5 sm:px-8 py-4">
-        <Link href="/" className="flex items-center gap-2 font-semibold text-[1.05rem]">
-          <BrandWordmark />
-        </Link>
-        <nav className="flex items-center gap-2 sm:gap-3">
-          <Link href="#how" className="hidden sm:block text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors px-2">
-            How it works
-          </Link>
-          <Link href="#nodes" className="hidden sm:block text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors px-2">
-            Nodes
-          </Link>
-          <Link href="/auth/sign-in">
-            <Button variant="ghost" size="sm">Sign in</Button>
-          </Link>
-          <Link href="/auth/sign-up">
-            <Button size="sm">Get started</Button>
-          </Link>
-        </nav>
-      </div>
-    </header>
   );
 }
 
@@ -105,6 +84,9 @@ function Hero() {
             </Button>
           </Link>
         </div>
+        <p className="mt-4 text-xs text-[var(--muted-foreground)]">
+          Free while in beta · Bring your own AI keys · No card required
+        </p>
       </Reveal>
 
       <Reveal onMount delay={0.15} className="mt-12 sm:mt-16">
@@ -118,32 +100,111 @@ function Hero() {
                 "radial-gradient(60% 60% at 50% 40%, rgba(var(--primary-rgb), 0.14), transparent 70%)",
             }}
           />
-          <FlowDemo className="relative container-shadow" />
+          <DemoFrame className="relative" />
         </div>
-        <p className="mt-3 text-center text-xs text-[var(--muted-foreground)]">
-          A real workflow shape: one trigger fans out to two AI nodes that run in
-          parallel, then joins at a single result.
-        </p>
       </Reveal>
     </section>
   );
 }
 
-/* ------------------------------------------------------------------- try */
+/* ------------------------------------------------------------ stats band */
 
-function TrySection() {
+const STATS = [
+  { value: "16", label: "node types" },
+  { value: "4", label: "trigger kinds" },
+  { value: "4", label: "AI providers" },
+  { value: "0", label: "lines of code" },
+  { value: "100%", label: "of every run visible live" },
+] as const;
+
+function StatsBand() {
   return (
-    <section id="try" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section className="border-t border-[var(--border)]">
+      <Reveal className="mx-auto max-w-6xl px-5 sm:px-8 py-10 sm:py-12">
+        <dl className="flex flex-wrap items-baseline justify-center gap-x-10 gap-y-6 text-center">
+          {STATS.map((stat) => (
+            <div key={stat.label} className="flex items-baseline gap-2">
+              <dt className="sr-only">{stat.label}</dt>
+              <dd className="text-2xl sm:text-3xl font-semibold tracking-tight">{stat.value}</dd>
+              <dd className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+                {stat.label}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Reveal>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------ what you get */
+
+const BENTO_TILES = [
+  {
+    icon: <Workflow size={20} />,
+    tone: "text",
+    title: "A canvas that runs for real",
+    body: "Build visually, save immutable versions, and watch per-node status, timings, and payloads stream back over Realtime while a run executes.",
+    wide: true,
+  },
+  {
+    icon: <Webhook size={20} />,
+    tone: "audio",
+    name: "triggers",
+    title: "Four front doors",
+    body: "The same graph can be a webhook endpoint, a nightly schedule, a shareable public form, and a button on the canvas — at the same time.",
+  },
+  {
+    icon: <Boxes size={20} />,
+    tone: "file",
+    title: "Compose bigger flows",
+    body: "Wrap a saved flow as a single subflow node, or build reusable prompt-template nodes with their own inputs.",
+  },
+  {
+    icon: <KeyRound size={20} />,
+    tone: "image",
+    title: "Bring your own keys",
+    body: "Plug in your OpenAI, Gemini, Cloudflare, or DeepSeek keys — encrypted at rest, decrypted only when your flow calls the model.",
+  },
+  {
+    icon: <FileText size={20} />,
+    tone: "text",
+    title: "Forms for non-builders",
+    body: "Share a link; fields are derived from your canvas and answers are routed to the right nodes. No account needed to submit.",
+  },
+  {
+    icon: <History size={20} />,
+    tone: "audio",
+    title: "Run history & resume",
+    body: "Every run keeps its timeline. Jump into a failed run, inspect each node's inputs and outputs, and resume from the node that broke.",
+  },
+] as const;
+
+function WhatYouGet() {
+  return (
+    <section id="product" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
       <Reveal>
         <SectionHeading
-          eyebrow="Hands on"
-          title="Run one yourself"
-          body="No sign-up. Type a prompt, press Run, and watch the same graph execute."
+          eyebrow="What you get"
+          title="One canvas, every way to run it"
+          body="Everything below ships today and works together on the same graph."
         />
       </Reveal>
-      <Reveal delay={0.1} className="mt-8">
-        <TryItLive />
-      </Reveal>
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {BENTO_TILES.map((tile, i) => (
+          <Reveal
+            key={tile.title}
+            delay={i * 0.06}
+            className={"wide" in tile && tile.wide ? "sm:col-span-2" : undefined}
+          >
+            <article className="card-surface card-hover p-6 h-full">
+              <ToneIcon tone={tile.tone}>{tile.icon}</ToneIcon>
+              <h3 className="font-semibold text-[1rem] mt-4">{tile.title}</h3>
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{tile.body}</p>
+            </article>
+          </Reveal>
+        ))}
+      </div>
     </section>
   );
 }
@@ -154,18 +215,21 @@ const STEPS = [
   {
     icon: <Workflow size={20} />,
     tone: "text",
+    step: "Step 1",
     title: "Build on the canvas",
     body: "Drop nodes, drag between handles, and the editor works out execution order for you — step badges show exactly what runs in parallel.",
   },
   {
     icon: <Split size={20} />,
     tone: "image",
+    step: "Step 2",
     title: "Choose how branches join",
     body: "Each node waits for all its parents (barrier) or fires on the first one (race). Multi-trigger canvases only run the branch you clicked.",
   },
   {
     icon: <Zap size={20} />,
     tone: "audio",
+    step: "Step 3",
     title: "Watch it execute",
     body: "Runs stream back over Realtime: per-node status, durations, inputs and outputs, with resume-from-node when something needs a second try.",
   },
@@ -173,7 +237,7 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section id="how" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section id="how" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="How it works"
@@ -183,8 +247,13 @@ function HowItWorks() {
       <div className="mt-10 grid gap-5 md:grid-cols-3">
         {STEPS.map((s, i) => (
           <Reveal key={s.title} delay={i * 0.08}>
-            <article className="card-surface p-6 h-full">
-              <ToneIcon tone={s.tone}>{s.icon}</ToneIcon>
+            <article className="card-surface card-hover p-6 h-full">
+              <div className="flex items-center justify-between">
+                <ToneIcon tone={s.tone}>{s.icon}</ToneIcon>
+                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+                  {s.step}
+                </span>
+              </div>
               <h3 className="font-semibold text-[1rem] mt-4">{s.title}</h3>
               <p className="mt-2 text-sm text-[var(--muted-foreground)]">{s.body}</p>
             </article>
@@ -195,58 +264,21 @@ function HowItWorks() {
   );
 }
 
-/* -------------------------------------------------------------- triggers */
+/* ------------------------------------------------------------------- try */
 
-const TRIGGERS = [
-  {
-    icon: <Webhook size={18} />,
-    tone: "audio",
-    name: "Incoming webhook",
-    body: "POST to a signed URL from any system. Requests are HMAC-verified and rate limited.",
-  },
-  {
-    icon: <CalendarClock size={18} />,
-    tone: "file",
-    name: "Schedule",
-    body: "Cron, daily, every-N, run-once, or run-after-a-delay — with timezone support.",
-  },
-  {
-    icon: <FileText size={18} />,
-    tone: "text",
-    name: "Public form",
-    body: "Share a link. Fields are derived from your canvas and routed straight to the right node.",
-  },
-  {
-    icon: <ArrowRight size={18} />,
-    tone: "image",
-    name: "Outgoing callback",
-    body: "When a run finishes, we POST the result back to your endpoint, signed with your secret.",
-  },
-] as const;
-
-function TriggerSection() {
+function TrySection() {
   return (
-    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section id="try" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
       <Reveal>
         <SectionHeading
-          eyebrow="Triggers"
-          title="Every flow has a front door"
-          body="The same graph can be a webhook endpoint, a nightly job, and a shareable form at once."
+          eyebrow="Hands on"
+          title="Run one yourself"
+          body="No sign-up. Type a prompt, press Run, and watch the same graph execute."
         />
       </Reveal>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2">
-        {TRIGGERS.map((t, i) => (
-          <Reveal key={t.name} delay={i * 0.06}>
-            <article className="card-surface p-5 flex gap-4 h-full">
-              <ToneIcon tone={t.tone} small>{t.icon}</ToneIcon>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-[0.95rem]">{t.name}</h3>
-                <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t.body}</p>
-              </div>
-            </article>
-          </Reveal>
-        ))}
-      </div>
+      <Reveal delay={0.1} className="mt-8">
+        <TryItLive />
+      </Reveal>
     </section>
   );
 }
@@ -294,7 +326,7 @@ const PROVIDERS = ["OpenAI", "Google Gemini", "Cloudflare Workers AI", "DeepSeek
 
 function NodeCatalogue() {
   return (
-    <section id="nodes" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section id="nodes" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="What's in the box"
@@ -302,11 +334,11 @@ function NodeCatalogue() {
           body="Every node listed here ships today. Compose them, or wrap a whole flow as a single reusable node."
         />
       </Reveal>
-      <div className="mt-10 grid gap-5 md:grid-cols-3">
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 md:grid-cols-3">
         {NODE_GROUPS.map((group, i) => (
           <Reveal key={group.label} delay={i * 0.08}>
-            <div className="card-surface p-5 h-full">
-              <h3 className="font-semibold text-[0.9rem] text-[var(--muted-foreground)] uppercase tracking-wide text-[0.7rem]">
+            <div className="card-surface card-hover p-5 h-full">
+              <h3 className="font-semibold text-[var(--muted-foreground)] uppercase tracking-wide text-[0.7rem]">
                 {group.label}
               </h3>
               <ul className="mt-4 flex flex-col gap-2.5">
@@ -349,6 +381,7 @@ const FACTS = [
   "Generated media lives in a private bucket behind expiring signed URLs.",
   "Incoming webhooks are HMAC-signed; outgoing callbacks are signed too.",
   "Your run data is scoped to your account by row-level security.",
+  "Rate limits are per account and per device — fair even on a shared campus network.",
 ] as const;
 
 const LIMITS = [
@@ -362,14 +395,14 @@ function Transparency() {
     <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
       <Reveal>
         <SectionHeading
-          eyebrow="Straight answers"
+          eyebrow="Your data, your rules"
           title="What we do, and what we don't"
           body="Worth knowing before you build something important on it."
         />
       </Reveal>
       <div className="mt-10 grid gap-5 md:grid-cols-2">
         <Reveal>
-          <div className="card-surface p-6 h-full">
+          <div className="card-surface card-hover p-6 h-full">
             <ToneIcon tone="image" small>
               <ShieldCheck size={18} />
             </ToneIcon>
@@ -382,10 +415,17 @@ function Transparency() {
                 </li>
               ))}
             </ul>
+            <p className="mt-4 text-xs text-[var(--muted-foreground)]">
+              The details live in the{" "}
+              <Link href="/privacy" className="underline hover:text-[var(--foreground)]">
+                Privacy Policy
+              </Link>
+              .
+            </p>
           </div>
         </Reveal>
         <Reveal delay={0.08}>
-          <div className="card-surface p-6 h-full">
+          <div className="card-surface card-hover p-6 h-full">
             <ToneIcon tone="file" small>
               <Boxes size={18} />
             </ToneIcon>
@@ -400,6 +440,55 @@ function Transparency() {
             </ul>
           </div>
         </Reveal>
+      </div>
+    </section>
+  );
+}
+
+/* ----------------------------------------------------------------- costs */
+
+const COST_FACTS = [
+  {
+    icon: <Eye size={18} />,
+    tone: "audio",
+    title: "Free while in beta",
+    body: "Accounts, flows, triggers, forms, and run history cost nothing today. If paid tiers ever arrive, you'll get notice first.",
+  },
+  {
+    icon: <KeyRound size={18} />,
+    tone: "image",
+    title: "Your keys, your bill",
+    body: "AI calls run against the provider keys you connect, so model usage is billed by your provider at their prices — nothing marked up.",
+  },
+  {
+    icon: <CalendarClock size={18} />,
+    tone: "text",
+    title: "Fair-use limits",
+    body: "Generous per-account rate limits keep the service healthy for everyone; a normal user never notices them.",
+  },
+] as const;
+
+function TransparentCosts() {
+  return (
+    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+      <Reveal>
+        <SectionHeading
+          eyebrow="Transparent costs"
+          title="No surprises on the bill"
+        />
+      </Reveal>
+      <div className="mt-10 grid gap-5 md:grid-cols-3">
+        {COST_FACTS.map((fact, i) => (
+          <Reveal key={fact.title} delay={i * 0.08}>
+            <article className="card-surface card-hover p-6 h-full">
+              <ToneIcon tone={fact.tone} small>
+                {fact.icon}
+              </ToneIcon>
+              <h3 className="font-semibold mt-4">{fact.title}</h3>
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{fact.body}</p>
+            </article>
+          </Reveal>
+        ))}
       </div>
     </section>
   );
@@ -428,42 +517,22 @@ function ClosingCta() {
               Free to start, and you can plug in your own provider keys whenever
               you&apos;re ready.
             </p>
-            <Link href="/auth/sign-up" className="inline-block mt-7">
-              <Button size="lg">
-                Create your account <ArrowRight size={16} />
-              </Button>
-            </Link>
+            <div className="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/auth/sign-up" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto justify-center">
+                  Create your account <ArrowRight size={16} />
+                </Button>
+              </Link>
+              <Link href="/faq" className="w-full sm:w-auto">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto justify-center">
+                  <BookOpen size={15} /> Read the FAQ
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </Reveal>
     </section>
-  );
-}
-
-function SiteFooter() {
-  return (
-    <footer className="border-t border-[var(--border)]">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <BrandWordmark />
-        <p className="text-xs text-[var(--muted-foreground)] order-last sm:order-none">
-          A no-code AI workflow platform. Successor to Floowbox.
-        </p>
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/auth/sign-in" className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
-            Sign in
-          </Link>
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub"
-            className="text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <Github size={16} />
-          </a>
-        </div>
-      </div>
-    </footer>
   );
 }
 

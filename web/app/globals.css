@@ -82,6 +82,9 @@ body {
   background-image: radial-gradient(circle, rgba(0, 0, 0, 0.15) 1px, transparent 1px);
   background-size: 22px 22px;
 }
+.dark .dotted-grid-bg {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+}
 
 .container-shadow {
   box-shadow: 0 3px 5px rgba(201, 201, 209, 0.25);
@@ -190,10 +193,15 @@ body {
 .backend-box__audio { box-shadow: 0 1px 2px 0 rgba(35, 91, 168, 0.5); }
 .backend-box__file { box-shadow: 0 1px 2px 0 rgba(52, 21, 220, 0.5); }
 .backend-box__chat { box-shadow: 0 1px 2px 0 rgba(165, 6, 77, 0.5); }
+/* `.card-hover` opts non-interactive cards (plain divs) into the same hover
+   treatment — the transition declared on .card-surface previously never fired
+   on them because this selector only matched links and buttons. */
 a.card-surface:hover,
-button.card-surface:hover {
+button.card-surface:hover,
+.card-hover:hover {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
   border-color: rgba(255, 0, 114, 0.18);
+  transform: translateY(-2px);
 }
 
 .pill {

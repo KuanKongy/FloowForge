@@ -154,7 +154,7 @@ export default function DashboardPage() {
             <ChevronDown size={14} />
           </Button>
           {showCreateDropdown && (
-            <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-[10px] shadow-lg border border-[var(--border)] py-1 z-50">
+            <div className="absolute top-full right-0 mt-1 w-48 bg-[var(--surface-2)] rounded-[10px] shadow-lg border border-[var(--border)] py-1 z-50">
               <button
                 onClick={() => {
                   setShowCreateDropdown(false);

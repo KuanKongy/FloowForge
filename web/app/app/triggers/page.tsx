@@ -598,7 +598,7 @@ function CreateTriggerWizard({
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-medium flex-1">{f.name} <span className="text-xs text-[var(--muted-foreground)]">({f.type})</span></span>
                           <select
-                            className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-white"
+                            className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-2)]"
                             value={inputModes[f.id] || "default"}
                             onChange={(e) => setInputModes({ ...inputModes, [f.id]: e.target.value as "default" | "dynamic" })}
                           >
@@ -943,7 +943,7 @@ function TriggerDetailsPanel({
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium flex-1">{f.name} <span className="text-xs text-[var(--muted-foreground)]">({f.type})</span></span>
                         <select
-                          className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-white"
+                          className="text-xs px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface-2)]"
                           value={inputModes[f.id] || "default"}
                           onChange={(e) => setInputModes({ ...inputModes, [f.id]: e.target.value as "default" | "dynamic" })}
                         >

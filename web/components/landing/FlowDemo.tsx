@@ -103,20 +103,27 @@ type NodeState = "idle" | "running" | "succeeded";
 const DESIGN_WIDTH = 900;
 const DESIGN_HEIGHT = 450;
 const NODE_WIDTH = 150;
+const MIN_SCALE = 0.62;
 
 /** Node ids grouped by the step they execute in. */
 const STEPS = Array.from(new Set(NODES.map((n) => n.step))).sort((a, b) => a - b);
 
 export function FlowDemo({
   autoPlay = true,
+  paused = false,
   running: externalRunning,
   onRunComplete,
+  onStepChange,
   className = "",
 }: {
   autoPlay?: boolean;
+  /** Freeze the autoplay loop in place (the demo frame's pause button). */
+  paused?: boolean;
   /** Drive the run externally (used by the interactive section). */
   running?: boolean;
   onRunComplete?: () => void;
+  /** Reports the topological step currently executing (1-based), 0 between runs. */
+  onStepChange?: (step: number) => void;
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
@@ -140,6 +147,7 @@ export function FlowDemo({
     STEPS.forEach((step) => {
       const ids = NODES.filter((n) => n.step === step).map((n) => n.id);
       schedule(() => {
+        onStepChange?.(step);
         setStates((s) => {
           const next = { ...s };
           ids.forEach((id) => (next[id] = "running"));
@@ -156,9 +164,12 @@ export function FlowDemo({
       }, t);
       t += 180;
     });
-    schedule(() => onRunComplete?.(), t + 200);
+    schedule(() => {
+      onStepChange?.(0);
+      onRunComplete?.();
+    }, t + 200);
     return t;
-  }, [schedule, onRunComplete]);
+  }, [schedule, onRunComplete, onStepChange]);
 
   // Assemble once, then loop the run while autoPlay is on.
   useEffect(() => {
@@ -173,7 +184,7 @@ export function FlowDemo({
   }, [reduceMotion, schedule, clearTimers]);
 
   useEffect(() => {
-    if (!assembled || !autoPlay || reduceMotion) return;
+    if (!assembled || !autoPlay || reduceMotion || paused) return;
     let cancelled = false;
     const loop = () => {
       if (cancelled) return;
@@ -183,8 +194,10 @@ export function FlowDemo({
     loop();
     return () => {
       cancelled = true;
+      // Freeze in place on pause; the next unpause restarts a clean run.
+      clearTimers();
     };
-  }, [assembled, autoPlay, reduceMotion, playRun]);
+  }, [assembled, autoPlay, reduceMotion, paused, playRun, clearTimers]);
 
   // Externally driven run (the "try it" section).
   useEffect(() => {
@@ -210,11 +223,13 @@ export function FlowDemo({
   // The graph is laid out at a fixed design size and scaled to fit. Letting it
   // reflow instead would collapse the node cards (they have a pixel min-width)
   // and push the right-hand nodes outside the canvas on narrow screens.
+  // Below MIN_SCALE the labels become unreadable, so narrow phones keep the
+  // minimum size and pan the canvas horizontally instead.
   useLayoutEffect(() => {
     const fit = () => {
       const width = outerRef.current?.clientWidth ?? DESIGN_WIDTH;
       // Capped above 1 so the cards don't balloon on very wide screens.
-      setScale(Math.min(1.25, width / DESIGN_WIDTH));
+      setScale(Math.min(1.25, Math.max(MIN_SCALE, width / DESIGN_WIDTH)));
     };
     fit();
     const observer = new ResizeObserver(fit);
@@ -261,11 +276,16 @@ export function FlowDemo({
   return (
     <div
       ref={outerRef}
-      className={`relative w-full overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] dotted-grid-bg ${className}`}
+      className={`relative w-full overflow-x-auto overflow-y-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] dotted-grid-bg ${className}`}
       style={{ height: DESIGN_HEIGHT * scale }}
       aria-label="Animated preview of a FloowForge workflow running"
       role="img"
     >
+      {/* Scroll spacer: wider than the viewport when MIN_SCALE kicks in. */}
+      <div
+        className="relative"
+        style={{ width: DESIGN_WIDTH * scale, height: DESIGN_HEIGHT * scale }}
+      >
       <div
         ref={containerRef}
         className="absolute top-0 left-0"
@@ -326,6 +346,7 @@ export function FlowDemo({
           <DemoNodeCard node={node} state={states[node.id] ?? "idle"} />
         </motion.div>
       ))}
+      </div>
       </div>
     </div>
   );
