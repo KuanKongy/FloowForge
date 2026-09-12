@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { clientHeaders } from "@/lib/client-id";
 import { isAudioValue, isImageValue } from "@/lib/media";
 
 type RunResult = {
@@ -45,12 +46,16 @@ export default function ResultPage() {
         return;
       }
       try {
-        const res = await fetch(`${API}/t/webhook/${token}/result/${runId}`);
+        const res = await fetch(`${API}/t/webhook/${token}/result/${runId}`, {
+          headers: clientHeaders(),
+        });
         if (!res.ok) {
           // A 404 is terminal (bad link); other codes may be transient.
           if (res.status === 404) {
             stop();
             setError("This result is no longer available.");
+          } else if (res.status === 429) {
+            setError("Checking a little too often — still waiting for the result.");
           } else {
             setError(`Error: ${res.status}`);
           }

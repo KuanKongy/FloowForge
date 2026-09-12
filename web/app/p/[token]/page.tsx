@@ -5,6 +5,13 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
+import { clientHeaders } from "@/lib/client-id";
+
+function rateLimitMessage(res: Response): string {
+  const wait = Number(res.headers.get("Retry-After"));
+  const seconds = Number.isFinite(wait) && wait > 0 ? Math.ceil(wait) : 30;
+  return `This form is receiving a lot of submissions — try again in ${seconds}s.`;
+}
 
 type FormField = {
   node_id?: string;
@@ -45,13 +52,15 @@ export default function PublicFormPage() {
 
   useEffect(() => {
     setError(null);
-    fetch(`${API}/t/webhook/${token}/info`)
+    fetch(`${API}/t/webhook/${token}/info`, { headers: clientHeaders() })
       .then((r) => {
         if (!r.ok)
           throw new Error(
             r.status === 404
               ? "This link is not active. Ask the owner to re-share."
-              : `${r.status} ${r.statusText}`
+              : r.status === 429
+                ? rateLimitMessage(r)
+                : `${r.status} ${r.statusText}`
           );
         return r.json();
       })
@@ -77,9 +86,10 @@ export default function PublicFormPage() {
         info && info.inputs.length > 0 ? values : {};
       const res = await fetch(`${API}/t/webhook/${token}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...clientHeaders() },
         body: JSON.stringify(body),
       });
+      if (res.status === 429) throw new Error(rateLimitMessage(res));
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const { run_id, show_outputs } = await res.json();
       if (show_outputs) {

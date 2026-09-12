@@ -1,5 +1,6 @@
 "use client";
 
+import { clientHeaders } from "./client-id";
 import { createSupabaseBrowserClient } from "./supabase/client";
 
 const DEFAULT_API_URL = "http://localhost:5001";
@@ -74,12 +75,44 @@ async function authHeaders(): Promise<Record<string, string>> {
 // Requests used to hang indefinitely if the API never answered.
 const REQUEST_TIMEOUT_MS = 30_000;
 
+/** Thrown on 429 so callers can show the wait time (seconds) directly. */
+export class ApiRateLimitError extends Error {
+  readonly retryAfter: number;
+  constructor(retryAfter: number) {
+    super(
+      `You're sending requests quickly — try again in ${retryAfter}s.`
+    );
+    this.name = "ApiRateLimitError";
+    this.retryAfter = retryAfter;
+  }
+}
+
+function retryAfterSeconds(res: Response): number {
+  const raw = Number(res.headers.get("Retry-After"));
+  return Number.isFinite(raw) && raw > 0 ? Math.ceil(raw) : 5;
+}
+
 async function request(method: string, path: string, init: RequestInit = {}): Promise<Response> {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    method,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
+  const doFetch = () =>
+    fetch(`${API}${path}`, {
+      ...init,
+      method,
+      headers: { ...clientHeaders(), ...(init.headers as Record<string, string> | undefined) },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+  let res = await doFetch();
+
+  // A brief 429 on an idempotent read is worth one quiet retry.
+  if (res.status === 429 && method === "GET") {
+    const wait = retryAfterSeconds(res);
+    if (wait <= 2) {
+      await new Promise((resolve) => setTimeout(resolve, wait * 1000));
+      res = await doFetch();
+    }
+  }
+  if (res.status === 429) throw new ApiRateLimitError(retryAfterSeconds(res));
+
   // A 401 means the memoized token is stale; drop it so the next call re-reads
   // the session instead of replaying the rejected credential.
   if (res.status === 401) clearTokenCache();
