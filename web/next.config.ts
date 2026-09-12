@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 /**
@@ -37,6 +38,11 @@ function contentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Opt-in (set by Dockerfile.web) so `next dev` and non-container deploys are
+  // untouched. The tracing root must be the repo root or the standalone bundle
+  // drops @flowforge/shared, which is raw TS consumed via transpilePackages.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  outputFileTracingRoot: path.join(__dirname, ".."),
   experimental: {
     typedRoutes: false,
   },

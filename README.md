@@ -2,7 +2,7 @@
 
 A no-code AI workflow platform: drag-and-drop nodes on a canvas, save flows to your account, expose them via webhooks or schedules, and compose larger pipelines with subflows and prompt-template custom nodes.
 
-FloowForge is the successor to Floowbox. The product is rebuilt on a server-side execution engine so flows can run from anywhere (manual button, public webhook, or cron) and stream live results back to the canvas.
+FloowForge took inspiration from Floowbox. It is built on a server-side execution engine so flows can run from anywhere (manual button, public webhook, or cron) and stream live results back to the canvas.
 
 ## Layout
 
@@ -24,10 +24,22 @@ flowforge/
 
 1. Create a Supabase project, then apply every file in [`supabase/migrations`](supabase/migrations) **in order** via the Supabase SQL editor or CLI.
 2. Copy [`api/.env.example`](api/.env.example) to `api/.env` and fill in keys.
-3. Copy [`web/.env.example`](web/.env.example) to `web/.env.local` and fill in keys.
+3. Copy [`web/.env.example`](web/.env.example) to `web/.env` (or `web/.env.local`) and fill in keys.
 4. Start Redis locally (`redis-server`) for the job queue.
 5. `pip install -r api/requirements.txt && uvicorn api.main:app --reload --port 5001` and in another terminal `python -m api.worker`.
 6. `cd web && npm install && npm run dev`.
+
+## Run with Docker
+
+One command starts the whole stack (web + API + worker + Redis); Postgres/Auth/Storage/Realtime stay on your hosted Supabase project:
+
+1. Do steps 1–2 of the quick start (`supabase/migrations` applied, `api/.env` filled in).
+2. Copy [`.env.example`](.env.example) to `.env` at the repo root and set the two `NEXT_PUBLIC_SUPABASE_*` values (same values as `web/.env`).
+3. ```bash
+   docker compose up --build
+   ```
+
+The web app is at http://localhost:3000 and the API at http://localhost:5001. Add `-d` to run detached. Don't scale `api` beyond one replica — the schedule runner lives in that process.
 
 See each subdirectory's README for more details.
 
@@ -42,7 +54,7 @@ For a deeper technical map, start with [`docs/README.md`](docs/README.md).
 - Per-node `wait_strategy` toggle (Barrier / Race) drives multi-parent join semantics. Barrier waits for all parents; Race fires on the first parent.
 - Topological step badges live on every node so you can see what runs in parallel and what has to wait.
 - Run sidebar with Gumloop-style per-node status + duration, expandable JSON payload, and total elapsed time.
-- Floowbox-flavored UI: pink primary tokens, per-kind colored backend tiles, proximity-revealed handles, in-use direction dots, edge X delete badges, collapse/rename per node, framer-spring frontend/backend toggle.
+- Distinctive UI (inspired by Floowbox): pink primary tokens, per-kind colored backend tiles, proximity-revealed handles, in-use direction dots, edge X delete badges, collapse/rename per node, framer-spring frontend/backend toggle.
 - Custom nodes: subflows (use a saved flow as a node) and Prompt Template builder
 - Built-in providers: OpenAI (chat + TTS + GPT Image 1), Google Gemini, Cloudflare Workers AI (Llama, DreamShaper, Flux), PDF text extraction
 - Generated images/audio are stored in a private Supabase Storage bucket and passed downstream as short-lived signed URLs, so results stay under the Realtime message limit and survive a page reload

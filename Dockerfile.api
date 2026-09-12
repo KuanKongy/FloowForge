@@ -27,6 +27,8 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT:-5001}/health" || exit 1
 
-# --proxy-headers so client IPs (used by the public rate limiter) survive the
-# load balancer.
-CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-5001} --proxy-headers --forwarded-allow-ips '*'
+# --proxy-headers so client IPs (used by the rate limiter) survive a load
+# balancer. FORWARDED_ALLOW_IPS controls which peers may rewrite the client
+# address from X-Forwarded-For: behind a real LB keep the default '*'; with no
+# proxy in front (docker compose) set 127.0.0.1 so the header can't be spoofed.
+CMD uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-5001} --proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-*}"

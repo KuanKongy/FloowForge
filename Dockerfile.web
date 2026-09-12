@@ -1,0 +1,44 @@
+# Build context is the repo root: the web app depends on packages/shared via
+# file:../packages/shared, so both directories must be in the context.
+FROM node:22-alpine AS deps
+WORKDIR /repo
+COPY packages ./packages
+COPY web/package.json web/package-lock.json ./web/
+RUN cd web && npm ci --no-audit --no-fund
+
+FROM node:22-alpine AS build
+WORKDIR /repo
+COPY --from=deps /repo/web/node_modules ./web/node_modules
+COPY packages ./packages
+COPY web ./web
+# NEXT_PUBLIC_* values are inlined into the client bundle AND into the CSP
+# assembled in next.config.ts, so they must be present at build time. A wrong
+# API URL here silently blocks every API call via connect-src.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_OUTPUT=standalone \
+    NEXT_TELEMETRY_DISABLED=1
+RUN cd web && npm run build
+
+FROM node:22-alpine AS run
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000
+WORKDIR /app
+# Run unprivileged, matching the api and worker images.
+RUN addgroup -g 10001 flowforge && adduser -D -G flowforge -u 10001 flowforge
+# outputFileTracingRoot is the repo root, so the standalone bundle mirrors the
+# repo layout and the server entry lands at web/server.js.
+COPY --from=build --chown=flowforge:flowforge /repo/web/.next/standalone ./
+COPY --from=build --chown=flowforge:flowforge /repo/web/.next/static ./web/.next/static
+COPY --from=build --chown=flowforge:flowforge /repo/web/public ./web/public
+USER flowforge
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO /dev/null "http://127.0.0.1:3000/" || exit 1
+CMD ["node", "web/server.js"]

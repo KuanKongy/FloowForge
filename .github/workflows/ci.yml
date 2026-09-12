@@ -68,6 +68,21 @@ jobs:
         run: docker build -f Dockerfile.api -t flowforge-api:ci .
       - name: Build worker image
         run: docker build -f Dockerfile.worker -t flowforge-worker:ci .
+      - name: Build web image
+        # Same dummy values the web job builds with.
+        run: |
+          docker build -f Dockerfile.web \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:5001 \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy \
+            -t flowforge-web:ci .
+      - name: Validate compose file
+        # api/.env is gitignored; compose only needs it to exist to validate.
+        run: |
+          touch api/.env
+          NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy \
+          docker compose config -q
 
   e2e:
     runs-on: ubuntu-latest

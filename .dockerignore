@@ -12,3 +12,9 @@ __pycache__
 api/.env
 web/.env
 web/.env.local
+.venv-flowforge
+.ruff_cache
+api/.ruff_cache
+**/tsconfig.tsbuildinfo
+web/test-results
+web/playwright-report
