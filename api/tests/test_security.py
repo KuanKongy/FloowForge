@@ -76,7 +76,7 @@ def test_callback_url_rejects_internal_targets(url):
 def test_callback_url_allows_public_https():
     from api.utils.ssrf import assert_safe_callback_url
 
-    assert_safe_callback_url("https://example.com/hooks/flowforge", allow_private=False)
+    assert_safe_callback_url("https://example.com/hooks/floowforge", allow_private=False)
 
 
 def test_callback_url_allows_localhost_in_dev():

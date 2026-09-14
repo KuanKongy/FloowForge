@@ -31,13 +31,13 @@ ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 # Run unprivileged, matching the api and worker images.
-RUN addgroup -g 10001 flowforge && adduser -D -G flowforge -u 10001 flowforge
+RUN addgroup -g 10001 floowforge && adduser -D -G floowforge -u 10001 floowforge
 # outputFileTracingRoot is the repo root, so the standalone bundle mirrors the
 # repo layout and the server entry lands at web/server.js.
-COPY --from=build --chown=flowforge:flowforge /repo/web/.next/standalone ./
-COPY --from=build --chown=flowforge:flowforge /repo/web/.next/static ./web/.next/static
-COPY --from=build --chown=flowforge:flowforge /repo/web/public ./web/public
-USER flowforge
+COPY --from=build --chown=floowforge:floowforge /repo/web/.next/standalone ./
+COPY --from=build --chown=floowforge:floowforge /repo/web/.next/static ./web/.next/static
+COPY --from=build --chown=floowforge:floowforge /repo/web/public ./web/public
+USER floowforge
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD wget -qO /dev/null "http://127.0.0.1:3000/" || exit 1

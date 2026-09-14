@@ -5,7 +5,7 @@ import { AlertTriangle, Boxes, CheckCircle2, Plus, Trash2, Pencil } from "lucide
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api";
-import type { CustomNode, IoType } from "@flowforge/shared";
+import type { CustomNode, IoType } from "@floowforge/shared";
 
 type InputRow = { name: string; type: IoType; required: boolean; default?: string };
 

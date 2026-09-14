@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { apiGet, apiPost } from "@/lib/api";
-import type { Flow } from "@flowforge/shared";
+import type { Flow } from "@floowforge/shared";
 import { nextScheduleTime } from "@/lib/schedule";
 
 type Run = {

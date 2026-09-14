@@ -6,12 +6,12 @@ tokens leak through proxy logs, browser history, and ``Referer`` headers.
 
 Both directions use HMAC-SHA256 over the raw request body:
 
-- **Incoming** — callers send ``X-FlowForge-Signature: sha256=<hex>``. Verified
+- **Incoming** — callers send ``X-FloowForge-Signature: sha256=<hex>``. Verified
   with :func:`hmac.compare_digest`.
 - **Outgoing** — callbacks we POST carry the same header so the receiver can
   authenticate us.
 
-A replay window is enforced via ``X-FlowForge-Timestamp`` when present.
+A replay window is enforced via ``X-FloowForge-Timestamp`` when present.
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ import hashlib
 import hmac
 import time
 
-SIGNATURE_HEADER = "X-FlowForge-Signature"
-TIMESTAMP_HEADER = "X-FlowForge-Timestamp"
+SIGNATURE_HEADER = "X-FloowForge-Signature"
+TIMESTAMP_HEADER = "X-FloowForge-Timestamp"
 _PREFIX = "sha256="
 
 # How far a signed timestamp may drift before we treat it as a replay.

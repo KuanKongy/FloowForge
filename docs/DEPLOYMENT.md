@@ -102,15 +102,15 @@ python -m api.worker
 API with Docker:
 
 ```bash
-docker build -f Dockerfile.api -t flowforge-api .
-docker run --env-file api/.env -p 5001:5001 flowforge-api
+docker build -f Dockerfile.api -t floowforge-api .
+docker run --env-file api/.env -p 5001:5001 floowforge-api
 ```
 
 Worker with Docker:
 
 ```bash
-docker build -f Dockerfile.worker -t flowforge-worker .
-docker run --env-file api/.env flowforge-worker
+docker build -f Dockerfile.worker -t floowforge-worker .
+docker run --env-file api/.env floowforge-worker
 ```
 
 ## Host Setup

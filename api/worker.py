@@ -24,7 +24,7 @@ from redis.exceptions import ResponseError
 from .config import get_settings
 from .queue import GROUP, STREAM
 
-log = logging.getLogger("flowforge.worker")
+log = logging.getLogger("floowforge.worker")
 
 MAX_RETRIES = 3
 BLOCK_MS = 30_000
@@ -34,7 +34,7 @@ CONSUMER = f"worker-{os.getpid()}"
 
 # Delivery counts live in Redis so they survive reconnects and are shared by
 # every worker in the group.
-RETRY_HASH = "flowforge:jobs:retries"
+RETRY_HASH = "floowforge:jobs:retries"
 RETRY_TTL_S = 24 * 60 * 60
 
 # How often to sweep for messages abandoned by a crashed sibling worker.

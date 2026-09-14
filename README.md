@@ -7,7 +7,7 @@ FloowForge took inspiration from Floowbox. It is built on a server-side executio
 ## Layout
 
 ```
-flowforge/
+floowforge/
   web/                # Next.js 15 App Router (UI)
   api/                # FastAPI execution engine + REST API
   packages/shared/    # Shared TypeScript types (Flow, Node, Edge, RunEvent)

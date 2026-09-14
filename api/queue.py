@@ -11,7 +11,7 @@ from typing import Any
 
 import redis.asyncio as aioredis
 
-STREAM = "flowforge:jobs"
+STREAM = "floowforge:jobs"
 GROUP = "workers"
 
 # Upper bound on stream length. Trimming used to happen only in the worker every

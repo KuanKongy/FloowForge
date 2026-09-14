@@ -1,4 +1,4 @@
--- FlowForge: storage bucket for run-generated media (images, audio).
+-- FloowForge: storage bucket for run-generated media (images, audio).
 -- Apply via Supabase SQL editor or `supabase db push`.
 --
 -- The API creates this bucket on first upload (see api/storage.py), so this

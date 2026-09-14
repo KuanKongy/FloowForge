@@ -261,7 +261,7 @@ export const FAQ_SECTIONS: FaqSectionData[] = [
             </code>{" "}
             starts the web app, API, and worker in one command. The README on{" "}
             <a
-              href="https://github.com/KuanKongy/FlowForge"
+              href="https://github.com/KuanKongy/FloowForge"
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-[var(--foreground)]"

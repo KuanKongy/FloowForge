@@ -142,7 +142,7 @@ async def sliding_window_check(
 
     now = time.time()
     member = f"{now:.6f}:{uuid.uuid4().hex[:8]}".encode()
-    redis_key = f"flowforge:rl:{key}"
+    redis_key = f"floowforge:rl:{key}"
     try:
         pipe = redis.pipeline(transaction=True)
         pipe.zremrangebyscore(redis_key, 0, now - window_s)

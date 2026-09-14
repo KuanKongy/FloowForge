@@ -15,7 +15,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": rootDir,
-      "@flowforge/shared": path.resolve(rootDir, "../packages/shared/src/index.ts"),
+      "@floowforge/shared": path.resolve(rootDir, "../packages/shared/src/index.ts"),
     },
   },
 });

@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiDelete, apiGet, apiPost } from "@/lib/api";
-import type { Flow } from "@flowforge/shared";
+import type { Flow } from "@floowforge/shared";
 
 export default function FlowsPage() {
   const [flows, setFlows] = useState<Flow[]>([]);

@@ -7,9 +7,9 @@ export const metadata: Metadata = {
   title: "FloowForge",
   description: "Build, save, and trigger AI workflows with no code.",
   icons: {
-    icon: "/images/flowforge.png",
-    shortcut: "/images/flowforge.png",
-    apple: "/images/flowforge.png",
+    icon: "/images/floowforge.png",
+    shortcut: "/images/floowforge.png",
+    apple: "/images/floowforge.png",
   },
   openGraph: {
     title: "FloowForge — AI workflows you can watch running",

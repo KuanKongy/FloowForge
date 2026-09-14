@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowDownAZ, Clock3, Search, SlidersHorizontal } from "lucide-react";
 import { apiGet } from "@/lib/api";
-import type { Flow, Run } from "@flowforge/shared";
+import type { Flow, Run } from "@floowforge/shared";
 
 type SortKey = "newest" | "oldest" | "duration_desc" | "duration_asc" | "flow";
 type TimeWindow = "all" | "1h" | "3h" | "12h" | "1d" | "3d" | "7d";

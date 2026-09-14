@@ -19,7 +19,7 @@ import { useNodeFrameControls } from "../NodeFrame";
 import { runStateClass, useNodeRunState } from "../run-state-context";
 import { useTopoStep, useInScope } from "../order-context";
 import { apiGet } from "@/lib/api";
-import type { Integration } from "@flowforge/shared";
+import type { Integration } from "@floowforge/shared";
 
 /**
  * Direct port of the original Floowbox `AIModel` component (see

@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiGet, apiPost, apiDelete, apiPatch } from "@/lib/api";
-import type { Flow, Trigger } from "@flowforge/shared";
+import type { Flow, Trigger } from "@floowforge/shared";
 
 type WebhookSecret = { token: string; secret: string };
 type TriggerWithWebhook = Trigger & {

@@ -5,7 +5,7 @@ import { Maximize2, Minimize2, PencilLine, Boxes } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { apiGet } from "@/lib/api";
-import type { CustomNode } from "@flowforge/shared";
+import type { CustomNode } from "@floowforge/shared";
 import { useTopoStep, useInScope } from "../order-context";
 
 export default function PromptTemplateNode({ id, data, isConnectable }: NodeProps) {

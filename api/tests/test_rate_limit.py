@@ -241,7 +241,7 @@ async def test_redis_sliding_window():
     ]
     assert [d.allowed for d in results] == [True, True, False]
     # The denied request's optimistic ZADD was rolled back.
-    assert len(redis.zsets[f"flowforge:rl:{key}"]) == 2
+    assert len(redis.zsets[f"floowforge:rl:{key}"]) == 2
 
 
 async def test_redis_failure_falls_back_to_memory():

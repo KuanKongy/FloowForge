@@ -21,7 +21,7 @@ import {
   Workflow,
   Zap,
 } from "lucide-react";
-import { type NodeType } from "@flowforge/shared";
+import { type NodeType } from "@floowforge/shared";
 
 /**
  * Palette is a direct port of Floowbox's `ComponentMenu` (see
@@ -78,7 +78,7 @@ const SECTIONS: Section[] = [
   },
 ];
 
-export const PALETTE_DRAG_MIME = "application/flowforge-node";
+export const PALETTE_DRAG_MIME = "application/floowforge-node";
 
 export function EditorPalette({ onAdd }: { onAdd: (type: NodeType) => void }) {
   const [expand, setExpand] = useState(false);

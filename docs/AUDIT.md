@@ -1,8 +1,8 @@
-# FlowForge Platform Audit
+# FloowForge Platform Audit
 
 **Date:** 2026-07-29 · **Commit audited:** `ed2b5e8d` · **Auditor:** Claude (Fable 5)
 
-Full-surface audit of the FlowForge platform: execution engine, providers, REST API,
+Full-surface audit of the FloowForge platform: execution engine, providers, REST API,
 public webhook/form surface, scheduler, worker, database/RLS, frontend editor, and
 deployment. Every P0 and P1 finding below was verified by reading the source; where a
 finding says **PROVEN** it was reproduced at runtime.
@@ -175,7 +175,7 @@ by the API and displayed in the UI — but **no endpoint ever reads it**. `hmac`
 the only credential, and it leaks through proxy logs, browser history, and `Referer`.
 There is no rotation endpoint and no expiry.
 
-**Fix.** Verify an `X-FlowForge-Signature` HMAC-SHA256 over the raw body using
+**Fix.** Verify an `X-FloowForge-Signature` HMAC-SHA256 over the raw body using
 `compare_digest`; sign outgoing callbacks with the same secret; add token rotation.
 *(Breaking change — approved.)*
 
@@ -734,7 +734,7 @@ Additional:
 
 - **Naming is split**: `FloowForge` ships in `README.md`, `api/main.py:83`, `api/worker.py:199`,
   `web/app/layout.tsx`, and `packages/shared`, while `docs/` and `ARCHITECTURE.md` say
-  `FlowForge`. Commit `76dfb103` ("Name Fix") deliberately renamed product surfaces only.
+  `FloowForge`. Commit `76dfb103` ("Name Fix") deliberately renamed product surfaces only.
 - **Dockerfiles**: both `Dockerfile.api` and `Dockerfile.worker` run as **root**, have **no
   `HEALTHCHECK`** despite `/health` existing, and pin base images by floating tag.
 - **CI** (`.github/workflows/ci.yml`): uses `npm install` rather than `npm ci` (lockfile not

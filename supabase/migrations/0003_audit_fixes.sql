@@ -1,4 +1,4 @@
--- FlowForge: schema changes from the 2026-07 platform audit (docs/AUDIT.md).
+-- FloowForge: schema changes from the 2026-07 platform audit (docs/AUDIT.md).
 -- Apply via the Supabase SQL editor or `supabase db push`.
 
 -- ---------------------------------------------------------------------------

@@ -14,9 +14,9 @@ COPY api ./api
 
 # Run unprivileged: the worker holds the service-role key and every provider
 # credential, so it is the last process that should also be root.
-RUN useradd --create-home --uid 10001 flowforge \
-    && chown -R flowforge:flowforge /app
-USER flowforge
+RUN useradd --create-home --uid 10001 floowforge \
+    && chown -R floowforge:floowforge /app
+USER floowforge
 
 # The worker has no HTTP surface; liveness is "the process is up", which the
 # orchestrator already tracks.

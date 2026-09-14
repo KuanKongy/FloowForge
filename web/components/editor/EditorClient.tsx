@@ -21,7 +21,7 @@ import { Ghost } from "lucide-react";
 
 import { apiGet, apiPatch, apiPost } from "@/lib/api";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { Flow, FlowVersion, NodeType } from "@flowforge/shared";
+import type { Flow, FlowVersion, NodeType } from "@floowforge/shared";
 
 import { EditorTopBar } from "./EditorTopBar";
 import { EditorPalette, PALETTE_DRAG_MIME } from "./EditorPalette";

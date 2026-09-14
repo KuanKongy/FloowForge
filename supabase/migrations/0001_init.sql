@@ -1,4 +1,4 @@
--- FlowForge: consolidated schema (merges 0001–0008).
+-- FloowForge: consolidated schema (merges 0001–0008).
 -- Apply via Supabase SQL editor or `supabase db push`.
 -- If resetting, run 000_nuke.sql first.
 

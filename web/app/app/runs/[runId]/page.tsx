@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { apiDelete, apiGet } from "@/lib/api";
-import type { Run, RunEvent } from "@flowforge/shared";
+import type { Run, RunEvent } from "@floowforge/shared";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";

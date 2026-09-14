@@ -11,7 +11,7 @@ __pycache__/
 *.egg-info/
 .venv/
 .venv*/
-.venv-flowforge
+.venv-floowforge
 venv/
 .pytest_cache/
 .ruff_cache/

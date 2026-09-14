@@ -1,5 +1,5 @@
--- FlowForge: DROP EVERYTHING.
--- Run this in the Supabase SQL editor to wipe all FlowForge tables, types,
+-- FloowForge: DROP EVERYTHING.
+-- Run this in the Supabase SQL editor to wipe all FloowForge tables, types,
 -- functions, and triggers. Then run 0001_init.sql to recreate from scratch.
 --
 -- WARNING: This destroys all data. Only use for dev/testing resets.

@@ -14,7 +14,7 @@ export function BrandWordmark({
   return (
     <span className={cn("inline-flex items-center gap-2 leading-none", className)}>
       <img
-        src="/images/flowforge.png"
+        src="/images/floowforge.png"
         alt=""
         aria-hidden="true"
         className={cn("size-6 shrink-0 rounded-[7px]", iconClassName)}

@@ -5,7 +5,7 @@ import { Plus, KeyRound, Pencil, Trash2, ShieldCheck, RotateCw } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { apiGet, apiPost, apiDelete, apiPatch } from "@/lib/api";
-import type { Integration } from "@flowforge/shared";
+import type { Integration } from "@floowforge/shared";
 
 export default function IntegrationsPage() {
   const [items, setItems] = useState<Integration[]>([]);

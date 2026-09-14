@@ -5,7 +5,7 @@ import { Boxes, Maximize2, Minimize2, PencilLine } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { NodeFrame, useNodeFrameControls } from "../NodeFrame";
 import { apiGet } from "@/lib/api";
-import type { Flow } from "@flowforge/shared";
+import type { Flow } from "@floowforge/shared";
 import { useTopoStep, useInScope } from "../order-context";
 
 export default function SubflowNode({ id, data, isConnectable }: NodeProps) {

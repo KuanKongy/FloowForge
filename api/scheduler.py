@@ -90,7 +90,7 @@ def validate_schedule_config(config: dict[str, Any]) -> None:
 
 # Only one API replica may own the schedule, otherwise every replica fires the
 # same cron and the flow runs N times.
-LEADER_KEY = "flowforge:scheduler:leader"
+LEADER_KEY = "floowforge:scheduler:leader"
 LEADER_TTL_S = 60
 LEADER_RENEW_S = 20
 # Full resync interval. `add_trigger` from a request only reaches the replica

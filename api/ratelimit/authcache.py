@@ -30,7 +30,7 @@ def token_hash(token: str) -> str:
 
 
 def _redis_key(th: str) -> str:
-    return f"flowforge:auth:{th}"
+    return f"floowforge:auth:{th}"
 
 
 def _local_get(th: str) -> str | None:

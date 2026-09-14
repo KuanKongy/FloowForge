@@ -26,7 +26,7 @@ from ..config import get_settings
 
 log = logging.getLogger(__name__)
 
-QUEUE_KEY = "flowforge:client_events"
+QUEUE_KEY = "floowforge:client_events"
 QUEUE_MAX = 50_000
 FLUSH_BATCH = 500
 FLUSH_INTERVAL_S = 30.0

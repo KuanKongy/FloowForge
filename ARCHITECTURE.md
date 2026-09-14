@@ -7,7 +7,7 @@ via manual triggers, webhooks, schedules, or public forms.
 ## Directory Structure
 
 ```
-FlowForge/
+FloowForge/
 ├── api/                    # FastAPI backend
 │   ├── engine/             # Workflow execution engine
 │   │   ├── executor.py     # Async DAG runner (barrier/race semantics)
@@ -105,12 +105,12 @@ Each node declares a `wait_strategy`:
 
 The worker uses Redis Streams with consumer groups for reliable job delivery:
 
-1. `XGROUP CREATE flowforge:jobs workers $ MKSTREAM` on startup
+1. `XGROUP CREATE floowforge:jobs workers $ MKSTREAM` on startup
 2. `XAUTOCLAIM` to recover pending messages from crashed consumers
 3. `XREADGROUP GROUP workers {consumer} BLOCK 30000` for new jobs
 4. `XACK` + `XDEL` only when `run_flow` returns. A raised exception leaves the
    message pending so `XAUTOCLAIM` can redeliver it.
-5. Delivery counts are kept in the Redis hash `flowforge:jobs:retries`, so they
+5. Delivery counts are kept in the Redis hash `floowforge:jobs:retries`, so they
    survive reconnects. After `MAX_RETRIES` (3) the message is dead-lettered and
    its run is marked `failed`.
 6. `_recover_pending` sweeps for messages abandoned by crashed workers every

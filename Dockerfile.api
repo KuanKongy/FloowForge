@@ -18,9 +18,9 @@ RUN pip install -r api/requirements-api.txt
 COPY api ./api
 
 # Run unprivileged: a container compromise should not also be root.
-RUN useradd --create-home --uid 10001 flowforge \
-    && chown -R flowforge:flowforge /app
-USER flowforge
+RUN useradd --create-home --uid 10001 floowforge \
+    && chown -R floowforge:floowforge /app
+USER floowforge
 
 EXPOSE 5001
 

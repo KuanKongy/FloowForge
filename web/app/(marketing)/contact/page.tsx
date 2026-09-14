@@ -13,7 +13,7 @@ const CONTACTS = [
     title: "GitHub",
     body: "Follow development, browse the source, open an issue, or contribute.",
     cta: "View on GitHub",
-    href: "https://github.com/KuanKongy/FlowForge",
+    href: "https://github.com/KuanKongy/FloowForge",
   },
   {
     icon: <Linkedin size={20} />,

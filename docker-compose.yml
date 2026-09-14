@@ -8,6 +8,10 @@
 # Do NOT scale `api` beyond 1 replica: the schedule runner (APScheduler) lives
 # in the API process, so replicas would fire every schedule once each.
 
+# Explicit project name so container/volume names don't depend on the checkout
+# folder's name.
+name: floowforge
+
 services:
   redis:
     image: redis:7-alpine
