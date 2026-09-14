@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Boxes,
   Webhook,
+  CircleHelp,
   CircleUserRound,
   KeyRound,
   LogOut,
@@ -21,6 +22,7 @@ const NAV = [
   { href: "/app/triggers", label: "Triggers", icon: Webhook },
   { href: "/app/custom-nodes", label: "Custom Nodes", icon: Boxes },
   { href: "/app/integrations", label: "Integrations", icon: KeyRound },
+  { href: "/app/faq", label: "FAQ", icon: CircleHelp },
 ];
 
 export function AppShell({ children, userEmail }: { children: React.ReactNode; userEmail: string }) {
@@ -102,9 +104,12 @@ export function AppShell({ children, userEmail }: { children: React.ReactNode; u
 
 function TopBar({ pathname }: { pathname: string }) {
   const seg = pathname.split("/").filter(Boolean);
-  const label = seg[1]
-    ? seg[1].replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase())
-    : "";
+  const label =
+    seg[1] === "faq"
+      ? "FAQ"
+      : seg[1]
+        ? seg[1].replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase())
+        : "";
 
   return (
     <header className="flex h-[56px] items-center justify-between border-b border-[var(--border)] bg-[var(--surface-2)] px-6">
