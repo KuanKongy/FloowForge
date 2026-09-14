@@ -111,6 +111,8 @@ const STEPS = Array.from(new Set(NODES.map((n) => n.step))).sort((a, b) => a - b
 export function FlowDemo({
   autoPlay = true,
   paused = false,
+  stepOverride = null,
+  fillHeight = false,
   running: externalRunning,
   onRunComplete,
   onStepChange,
@@ -119,6 +121,10 @@ export function FlowDemo({
   autoPlay?: boolean;
   /** Freeze the autoplay loop in place (the demo frame's pause button). */
   paused?: boolean;
+  /** Freeze the canvas at the exact moment of one topological step (1-based). */
+  stepOverride?: number | null;
+  /** Stretch to the parent's height instead of the scaled design height. */
+  fillHeight?: boolean;
   /** Drive the run externally (used by the interactive section). */
   running?: boolean;
   onRunComplete?: () => void;
@@ -143,6 +149,10 @@ export function FlowDemo({
   /** Walk the graph one topological step at a time. */
   const playRun = useCallback(() => {
     setStates({});
+    // Externally driven runs (the "try it" panel) stay snappy; the hero's
+    // narrated autoplay lingers on each step long enough to read its caption.
+    const stepMs = externalRunning !== undefined ? 900 : 2000;
+    const settleMs = externalRunning !== undefined ? 200 : 300;
     let t = 250;
     STEPS.forEach((step) => {
       const ids = NODES.filter((n) => n.step === step).map((n) => n.id);
@@ -154,7 +164,7 @@ export function FlowDemo({
           return next;
         });
       }, t);
-      t += 620;
+      t += stepMs;
       schedule(() => {
         setStates((s) => {
           const next = { ...s };
@@ -162,14 +172,14 @@ export function FlowDemo({
           return next;
         });
       }, t);
-      t += 180;
+      t += settleMs;
     });
     schedule(() => {
       onStepChange?.(0);
       onRunComplete?.();
     }, t + 200);
     return t;
-  }, [schedule, onRunComplete, onStepChange]);
+  }, [schedule, onRunComplete, onStepChange, externalRunning]);
 
   // Assemble once, then loop the run while autoPlay is on.
   useEffect(() => {
@@ -184,12 +194,12 @@ export function FlowDemo({
   }, [reduceMotion, schedule, clearTimers]);
 
   useEffect(() => {
-    if (!assembled || !autoPlay || reduceMotion || paused) return;
+    if (!assembled || !autoPlay || reduceMotion || paused || stepOverride != null) return;
     let cancelled = false;
     const loop = () => {
       if (cancelled) return;
       const total = playRun();
-      timers.current.push(setTimeout(loop, total + 2600));
+      timers.current.push(setTimeout(loop, total + 3800));
     };
     loop();
     return () => {
@@ -197,7 +207,24 @@ export function FlowDemo({
       // Freeze in place on pause; the next unpause restarts a clean run.
       clearTimers();
     };
-  }, [assembled, autoPlay, reduceMotion, paused, playRun, clearTimers]);
+  }, [assembled, autoPlay, reduceMotion, paused, stepOverride, playRun, clearTimers]);
+
+  // Manual scrubbing (the demo frame's dots): stop the clock and pose the
+  // canvas at the exact moment that step executes — parents done, the step's
+  // own nodes running, everything after still idle.
+  useEffect(() => {
+    if (stepOverride == null) return;
+    clearTimers();
+    setAssembled(true);
+    setStates(
+      Object.fromEntries(
+        NODES.map((n) => [
+          n.id,
+          n.step < stepOverride ? "succeeded" : n.step === stepOverride ? "running" : "idle",
+        ])
+      )
+    );
+  }, [stepOverride, clearTimers]);
 
   // Externally driven run (the "try it" section).
   useEffect(() => {
@@ -276,8 +303,10 @@ export function FlowDemo({
   return (
     <div
       ref={outerRef}
-      className={`relative w-full overflow-x-auto overflow-y-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] dotted-grid-bg ${className}`}
-      style={{ height: DESIGN_HEIGHT * scale }}
+      className={`relative w-full overflow-x-auto overflow-y-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--surface-1)] dotted-grid-bg ${
+        fillHeight ? "h-full flex flex-col justify-center" : ""
+      } ${className}`}
+      style={fillHeight ? undefined : { height: DESIGN_HEIGHT * scale }}
       aria-label="Animated preview of a FloowForge workflow running"
       role="img"
     >

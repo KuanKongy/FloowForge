@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -33,15 +34,14 @@ export const metadata: Metadata = {
 };
 
 /**
- * The landing narrative, top to bottom: what it is (hero + live demo) → the
- * numbers → what you get → how it works → try it yourself → what's in the
+ * The landing narrative, top to bottom: what it is (hero + live demo) →
+ * what you get → how it works → try it yourself → what's in the
  * box → how your data is handled → what it costs → start.
  */
 export default function LandingPage() {
   return (
     <main>
       <Hero />
-      <StatsBand />
       <WhatYouGet />
       <HowItWorks />
       <TrySection />
@@ -84,9 +84,6 @@ function Hero() {
             </Button>
           </Link>
         </div>
-        <p className="mt-4 text-xs text-[var(--muted-foreground)]">
-          Free while in beta · Bring your own AI keys · No card required
-        </p>
       </Reveal>
 
       <Reveal onMount delay={0.15} className="mt-12 sm:mt-16">
@@ -107,36 +104,6 @@ function Hero() {
   );
 }
 
-/* ------------------------------------------------------------ stats band */
-
-const STATS = [
-  { value: "16", label: "node types" },
-  { value: "4", label: "trigger kinds" },
-  { value: "4", label: "AI providers" },
-  { value: "0", label: "lines of code" },
-  { value: "100%", label: "of every run visible live" },
-] as const;
-
-function StatsBand() {
-  return (
-    <section className="border-t border-[var(--border)]">
-      <Reveal className="mx-auto max-w-6xl px-5 sm:px-8 py-10 sm:py-12">
-        <dl className="flex flex-wrap items-baseline justify-center gap-x-10 gap-y-6 text-center">
-          {STATS.map((stat) => (
-            <div key={stat.label} className="flex items-baseline gap-2">
-              <dt className="sr-only">{stat.label}</dt>
-              <dd className="text-2xl sm:text-3xl font-semibold tracking-tight">{stat.value}</dd>
-              <dd className="text-[0.7rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
-                {stat.label}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </Reveal>
-    </section>
-  );
-}
-
 /* ------------------------------------------------------------ what you get */
 
 const BENTO_TILES = [
@@ -145,7 +112,6 @@ const BENTO_TILES = [
     tone: "text",
     title: "A canvas that runs for real",
     body: "Build visually, save immutable versions, and watch per-node status, timings, and payloads stream back over Realtime while a run executes.",
-    wide: true,
   },
   {
     icon: <Webhook size={20} />,
@@ -192,11 +158,7 @@ function WhatYouGet() {
       </Reveal>
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {BENTO_TILES.map((tile, i) => (
-          <Reveal
-            key={tile.title}
-            delay={i * 0.06}
-            className={"wide" in tile && tile.wide ? "sm:col-span-2" : undefined}
-          >
+          <Reveal key={tile.title} delay={i * 0.06}>
             <article className="card-surface card-hover p-6 h-full">
               <ToneIcon tone={tile.tone}>{tile.icon}</ToneIcon>
               <h3 className="font-semibold text-[1rem] mt-4">{tile.title}</h3>
@@ -322,7 +284,12 @@ const NODE_GROUPS = [
   },
 ] as const;
 
-const PROVIDERS = ["OpenAI", "Google Gemini", "Cloudflare Workers AI", "DeepSeek"];
+const PROVIDERS = [
+  { name: "OpenAI", icon: "/images/openai-icon-text.svg" },
+  { name: "Google Gemini", icon: "/images/gemini-icon.svg" },
+  { name: "Cloudflare Workers AI", icon: "/images/cloudflare-icon.svg" },
+  { name: "DeepSeek", icon: "/images/deepseek-icon.svg" },
+] as const;
 
 function NodeCatalogue() {
   return (
@@ -362,12 +329,25 @@ function NodeCatalogue() {
         ))}
       </div>
 
-      <Reveal delay={0.2} className="mt-8">
-        <div className="card-surface p-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <span className="text-sm text-[var(--muted-foreground)]">Powered by</span>
-          {PROVIDERS.map((p) => (
-            <span key={p} className="text-sm font-medium">{p}</span>
-          ))}
+      <Reveal delay={0.2} className="mt-12">
+        <div className="flex flex-col items-center gap-5">
+          <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+            Powered by
+          </span>
+          <ul className="flex flex-wrap items-center justify-center gap-9 sm:gap-12">
+            {PROVIDERS.map((p) => (
+              <li key={p.name}>
+                <Image
+                  src={p.icon}
+                  alt={p.name}
+                  title={p.name}
+                  width={44}
+                  height={44}
+                  className="size-10 sm:size-11 opacity-60 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0 hover:scale-110"
+                />
+              </li>
+            ))}
+          </ul>
         </div>
       </Reveal>
     </section>

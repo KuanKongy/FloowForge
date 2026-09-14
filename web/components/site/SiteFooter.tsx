@@ -2,7 +2,6 @@ import Link from "next/link";
 import { BrandWordmark } from "@/components/brand/BrandWordmark";
 
 const FOOTER_LINKS = [
-  { label: "FAQ", href: "/faq" },
   { label: "Privacy Policy", href: "/privacy" },
   { label: "Terms of Service", href: "/terms" },
 ] as const;
