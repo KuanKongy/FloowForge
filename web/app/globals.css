@@ -101,6 +101,11 @@ body {
   filter: none;
 }
 
+/* Full-color brand marks that are black by brand (OpenAI): flip on dark. */
+.dark .dark-invert {
+  filter: invert(1);
+}
+
 .floating-menu {
   background: var(--surface-2);
   border: 1px solid var(--border);

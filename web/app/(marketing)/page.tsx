@@ -107,29 +107,9 @@ function Hero() {
           <DemoFrame className="relative" />
         </div>
       </Reveal>
-
-      <Reveal delay={0.1} className="mt-14 sm:mt-16">
-        <dl className="flex flex-wrap items-baseline justify-center gap-x-10 gap-y-4">
-          {HERO_STATS.map((stat) => (
-            <div key={stat.label} className="flex items-baseline gap-2">
-              <dd className="text-xl sm:text-2xl font-semibold tracking-tight">{stat.value}</dd>
-              <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                {stat.label}
-              </dt>
-            </div>
-          ))}
-        </dl>
-      </Reveal>
     </section>
   );
 }
-
-const HERO_STATS = [
-  { value: "16", label: "Node types" },
-  { value: "4", label: "Trigger kinds" },
-  { value: "4", label: "AI providers" },
-  { value: "5", label: "Schedule modes" },
-] as const;
 
 /* ------------------------------------------------------------ what you get */
 
@@ -137,10 +117,14 @@ const HERO_STATS = [
  * OnboardBuddy-style bento: every panel carries a miniature artifact from the
  * actual product (a streaming run, trigger rows, masked keys, a form, a failed
  * run) instead of a paragraph, so the section shows rather than tells.
+ *
+ * Compact on purpose (inline headers, tight gaps) so the whole grid fits one
+ * screen. Narrative order: build & watch it run → ship it four ways → share it
+ * as a form → your keys, your bill → compose bigger → recover when it breaks.
  */
 function WhatYouGet() {
   return (
-    <section id="product" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
+    <section id="product" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="What you get"
@@ -148,38 +132,32 @@ function WhatYouGet() {
           body="Everything below ships today and works together on the same graph."
         />
       </Reveal>
-      <div className="mt-10 grid gap-5 lg:grid-cols-3">
-        {/* Row 1: a live run (wide) + the four triggers. */}
+      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        {/* Row 1: the core promise (wide) + how it ships. */}
         <Reveal className="lg:col-span-2">
-          <article className="card-surface card-hover p-6 h-full sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:items-center sm:content-center">
+          <article className="card-surface card-hover p-5 h-full sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-5 sm:items-center sm:content-center">
             <div>
-              <ToneIcon tone="text">
-                <Workflow size={20} />
-              </ToneIcon>
-              <h3 className="font-semibold text-[1rem] mt-4">A canvas that runs for real</h3>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              <TileHeader tone="text" icon={<Workflow size={17} />} title="A canvas that runs for real" />
+              <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
                 Build visually, save immutable versions, and watch status,
-                timings, and payloads stream back over Realtime while a run
-                executes.
+                timings, and payloads stream back live, node by node, while a
+                run executes.
               </p>
             </div>
             <MockRunStream />
           </article>
         </Reveal>
         <Reveal delay={0.06}>
-          <article className="card-surface card-hover p-6 h-full">
-            <ToneIcon tone="audio">
-              <Webhook size={20} />
-            </ToneIcon>
-            <h3 className="font-semibold text-[1rem] mt-4">Four front doors</h3>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+          <article className="card-surface card-hover p-5 h-full">
+            <TileHeader tone="audio" icon={<Webhook size={17} />} title="Four front doors" />
+            <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
               The same graph answers to all of these at once.
             </p>
-            <ul className="mt-4 flex flex-col gap-2">
+            <ul className="mt-3 flex flex-col gap-1.5">
               {FRONT_DOORS.map((door) => (
                 <li
                   key={door.label}
-                  className="flex items-center justify-between gap-3 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5"
+                  className="flex items-center justify-between gap-3 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1"
                 >
                   <span className="flex items-center gap-2 text-xs font-medium">
                     <span
@@ -202,35 +180,29 @@ function WhatYouGet() {
           </article>
         </Reveal>
 
-        {/* Row 2: three focused panels, each with its own artifact. */}
+        {/* Row 2: share it, pay the provider directly, compose bigger. */}
         <Reveal delay={0.06}>
-          <article className="card-surface card-hover p-6 h-full">
-            <ToneIcon tone="file">
-              <Boxes size={20} />
-            </ToneIcon>
-            <h3 className="font-semibold text-[1rem] mt-4">Compose bigger flows</h3>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              Wrap a saved flow as a single subflow node, or build reusable
-              prompt-template nodes with their own inputs.
+          <article className="card-surface card-hover p-5 h-full">
+            <TileHeader tone="text" icon={<FileText size={17} />} title="Forms for non-builders" />
+            <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
+              Turn a flow into a shareable form. Answers route to the right
+              nodes; no account needed to submit.
             </p>
-            <MockSubflow />
+            <MockForm />
           </article>
         </Reveal>
         <Reveal delay={0.12}>
-          <article className="card-surface card-hover p-6 h-full">
-            <ToneIcon tone="image">
-              <KeyRound size={20} />
-            </ToneIcon>
-            <h3 className="font-semibold text-[1rem] mt-4">Bring your own keys</h3>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+          <article className="card-surface card-hover p-5 h-full">
+            <TileHeader tone="image" icon={<KeyRound size={17} />} title="Bring your own keys" />
+            <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
               Encrypted at rest, decrypted only when your flow calls the model.
               No markup on usage.
             </p>
-            <ul className="mt-4 flex flex-col gap-2">
+            <ul className="mt-3 flex flex-col gap-1.5">
               {KEY_ROWS.map((row) => (
                 <li
                   key={row.name}
-                  className="flex items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5"
+                  className="flex items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1"
                 >
                   <Image
                     src={row.icon}
@@ -250,28 +222,22 @@ function WhatYouGet() {
           </article>
         </Reveal>
         <Reveal delay={0.18}>
-          <article className="card-surface card-hover p-6 h-full">
-            <ToneIcon tone="text">
-              <FileText size={20} />
-            </ToneIcon>
-            <h3 className="font-semibold text-[1rem] mt-4">Forms for non-builders</h3>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              Share a link; answers are routed to the right nodes. No account
-              needed to submit.
+          <article className="card-surface card-hover p-5 h-full">
+            <TileHeader tone="file" icon={<Boxes size={17} />} title="Compose bigger flows" />
+            <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
+              Wrap a saved flow as a single subflow node, or build reusable
+              prompt-template nodes with their own inputs.
             </p>
-            <MockForm />
+            <MockSubflow />
           </article>
         </Reveal>
 
-        {/* Row 3: full-width panel, text left and the artifact right. */}
+        {/* Row 3: the safety net, as a finale. */}
         <Reveal className="lg:col-span-3">
-          <article className="card-surface card-hover p-6 h-full grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
+          <article className="card-surface card-hover p-5 h-full grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
             <div>
-              <ToneIcon tone="audio">
-                <History size={20} />
-              </ToneIcon>
-              <h3 className="font-semibold text-[1rem] mt-4">Run history &amp; resume</h3>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              <TileHeader tone="audio" icon={<History size={17} />} title="Run history & resume" />
+              <p className="mt-2.5 text-sm text-[var(--muted-foreground)]">
                 Every run keeps its timeline. Jump into a failed run, inspect
                 each node&apos;s inputs and outputs, and resume from the node
                 that broke. Earlier results are reused, not re-billed.
@@ -282,6 +248,26 @@ function WhatYouGet() {
         </Reveal>
       </div>
     </section>
+  );
+}
+
+/** Inline card header: small tone icon and title on one row (OnboardBuddy). */
+function TileHeader({
+  tone,
+  icon,
+  title,
+}: {
+  tone: string;
+  icon: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <ToneIcon tone={tone} small>
+        {icon}
+      </ToneIcon>
+      <h3 className="font-semibold text-[0.95rem]">{title}</h3>
+    </div>
   );
 }
 
@@ -303,10 +289,10 @@ const KEY_ROWS = [
 function MockRunStream() {
   return (
     <div
-      className="mt-5 sm:mt-0 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3 sm:w-[250px]"
+      className="mt-4 sm:mt-0 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-2.5 sm:w-[250px]"
       aria-hidden="true"
     >
-      <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between pb-1.5 border-b border-[var(--border)]">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
           Run #142
         </span>
@@ -318,7 +304,7 @@ function MockRunStream() {
           streaming
         </span>
       </div>
-      <ul className="pt-2 flex flex-col gap-1.5">
+      <ul className="pt-1.5 flex flex-col gap-1">
         <MockRunRow step={1} name="Webhook In" time="0.1s" state="done" />
         <MockRunRow step={2} name="Prompt" time="0.0s" state="done" />
         <MockRunRow step={3} name="Copywriter" time="1.8s" state="done" />
@@ -358,8 +344,8 @@ function MockRunRow({
 /** A saved flow collapsed into one node, shown next to its innards. */
 function MockSubflow() {
   return (
-    <div className="mt-4 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3" aria-hidden="true">
-      <div className="relative rounded-[10px] border border-[rgba(var(--file__font-rgb),0.4)] bg-[var(--surface-2)] px-2.5 py-2 flex items-center gap-2">
+    <div className="mt-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-2.5" aria-hidden="true">
+      <div className="relative rounded-[10px] border border-[rgba(var(--file__font-rgb),0.4)] bg-[var(--surface-2)] px-2.5 py-1.5 flex items-center gap-2">
         <span
           className="rounded-[7px] p-1.5 shrink-0"
           style={{
@@ -408,17 +394,17 @@ function MockMiniNode({ tone, label }: { tone: string; label: string }) {
 /** The public form artifact: two derived fields and a submit that starts a run. */
 function MockForm() {
   return (
-    <div className="mt-4 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3 flex flex-col gap-2" aria-hidden="true">
+    <div className="mt-3 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-2.5 flex flex-col gap-1.5" aria-hidden="true">
       <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
         Launch brief
       </span>
-      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[11px] text-[var(--muted-foreground)]">
+      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)]">
         Product name…
       </div>
-      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[11px] text-[var(--muted-foreground)]">
+      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)]">
         What are we announcing?
       </div>
-      <div className="rounded-[8px] bg-[var(--primary)] px-2.5 py-1.5 text-center text-[11px] font-medium text-white">
+      <div className="rounded-[8px] bg-[var(--primary)] px-2.5 py-1 text-center text-[11px] font-medium text-white">
         Submit &amp; watch it run
       </div>
     </div>
@@ -428,14 +414,14 @@ function MockForm() {
 /** A failed run with resume: the point of run history, in one glance. */
 function MockFailedRun() {
   return (
-    <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3" aria-hidden="true">
-      <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+    <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-2.5" aria-hidden="true">
+      <div className="flex items-center justify-between pb-1.5 border-b border-[var(--border)]">
         <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
           Run #137 · yesterday 23:04
         </span>
         <span className="text-[10px] font-medium text-red-500">failed</span>
       </div>
-      <ul className="pt-2 flex flex-col gap-1.5">
+      <ul className="pt-1.5 flex flex-col gap-1">
         <MockRunRow step={1} name="Webhook In" time="0.1s" state="done" />
         <MockRunRow step={2} name="Copywriter" time="1.8s" state="done" />
         <MockRunRow step={3} name="Cover art" time="provider 429" state="failed" />
@@ -483,7 +469,7 @@ const STEPS = [
  */
 function HowItWorks() {
   return (
-    <section id="how" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
+    <section id="how" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="How it works"
@@ -505,7 +491,11 @@ function HowItWorks() {
         <ol className="grid grid-cols-3 gap-8">
           {STEPS.map((s, i) => (
             <Reveal key={s.title} delay={i * 0.1}>
-              <li className="flex flex-col items-center text-center">
+              {/* The whole step is the hover area: a ghost card materializes
+                  over the edge and the node icon lifts, like hovering a node
+                  on the canvas. `p-4 -m-4` grows the hit area without moving
+                  the icon off the connector line. */}
+              <li className="group flex flex-col items-center text-center rounded-[18px] p-4 -m-4 border border-transparent transition-all duration-300 hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:shadow-[0_10px_24px_rgba(0,0,0,0.06)]">
                 <StepIcon step={s.step} tone={s.tone}>
                   {s.icon}
                 </StepIcon>
@@ -529,7 +519,7 @@ function HowItWorks() {
         <ol className="flex flex-col gap-8">
           {STEPS.map((s, i) => (
             <Reveal key={s.title} delay={i * 0.08}>
-              <li className="flex gap-4">
+              <li className="group flex gap-4">
                 <StepIcon step={s.step} tone={s.tone}>
                   {s.icon}
                 </StepIcon>
@@ -560,7 +550,7 @@ function StepIcon({
   children: React.ReactNode;
 }) {
   return (
-    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1">
+    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1 transition-transform duration-300 group-hover:scale-110">
       <span
         className="inline-flex size-12 items-center justify-center rounded-[13px] border"
         style={{
@@ -582,7 +572,7 @@ function StepIcon({
 
 function TrySection() {
   return (
-    <section id="try" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
+    <section id="try" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="Hands on"
@@ -636,16 +626,17 @@ const NODE_GROUPS = [
   },
 ] as const;
 
+/** Brand-colored marks (separate from the app's monochrome icon set). */
 const PROVIDERS = [
-  { name: "OpenAI", icon: "/images/openai-icon-text.svg" },
-  { name: "Google Gemini", icon: "/images/gemini-icon.svg" },
-  { name: "Cloudflare", icon: "/images/cloudflare-icon.svg" },
-  { name: "DeepSeek", icon: "/images/deepseek-icon.svg" },
+  { name: "OpenAI", icon: "/images/brand/openai.svg", mono: true },
+  { name: "Google Gemini", icon: "/images/brand/gemini.svg", mono: false },
+  { name: "Cloudflare", icon: "/images/brand/cloudflare.svg", mono: false },
+  { name: "DeepSeek", icon: "/images/brand/deepseek.svg", mono: false },
 ] as const;
 
 function NodeCatalogue() {
   return (
-    <section id="nodes" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
+    <section id="nodes" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="What's in the box"
@@ -703,7 +694,9 @@ function NodeCatalogue() {
                   alt=""
                   width={28}
                   height={28}
-                  className="provider-mark size-6 sm:size-7 opacity-60 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110"
+                  className={`size-6 sm:size-7 transition-transform duration-300 group-hover:scale-110 ${
+                    p.mono ? "dark-invert" : ""
+                  }`}
                 />
                 <span className="text-sm font-medium text-[var(--muted-foreground)] transition-colors duration-300 group-hover:text-[var(--foreground)]">
                   {p.name}
@@ -735,7 +728,7 @@ const LIMITS = [
 
 function Transparency() {
   return (
-    <section id="data" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
+    <section id="privacy" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="Your data, your rules"
@@ -813,7 +806,7 @@ const COST_FACTS = [
 
 function TransparentCosts() {
   return (
-    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16">
       <Reveal>
         <SectionHeading
           eyebrow="Transparent costs"
@@ -841,7 +834,7 @@ function TransparentCosts() {
 
 function ClosingCta() {
   return (
-    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-16 sm:py-24 border-t border-[var(--border)]">
+    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20">
       <Reveal>
         <div className="card-surface p-8 sm:p-12 text-center relative overflow-hidden">
           <div
