@@ -101,9 +101,23 @@ body {
   filter: none;
 }
 
-/* Full-color brand marks that are black by brand (OpenAI): flip on dark. */
-.dark .dark-invert {
-  filter: invert(1);
+/* "Powered by" marks: the logo shape is a CSS mask over a paintable box, so
+   the mark sits quiet and gray until hover fills it with the provider's theme
+   color (set per item via --brand-hover). */
+.provider-mask {
+  display: inline-block;
+  background-color: var(--muted-foreground);
+  opacity: 0.55;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+.group:hover .provider-mask {
+  background-color: var(--brand-hover, var(--foreground));
+  opacity: 1;
 }
 
 .floating-menu {

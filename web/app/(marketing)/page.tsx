@@ -491,11 +491,7 @@ function HowItWorks() {
         <ol className="grid grid-cols-3 gap-8">
           {STEPS.map((s, i) => (
             <Reveal key={s.title} delay={i * 0.1}>
-              {/* The whole step is the hover area: a ghost card materializes
-                  over the edge and the node icon lifts, like hovering a node
-                  on the canvas. `p-4 -m-4` grows the hit area without moving
-                  the icon off the connector line. */}
-              <li className="group flex flex-col items-center text-center rounded-[18px] p-4 -m-4 border border-transparent transition-all duration-300 hover:border-[var(--border)] hover:bg-[var(--surface-2)] hover:shadow-[0_10px_24px_rgba(0,0,0,0.06)]">
+              <li className="flex flex-col items-center text-center">
                 <StepIcon step={s.step} tone={s.tone}>
                   {s.icon}
                 </StepIcon>
@@ -519,7 +515,7 @@ function HowItWorks() {
         <ol className="flex flex-col gap-8">
           {STEPS.map((s, i) => (
             <Reveal key={s.title} delay={i * 0.08}>
-              <li className="group flex gap-4">
+              <li className="flex gap-4">
                 <StepIcon step={s.step} tone={s.tone}>
                   {s.icon}
                 </StepIcon>
@@ -550,7 +546,8 @@ function StepIcon({
   children: React.ReactNode;
 }) {
   return (
-    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1 transition-transform duration-300 group-hover:scale-110">
+    // Only the node itself reacts to hover, like a node on the canvas.
+    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1 transition-all duration-300 hover:scale-110 hover:drop-shadow-[0_6px_14px_rgba(0,0,0,0.12)]">
       <span
         className="inline-flex size-12 items-center justify-center rounded-[13px] border"
         style={{
@@ -626,12 +623,15 @@ const NODE_GROUPS = [
   },
 ] as const;
 
-/** Brand-colored marks (separate from the app's monochrome icon set). */
+/**
+ * Brand marks rendered through CSS masks: quiet gray at rest, and on hover
+ * they fill with each provider's single theme color (not the full logo art).
+ */
 const PROVIDERS = [
-  { name: "OpenAI", icon: "/images/brand/openai.svg", mono: true },
-  { name: "Google Gemini", icon: "/images/brand/gemini.svg", mono: false },
-  { name: "Cloudflare", icon: "/images/brand/cloudflare.svg", mono: false },
-  { name: "DeepSeek", icon: "/images/brand/deepseek.svg", mono: false },
+  { name: "OpenAI", icon: "/images/brand/openai.svg", color: "#10a37f" },
+  { name: "Google Gemini", icon: "/images/brand/gemini.svg", color: "#4E9EFB" },
+  { name: "Cloudflare", icon: "/images/brand/cloudflare.svg", color: "#F6821F" },
+  { name: "DeepSeek", icon: "/images/brand/deepseek.svg", color: "#4D6BFE" },
 ] as const;
 
 function NodeCatalogue() {
@@ -689,14 +689,16 @@ function NodeCatalogue() {
           <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 sm:gap-x-10">
             {PROVIDERS.map((p) => (
               <li key={p.name} className="group flex items-center gap-2.5">
-                <Image
-                  src={p.icon}
-                  alt=""
-                  width={28}
-                  height={28}
-                  className={`size-6 sm:size-7 transition-transform duration-300 group-hover:scale-110 ${
-                    p.mono ? "dark-invert" : ""
-                  }`}
+                <span
+                  aria-hidden="true"
+                  className="provider-mask size-6 sm:size-7 shrink-0 transition-all duration-300 group-hover:scale-110"
+                  style={
+                    {
+                      maskImage: `url(${p.icon})`,
+                      WebkitMaskImage: `url(${p.icon})`,
+                      "--brand-hover": p.color,
+                    } as React.CSSProperties
+                  }
                 />
                 <span className="text-sm font-medium text-[var(--muted-foreground)] transition-colors duration-300 group-hover:text-[var(--foreground)]">
                   {p.name}
