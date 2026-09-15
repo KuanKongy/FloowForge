@@ -16,17 +16,13 @@ import { FlowDemo } from "./FlowDemo";
  */
 
 const STEP_CAPTIONS: Record<number, { title: string; body: string }> = {
-  0: {
-    title: "Watch a run.",
-    body: "One trigger, two AI nodes in parallel, one joined result — live.",
-  },
   1: {
     title: "The trigger fires.",
     body: "A webhook, schedule, form, or button starts the run server-side.",
   },
   2: {
     title: "Inputs resolve.",
-    body: "The prompt is read from the saved canvas — runs use immutable versions.",
+    body: "The prompt is read from the saved canvas, so runs stay reproducible.",
   },
   3: {
     title: "AI runs in parallel.",
@@ -42,12 +38,14 @@ const DOT_STEPS = [1, 2, 3, 4] as const;
 
 export function DemoFrame({ className = "" }: { className?: string }) {
   const reduceMotion = useReducedMotion();
-  const [step, setStep] = useState(0);
+  // The last step that actually executed: between runs FlowDemo reports 0, and
+  // we keep the previous caption on screen instead of blanking the line.
+  const [step, setStep] = useState(1);
   const [paused, setPaused] = useState(false);
   const [manualStep, setManualStep] = useState<number | null>(null);
 
   const shownStep = manualStep ?? step;
-  const caption = STEP_CAPTIONS[shownStep] ?? STEP_CAPTIONS[0];
+  const caption = STEP_CAPTIONS[shownStep] ?? STEP_CAPTIONS[1];
 
   function selectStep(s: number) {
     setManualStep(s);
@@ -58,7 +56,7 @@ export function DemoFrame({ className = "" }: { className?: string }) {
     if (paused) {
       // Resume with a clean run rather than mid-scrub state.
       setManualStep(null);
-      setStep(0);
+      setStep(1);
       setPaused(false);
     } else {
       setPaused(true);
@@ -71,12 +69,15 @@ export function DemoFrame({ className = "" }: { className?: string }) {
         className="relative container-shadow"
         paused={paused}
         stepOverride={manualStep}
-        onStepChange={setStep}
+        onStepChange={(s) => {
+          // 0 means "between runs"; hold the last caption instead of blanking.
+          if (s > 0) setStep(s);
+        }}
       />
-      <figcaption className="mt-4 text-center">
+      <figcaption className="mt-3 text-center">
         {/* Fixed-height, fixed-width caption box: the text fades in place and
             the controls below never move. */}
-        <div className="mx-auto max-w-[620px] h-[60px] sm:h-[44px] overflow-hidden text-xs sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
+        <div className="mx-auto max-w-[620px] h-[38px] sm:h-[22px] overflow-hidden text-xs sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
           <AnimatePresence mode="wait" initial={false}>
             <motion.p
               key={shownStep}
@@ -91,7 +92,7 @@ export function DemoFrame({ className = "" }: { className?: string }) {
           </AnimatePresence>
         </div>
 
-        <div className="mt-1.5 flex items-center justify-center gap-3">
+        <div className="mt-2 flex items-center justify-center gap-3">
           <button
             type="button"
             aria-label={paused ? "Play the demo" : "Pause the demo"}

@@ -90,6 +90,17 @@ body {
   box-shadow: 0 3px 5px rgba(201, 201, 209, 0.25);
 }
 
+/* Third-party brand icons rendered as grayscale <img>: mostly-black SVGs
+   disappear on dark surfaces, so lift them there. Color still returns on
+   hover via the inline grayscale/opacity utilities. */
+.dark .provider-mark {
+  filter: grayscale(1) invert(0.82);
+}
+.dark .group:hover .provider-mark,
+.dark .group\/node:hover .provider-mark {
+  filter: none;
+}
+
 .floating-menu {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -283,8 +294,42 @@ input[type="number"] {
   }
 }
 
+/* "How it works" connector: the three steps sit on one dashed edge drawn in
+   the same language as the canvas edges, dashes drifting toward the arrow. */
+.step-connector {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(var(--primary-rgb), 0.45) 0 6px,
+    transparent 6px 12px
+  );
+  animation: step-connector-flow 1.1s linear infinite;
+}
+
+@keyframes step-connector-flow {
+  to {
+    background-position-x: 12px;
+  }
+}
+
+.step-connector-v {
+  background-image: repeating-linear-gradient(
+    180deg,
+    rgba(var(--primary-rgb), 0.45) 0 6px,
+    transparent 6px 12px
+  );
+  animation: step-connector-flow-v 1.1s linear infinite;
+}
+
+@keyframes step-connector-flow-v {
+  to {
+    background-position-y: 12px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .flow-demo-edge--active {
+  .flow-demo-edge--active,
+  .step-connector,
+  .step-connector-v {
     animation: none;
   }
 }

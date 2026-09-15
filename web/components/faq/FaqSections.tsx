@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { FaqAccordion } from "./FaqAccordion";
 
 /**
  * The FAQ content, shared verbatim between the public /faq page and the
@@ -286,21 +286,8 @@ export function FaqSection({ section }: { section: FaqSectionData }) {
       <h2 className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
         {section.title}
       </h2>
-      <div className="mt-3 flex flex-col gap-2.5">
-        {section.items.map((item) => (
-          <details key={item.q} className="card-surface group px-5 py-3.5">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
-              {item.q}
-              <ChevronDown
-                size={16}
-                className="shrink-0 text-[var(--muted-foreground)] transition-transform group-open:rotate-180"
-              />
-            </summary>
-            <div className="pt-2.5 pb-1 text-sm text-[var(--muted-foreground)] leading-relaxed">
-              {item.a}
-            </div>
-          </details>
-        ))}
+      <div className="mt-3">
+        <FaqAccordion items={section.items} />
       </div>
     </section>
   );

@@ -12,16 +12,16 @@ export const metadata: Metadata = {
     apple: "/images/floowforge.png",
   },
   openGraph: {
-    title: "FloowForge — AI workflows you can watch running",
+    title: "FloowForge · AI workflows you can watch running",
     description:
-      "Drag AI nodes onto a canvas and wire them together. Every run streams back live — node by node, with real timings — then ships as a webhook, a schedule, or a public form.",
+      "Drag AI nodes onto a canvas and wire them together. Every run streams back live, node by node with real timings, then ships as a webhook, a schedule, or a public form.",
     type: "website",
     siteName: "FloowForge",
     images: [{ url: "/images/og.png", width: 2400, height: 1260, alt: "A FloowForge flow mid-run: a webhook trigger fans out to two AI nodes in parallel, then joins into text-to-speech" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "FloowForge — AI workflows you can watch running",
+    title: "FloowForge · AI workflows you can watch running",
     description:
       "Drag AI nodes onto a canvas and wire them together. Every run streams back live, node by node, with real timings.",
     images: ["/images/og.png"],

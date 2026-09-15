@@ -13,18 +13,61 @@ const PRESETS = [
 ];
 
 /**
+ * What the Result node would actually receive: the first lines of the drafted
+ * copy and the generated cover, per preset. Custom prompts fall back to a
+ * generic draft that reads like real copy rather than a description of copy.
+ */
+type MockOutput = {
+  copy: string;
+  coverGradient: string;
+  coverEmoji: string;
+};
+
+const MOCK_OUTPUTS: Record<string, MockOutput> = {
+  [PRESETS[0]]: {
+    copy:
+      "Meet Solis: the backpack that charges while you walk.\n" +
+      "Two thin-film panels, one pocket-sized battery, enough juice to top up a phone twice a day. Pre-orders open today, first units ship in March…",
+    coverGradient: "linear-gradient(135deg, #ffd36e 0%, #ff8a3d 55%, #f65e2e 100%)",
+    coverEmoji: "🎒",
+  },
+  [PRESETS[1]]: {
+    copy:
+      "New: Dark mode\n" +
+      "Flip the toggle in Settings and the whole app follows, editor included. We match your system theme by default and remember your choice across devices…",
+    coverGradient: "linear-gradient(135deg, #3b3b54 0%, #1e1e2e 60%, #101018 100%)",
+    coverEmoji: "🌙",
+  },
+  [PRESETS[2]]: {
+    copy:
+      "Subject: You're in! Welcome to the beta\n" +
+      "Hi! Your account is live and your first canvas is waiting. Here are three small flows to try in your first ten minutes, plus where to send feedback…",
+    coverGradient: "linear-gradient(135deg, #ff8ab5 0%, #ff5c96 55%, #b83280 100%)",
+    coverEmoji: "👋",
+  },
+};
+
+const FALLBACK_OUTPUT: MockOutput = {
+  copy:
+    "Big news: it's real, and you can try it today.\n" +
+    "We've kept this one under wraps for a while. Here's what it does, why we built it, and how to get your hands on it in the next five minutes…",
+  coverGradient: "linear-gradient(135deg, #ff8ab5 0%, #ff0072 60%, #a3005c 100%)",
+  coverEmoji: "✨",
+};
+
+/**
  * A hands-on version of the hero canvas: the visitor types a prompt, presses
- * Run, and watches the same graph execute step by step.
- *
- * The "output" mirrors what the Result node actually receives — one artifact
- * per AI branch, named for the prompt that produced it — rather than prose
- * about the graph. The footnote says the whole thing is simulated.
+ * Run, and watches the same graph execute step by step. The output panel
+ * mirrors the real run sidebar: one artifact per AI branch with its node's
+ * duration, showing the content itself. The footnote says it's simulated.
  */
 export function TryItLive() {
   const [prompt, setPrompt] = useState(PRESETS[0]);
   const [running, setRunning] = useState(false);
   // The prompt as it was when the finished run started; null = no result yet.
   const [ranPrompt, setRanPrompt] = useState<string | null>(null);
+
+  const output = (ranPrompt && MOCK_OUTPUTS[ranPrompt]) || FALLBACK_OUTPUT;
 
   function run() {
     if (running) return;
@@ -40,7 +83,7 @@ export function TryItLive() {
         running={running}
         onRunComplete={() => {
           setRunning(false);
-          setRanPrompt(prompt.trim() || "your prompt");
+          setRanPrompt(prompt.trim() || PRESETS[0]);
         }}
       />
 
@@ -96,49 +139,57 @@ export function TryItLive() {
                   Result node output
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--image__font)]">
-                  <CheckCircle2 size={12} /> Run finished
+                  <CheckCircle2 size={12} /> Run finished · 4.1s
                 </span>
               </div>
               <ul className="flex flex-col gap-2">
-                <li className="flex items-center gap-2.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] p-2">
-                  <span
-                    className="rounded-[7px] p-1.5 shrink-0"
-                    style={{
-                      backgroundColor: "rgba(var(--text__background-rgb), 1)",
-                      color: "rgba(var(--text__font-rgb), 1)",
-                    }}
-                  >
-                    <BotMessageSquare size={14} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-medium leading-tight">copy.md</span>
-                    <span className="block text-[11px] text-[var(--muted-foreground)] truncate">
-                      Draft copy for &ldquo;{ranPrompt}&rdquo;
+                <li className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] p-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className="rounded-[6px] p-1 shrink-0"
+                      style={{
+                        backgroundColor: "rgba(var(--text__background-rgb), 1)",
+                        color: "rgba(var(--text__font-rgb), 1)",
+                      }}
+                    >
+                      <BotMessageSquare size={12} />
                     </span>
-                  </span>
-                  <span className="ml-auto shrink-0 text-[10px] text-[var(--muted-foreground)]">
-                    Text AI
-                  </span>
+                    <span className="text-xs font-medium">copy.md</span>
+                    <span className="ml-auto shrink-0 text-[10px] text-[var(--muted-foreground)]">
+                      Text AI · 1.8s
+                    </span>
+                  </div>
+                  <p className="whitespace-pre-line text-[11px] leading-relaxed text-[var(--muted-foreground)] [&::first-line]:font-medium">
+                    {output.copy}
+                  </p>
                 </li>
-                <li className="flex items-center gap-2.5 rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] p-2">
-                  <span
-                    className="rounded-[7px] p-1.5 shrink-0"
-                    style={{
-                      backgroundColor: "rgba(var(--image__background-rgb), 1)",
-                      color: "rgba(var(--image__font-rgb), 1)",
-                    }}
-                  >
-                    <Palette size={14} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-xs font-medium leading-tight">cover.png</span>
-                    <span className="block text-[11px] text-[var(--muted-foreground)] truncate">
-                      Matching cover illustration
+                <li className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] p-2.5">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span
+                      className="rounded-[6px] p-1 shrink-0"
+                      style={{
+                        backgroundColor: "rgba(var(--image__background-rgb), 1)",
+                        color: "rgba(var(--image__font-rgb), 1)",
+                      }}
+                    >
+                      <Palette size={12} />
                     </span>
-                  </span>
-                  <span className="ml-auto shrink-0 text-[10px] text-[var(--muted-foreground)]">
-                    Image AI
-                  </span>
+                    <span className="text-xs font-medium">cover.png</span>
+                    <span className="ml-auto shrink-0 text-[10px] text-[var(--muted-foreground)]">
+                      Image AI · 2.3s
+                    </span>
+                  </div>
+                  <div
+                    className="flex h-16 items-center justify-center rounded-[6px] text-2xl"
+                    style={{ background: output.coverGradient }}
+                    role="img"
+                    aria-label="Generated cover illustration"
+                  >
+                    {output.coverEmoji}
+                  </div>
+                  <p className="mt-1.5 text-[10px] text-[var(--muted-foreground)]">
+                    1024 × 1024 · stored in your private bucket
+                  </p>
                 </li>
               </ul>
             </motion.div>

@@ -7,19 +7,26 @@ import {
   BotMessageSquare,
   Boxes,
   CalendarClock,
+  Check,
   CheckCircle2,
+  ChevronRight,
   Eye,
   FileText,
   History,
   ImageIcon,
   KeyRound,
+  Loader2,
+  Lock,
   MessagesSquare,
+  Palette,
   Play,
+  RotateCcw,
   ShieldCheck,
   Split,
   Type,
   Webhook,
   Workflow,
+  XCircle,
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,7 +35,7 @@ import { Reveal } from "@/components/landing/Reveal";
 import { TryItLive } from "@/components/landing/TryItLive";
 
 export const metadata: Metadata = {
-  title: "FloowForge — AI workflows you can see running",
+  title: "FloowForge · AI workflows you can watch running",
   description:
     "Drag AI nodes onto a canvas, wire them together, and expose the result as a webhook, a schedule, or a public form. Watch every node execute live.",
 };
@@ -65,12 +72,12 @@ function Hero() {
         </span>
         <h1 className="mt-5 text-4xl sm:text-5xl md:text-6xl font-semibold tracking-tight leading-[1.05]">
           AI workflows you can
-          <span className="text-[var(--primary)]"> watch running</span>.
+          <span className="text-[var(--primary)]"> watch running</span>
         </h1>
         <p className="mt-5 text-base sm:text-lg text-[var(--muted-foreground)] max-w-2xl mx-auto">
           Drag AI nodes onto a canvas and wire them together. Every run streams
-          back live — node by node, with real timings — then ships as a webhook,
-          a schedule, or a public form.
+          back live, node by node with real timings, then ships as a webhook, a
+          schedule, or a public form.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link href="/auth/sign-up" className="w-full sm:w-auto">
@@ -100,52 +107,37 @@ function Hero() {
           <DemoFrame className="relative" />
         </div>
       </Reveal>
+
+      <Reveal delay={0.1} className="mt-14 sm:mt-16">
+        <dl className="flex flex-wrap items-baseline justify-center gap-x-10 gap-y-4">
+          {HERO_STATS.map((stat) => (
+            <div key={stat.label} className="flex items-baseline gap-2">
+              <dd className="text-xl sm:text-2xl font-semibold tracking-tight">{stat.value}</dd>
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+                {stat.label}
+              </dt>
+            </div>
+          ))}
+        </dl>
+      </Reveal>
     </section>
   );
 }
 
-/* ------------------------------------------------------------ what you get */
-
-const BENTO_TILES = [
-  {
-    icon: <Workflow size={20} />,
-    tone: "text",
-    title: "A canvas that runs for real",
-    body: "Build visually, save immutable versions, and watch per-node status, timings, and payloads stream back over Realtime while a run executes.",
-  },
-  {
-    icon: <Webhook size={20} />,
-    tone: "audio",
-    name: "triggers",
-    title: "Four front doors",
-    body: "The same graph can be a webhook endpoint, a nightly schedule, a shareable public form, and a button on the canvas — at the same time.",
-  },
-  {
-    icon: <Boxes size={20} />,
-    tone: "file",
-    title: "Compose bigger flows",
-    body: "Wrap a saved flow as a single subflow node, or build reusable prompt-template nodes with their own inputs.",
-  },
-  {
-    icon: <KeyRound size={20} />,
-    tone: "image",
-    title: "Bring your own keys",
-    body: "Plug in your OpenAI, Gemini, Cloudflare, or DeepSeek keys — encrypted at rest, decrypted only when your flow calls the model.",
-  },
-  {
-    icon: <FileText size={20} />,
-    tone: "text",
-    title: "Forms for non-builders",
-    body: "Share a link; fields are derived from your canvas and answers are routed to the right nodes. No account needed to submit.",
-  },
-  {
-    icon: <History size={20} />,
-    tone: "audio",
-    title: "Run history & resume",
-    body: "Every run keeps its timeline. Jump into a failed run, inspect each node's inputs and outputs, and resume from the node that broke.",
-  },
+const HERO_STATS = [
+  { value: "16", label: "Node types" },
+  { value: "4", label: "Trigger kinds" },
+  { value: "4", label: "AI providers" },
+  { value: "5", label: "Schedule modes" },
 ] as const;
 
+/* ------------------------------------------------------------ what you get */
+
+/**
+ * OnboardBuddy-style bento: every panel carries a miniature artifact from the
+ * actual product (a streaming run, trigger rows, masked keys, a form, a failed
+ * run) instead of a paragraph, so the section shows rather than tells.
+ */
 function WhatYouGet() {
   return (
     <section id="product" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
@@ -156,18 +148,305 @@ function WhatYouGet() {
           body="Everything below ships today and works together on the same graph."
         />
       </Reveal>
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {BENTO_TILES.map((tile, i) => (
-          <Reveal key={tile.title} delay={i * 0.06}>
-            <article className="card-surface card-hover p-6 h-full">
-              <ToneIcon tone={tile.tone}>{tile.icon}</ToneIcon>
-              <h3 className="font-semibold text-[1rem] mt-4">{tile.title}</h3>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{tile.body}</p>
-            </article>
-          </Reveal>
-        ))}
+      <div className="mt-10 grid gap-5 lg:grid-cols-3">
+        {/* Row 1: a live run (wide) + the four triggers. */}
+        <Reveal className="lg:col-span-2">
+          <article className="card-surface card-hover p-6 h-full sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:items-center sm:content-center">
+            <div>
+              <ToneIcon tone="text">
+                <Workflow size={20} />
+              </ToneIcon>
+              <h3 className="font-semibold text-[1rem] mt-4">A canvas that runs for real</h3>
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                Build visually, save immutable versions, and watch status,
+                timings, and payloads stream back over Realtime while a run
+                executes.
+              </p>
+            </div>
+            <MockRunStream />
+          </article>
+        </Reveal>
+        <Reveal delay={0.06}>
+          <article className="card-surface card-hover p-6 h-full">
+            <ToneIcon tone="audio">
+              <Webhook size={20} />
+            </ToneIcon>
+            <h3 className="font-semibold text-[1rem] mt-4">Four front doors</h3>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              The same graph answers to all of these at once.
+            </p>
+            <ul className="mt-4 flex flex-col gap-2">
+              {FRONT_DOORS.map((door) => (
+                <li
+                  key={door.label}
+                  className="flex items-center justify-between gap-3 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5"
+                >
+                  <span className="flex items-center gap-2 text-xs font-medium">
+                    <span
+                      className="rounded-[6px] p-1 shrink-0"
+                      style={{
+                        backgroundColor: `rgba(var(--${door.tone}__background-rgb), 1)`,
+                        color: `rgba(var(--${door.tone}__font-rgb), 1)`,
+                      }}
+                    >
+                      {door.icon}
+                    </span>
+                    {door.label}
+                  </span>
+                  <code className="text-[10px] text-[var(--muted-foreground)] truncate">
+                    {door.detail}
+                  </code>
+                </li>
+              ))}
+            </ul>
+          </article>
+        </Reveal>
+
+        {/* Row 2: three focused panels, each with its own artifact. */}
+        <Reveal delay={0.06}>
+          <article className="card-surface card-hover p-6 h-full">
+            <ToneIcon tone="file">
+              <Boxes size={20} />
+            </ToneIcon>
+            <h3 className="font-semibold text-[1rem] mt-4">Compose bigger flows</h3>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              Wrap a saved flow as a single subflow node, or build reusable
+              prompt-template nodes with their own inputs.
+            </p>
+            <MockSubflow />
+          </article>
+        </Reveal>
+        <Reveal delay={0.12}>
+          <article className="card-surface card-hover p-6 h-full">
+            <ToneIcon tone="image">
+              <KeyRound size={20} />
+            </ToneIcon>
+            <h3 className="font-semibold text-[1rem] mt-4">Bring your own keys</h3>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              Encrypted at rest, decrypted only when your flow calls the model.
+              No markup on usage.
+            </p>
+            <ul className="mt-4 flex flex-col gap-2">
+              {KEY_ROWS.map((row) => (
+                <li
+                  key={row.name}
+                  className="flex items-center gap-2 rounded-[9px] border border-[var(--border)] bg-[var(--surface-1)] px-2.5 py-1.5"
+                >
+                  <Image
+                    src={row.icon}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="provider-mark size-3.5 opacity-70 grayscale"
+                  />
+                  <span className="text-xs font-medium">{row.name}</span>
+                  <code className="ml-auto text-[10px] text-[var(--muted-foreground)]">
+                    {row.masked}
+                  </code>
+                  <Lock size={10} className="shrink-0 text-[var(--image__font)]" />
+                </li>
+              ))}
+            </ul>
+          </article>
+        </Reveal>
+        <Reveal delay={0.18}>
+          <article className="card-surface card-hover p-6 h-full">
+            <ToneIcon tone="text">
+              <FileText size={20} />
+            </ToneIcon>
+            <h3 className="font-semibold text-[1rem] mt-4">Forms for non-builders</h3>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              Share a link; answers are routed to the right nodes. No account
+              needed to submit.
+            </p>
+            <MockForm />
+          </article>
+        </Reveal>
+
+        {/* Row 3: full-width panel, text left and the artifact right. */}
+        <Reveal className="lg:col-span-3">
+          <article className="card-surface card-hover p-6 h-full grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] md:items-center">
+            <div>
+              <ToneIcon tone="audio">
+                <History size={20} />
+              </ToneIcon>
+              <h3 className="font-semibold text-[1rem] mt-4">Run history &amp; resume</h3>
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                Every run keeps its timeline. Jump into a failed run, inspect
+                each node&apos;s inputs and outputs, and resume from the node
+                that broke. Earlier results are reused, not re-billed.
+              </p>
+            </div>
+            <MockFailedRun />
+          </article>
+        </Reveal>
       </div>
     </section>
+  );
+}
+
+const FRONT_DOORS = [
+  { icon: <Webhook size={12} />, tone: "audio", label: "Webhook", detail: "POST /t/wh_9f2c…" },
+  { icon: <CalendarClock size={12} />, tone: "file", label: "Schedule", detail: "daily · 07:00" },
+  { icon: <FileText size={12} />, tone: "text", label: "Public form", detail: "/f/launch-brief" },
+  { icon: <Zap size={12} />, tone: "image", label: "Run button", detail: "on the canvas" },
+] as const;
+
+const KEY_ROWS = [
+  { name: "OpenAI", icon: "/images/openai-icon-text.svg", masked: "sk-••••••••3kF" },
+  { name: "Gemini", icon: "/images/gemini-icon.svg", masked: "AIza••••••q8w" },
+  { name: "Cloudflare", icon: "/images/cloudflare-icon.svg", masked: "cf_••••••••t2m" },
+  { name: "DeepSeek", icon: "/images/deepseek-icon.svg", masked: "sk-••••••••9dA" },
+] as const;
+
+/** The live-run artifact: a run sidebar mid-stream, one node still working. */
+function MockRunStream() {
+  return (
+    <div
+      className="mt-5 sm:mt-0 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3 sm:w-[250px]"
+      aria-hidden="true"
+    >
+      <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+          Run #142
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-[var(--primary)]">
+          <span className="relative flex size-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--primary)] opacity-60" />
+            <span className="relative inline-flex size-1.5 rounded-full bg-[var(--primary)]" />
+          </span>
+          streaming
+        </span>
+      </div>
+      <ul className="pt-2 flex flex-col gap-1.5">
+        <MockRunRow step={1} name="Webhook In" time="0.1s" state="done" />
+        <MockRunRow step={2} name="Prompt" time="0.0s" state="done" />
+        <MockRunRow step={3} name="Copywriter" time="1.8s" state="done" />
+        <MockRunRow step={3} name="Cover art" time="2.3s…" state="running" />
+      </ul>
+    </div>
+  );
+}
+
+function MockRunRow({
+  step,
+  name,
+  time,
+  state,
+}: {
+  step: number;
+  name: string;
+  time: string;
+  state: "done" | "running" | "failed";
+}) {
+  return (
+    <li className="flex items-center gap-2 text-xs">
+      <span className="size-[16px] shrink-0 rounded-full text-[9px] font-semibold flex items-center justify-center bg-[var(--surface-2)] border border-[var(--border)] text-[var(--muted-foreground)]">
+        {step}
+      </span>
+      <span className={`font-medium truncate ${state === "failed" ? "text-red-500" : ""}`}>{name}</span>
+      <span className="ml-auto flex items-center gap-1 text-[10px] text-[var(--muted-foreground)] tabular-nums">
+        {time}
+        {state === "done" && <Check size={11} className="text-[var(--image__font)]" />}
+        {state === "running" && <Loader2 size={11} className="animate-spin text-[var(--primary)]" />}
+        {state === "failed" && <XCircle size={11} className="text-red-500" />}
+      </span>
+    </li>
+  );
+}
+
+/** A saved flow collapsed into one node, shown next to its innards. */
+function MockSubflow() {
+  return (
+    <div className="mt-4 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3" aria-hidden="true">
+      <div className="relative rounded-[10px] border border-[rgba(var(--file__font-rgb),0.4)] bg-[var(--surface-2)] px-2.5 py-2 flex items-center gap-2">
+        <span
+          className="rounded-[7px] p-1.5 shrink-0"
+          style={{
+            backgroundColor: "rgba(var(--file__background-rgb), 1)",
+            color: "rgba(var(--file__font-rgb), 1)",
+          }}
+        >
+          <Boxes size={14} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[11px] font-semibold leading-tight">Launch kit</span>
+          <span className="block text-[9px] text-[var(--muted-foreground)]">Subflow · one node</span>
+        </span>
+        <span className="absolute -top-2 -left-2 size-[16px] rounded-full text-[9px] font-semibold flex items-center justify-center bg-[var(--surface-2)] border border-[var(--border)] text-[var(--muted-foreground)]">
+          2
+        </span>
+      </div>
+      <div className="mt-2.5 flex items-center gap-1.5 text-[10px] text-[var(--muted-foreground)]">
+        <span className="shrink-0">inside:</span>
+        <span className="flex items-center gap-1 min-w-0">
+          <MockMiniNode tone="text" label="Draft" />
+          <span className="w-2.5 border-t border-dashed border-[var(--font--light)]" />
+          <MockMiniNode tone="image" label="Art" />
+          <span className="w-2.5 border-t border-dashed border-[var(--font--light)]" />
+          <MockMiniNode tone="file" label="Pack" />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function MockMiniNode({ tone, label }: { tone: string; label: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-[6px] border border-[var(--border)] bg-[var(--surface-2)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--foreground)]"
+    >
+      <span
+        className="size-1.5 rounded-full"
+        style={{ backgroundColor: `rgba(var(--${tone}__font-rgb), 0.7)` }}
+      />
+      {label}
+    </span>
+  );
+}
+
+/** The public form artifact: two derived fields and a submit that starts a run. */
+function MockForm() {
+  return (
+    <div className="mt-4 rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3 flex flex-col gap-2" aria-hidden="true">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+        Launch brief
+      </span>
+      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[11px] text-[var(--muted-foreground)]">
+        Product name…
+      </div>
+      <div className="rounded-[8px] border border-[var(--border)] bg-[var(--surface-2)] px-2.5 py-1.5 text-[11px] text-[var(--muted-foreground)]">
+        What are we announcing?
+      </div>
+      <div className="rounded-[8px] bg-[var(--primary)] px-2.5 py-1.5 text-center text-[11px] font-medium text-white">
+        Submit &amp; watch it run
+      </div>
+    </div>
+  );
+}
+
+/** A failed run with resume: the point of run history, in one glance. */
+function MockFailedRun() {
+  return (
+    <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface-1)] p-3" aria-hidden="true">
+      <div className="flex items-center justify-between pb-2 border-b border-[var(--border)]">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted-foreground)]">
+          Run #137 · yesterday 23:04
+        </span>
+        <span className="text-[10px] font-medium text-red-500">failed</span>
+      </div>
+      <ul className="pt-2 flex flex-col gap-1.5">
+        <MockRunRow step={1} name="Webhook In" time="0.1s" state="done" />
+        <MockRunRow step={2} name="Copywriter" time="1.8s" state="done" />
+        <MockRunRow step={3} name="Cover art" time="provider 429" state="failed" />
+      </ul>
+      <div className="mt-2.5 flex items-center justify-between gap-2 rounded-[8px] border border-[rgba(var(--primary-rgb),0.35)] bg-[rgba(var(--primary-rgb),0.06)] px-2.5 py-1.5">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--primary)]">
+          <RotateCcw size={11} /> Resume from Cover art
+        </span>
+        <span className="text-[10px] text-[var(--muted-foreground)]">reuses steps 1–2</span>
+      </div>
+    </div>
   );
 }
 
@@ -175,28 +454,33 @@ function WhatYouGet() {
 
 const STEPS = [
   {
-    icon: <Workflow size={20} />,
+    icon: <Workflow size={22} />,
     tone: "text",
-    step: "Step 1",
+    step: 1,
     title: "Build on the canvas",
-    body: "Drop nodes, drag between handles, and the editor works out execution order for you — step badges show exactly what runs in parallel.",
+    body: "Drop nodes, drag between handles, and the editor works out execution order for you. Step badges show exactly what runs in parallel.",
   },
   {
-    icon: <Split size={20} />,
+    icon: <Split size={22} />,
     tone: "image",
-    step: "Step 2",
+    step: 2,
     title: "Choose how branches join",
     body: "Each node waits for all its parents (barrier) or fires on the first one (race). Multi-trigger canvases only run the branch you clicked.",
   },
   {
-    icon: <Zap size={20} />,
+    icon: <Zap size={22} />,
     tone: "audio",
-    step: "Step 3",
+    step: 3,
     title: "Watch it execute",
     body: "Runs stream back over Realtime: per-node status, durations, inputs and outputs, with resume-from-node when something needs a second try.",
   },
 ] as const;
 
+/**
+ * The three moves are drawn as a flow: icon tiles sit on one dashed edge with
+ * an arrowhead, the same visual language as the canvas itself. On phones the
+ * edge runs vertically down a left rail.
+ */
 function HowItWorks() {
   return (
     <section id="how" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
@@ -206,23 +490,91 @@ function HowItWorks() {
           title="From canvas to production in three moves"
         />
       </Reveal>
-      <div className="mt-10 grid gap-5 md:grid-cols-3">
-        {STEPS.map((s, i) => (
-          <Reveal key={s.title} delay={i * 0.08}>
-            <article className="card-surface card-hover p-6 h-full">
-              <div className="flex items-center justify-between">
-                <ToneIcon tone={s.tone}>{s.icon}</ToneIcon>
-                <span className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
-                  {s.step}
+
+      {/* Desktop: horizontal edge through the icons. */}
+      <div className="mt-12 hidden md:block relative">
+        <div
+          aria-hidden="true"
+          className="step-connector absolute left-[16.67%] right-[16.67%] top-[27px] h-[2px]"
+        />
+        <ChevronRight
+          aria-hidden="true"
+          size={18}
+          className="absolute right-[16.67%] top-[27px] -translate-y-1/2 translate-x-2.5 text-[rgba(var(--primary-rgb),0.55)]"
+        />
+        <ol className="grid grid-cols-3 gap-8">
+          {STEPS.map((s, i) => (
+            <Reveal key={s.title} delay={i * 0.1}>
+              <li className="flex flex-col items-center text-center">
+                <StepIcon step={s.step} tone={s.tone}>
+                  {s.icon}
+                </StepIcon>
+                <span className="mt-4 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
+                  Step {s.step}
                 </span>
-              </div>
-              <h3 className="font-semibold text-[1rem] mt-4">{s.title}</h3>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{s.body}</p>
-            </article>
-          </Reveal>
-        ))}
+                <h3 className="mt-1.5 font-semibold text-[1.05rem]">{s.title}</h3>
+                <p className="mt-2 text-sm text-[var(--muted-foreground)] max-w-xs">{s.body}</p>
+              </li>
+            </Reveal>
+          ))}
+        </ol>
+      </div>
+
+      {/* Mobile: the same edge, running down a left rail. */}
+      <div className="mt-10 md:hidden relative">
+        <div
+          aria-hidden="true"
+          className="step-connector-v absolute left-[27px] top-[28px] bottom-[36px] w-[2px]"
+        />
+        <ol className="flex flex-col gap-8">
+          {STEPS.map((s, i) => (
+            <Reveal key={s.title} delay={i * 0.08}>
+              <li className="flex gap-4">
+                <StepIcon step={s.step} tone={s.tone}>
+                  {s.icon}
+                </StepIcon>
+                <div className="pt-0.5">
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[var(--primary)]">
+                    Step {s.step}
+                  </span>
+                  <h3 className="mt-0.5 font-semibold text-[1rem]">{s.title}</h3>
+                  <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">{s.body}</p>
+                </div>
+              </li>
+            </Reveal>
+          ))}
+        </ol>
       </div>
     </section>
+  );
+}
+
+/** An icon tile posed as a node on the edge: tone-tinted, topo badge and all. */
+function StepIcon({
+  step,
+  tone,
+  children,
+}: {
+  step: number;
+  tone: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1">
+      <span
+        className="inline-flex size-12 items-center justify-center rounded-[13px] border"
+        style={{
+          backgroundColor: `rgba(var(--${tone}__background-rgb), 1)`,
+          color: `rgba(var(--${tone}__font-rgb), 1)`,
+          borderColor: `rgba(var(--${tone}__font-rgb), 0.25)`,
+        }}
+      >
+        {children}
+      </span>
+      <span className="absolute -top-1 -left-1 size-[18px] rounded-full text-[10px] font-semibold flex items-center justify-center bg-[var(--surface-2)] border border-[var(--border)] text-[var(--muted-foreground)]">
+        {step}
+      </span>
+    </span>
   );
 }
 
@@ -255,30 +607,30 @@ const NODE_GROUPS = [
   {
     label: "Inputs & display",
     nodes: [
-      { icon: <Type size={16} />, name: "Text Box" },
-      { icon: <ImageIcon size={16} />, name: "Image Box" },
-      { icon: <MessagesSquare size={16} />, name: "Chat Box" },
-      { icon: <FileText size={16} />, name: "File Box" },
+      { icon: <Type size={16} />, name: "Text Box", desc: "Type or paste text; feeds anything downstream." },
+      { icon: <ImageIcon size={16} />, name: "Image Box", desc: "Upload an image, or display a generated one." },
+      { icon: <MessagesSquare size={16} />, name: "Chat Box", desc: "A chat window that lives inside your flow." },
+      { icon: <FileText size={16} />, name: "File Box", desc: "Bring files into the run, up to 25 MB." },
     ],
     tone: "text",
   },
   {
     label: "AI",
     nodes: [
-      { icon: <BotMessageSquare size={16} />, name: "Text AI" },
-      { icon: <ImageIcon size={16} />, name: "Image AI" },
-      { icon: <MessagesSquare size={16} />, name: "Audio AI" },
-      { icon: <FileText size={16} />, name: "File Parser" },
+      { icon: <BotMessageSquare size={16} />, name: "Text AI", desc: "GPT, Gemini, Llama, or DeepSeek writes for you." },
+      { icon: <Palette size={16} />, name: "Image AI", desc: "GPT Image, DreamShaper, or Flux paints for you." },
+      { icon: <MessagesSquare size={16} />, name: "Audio AI", desc: "TTS-1 or Aura 2 turns text into speech." },
+      { icon: <FileText size={16} />, name: "File Parser", desc: "Extracts the text out of an uploaded PDF." },
     ],
     tone: "image",
   },
   {
     label: "Composition",
     nodes: [
-      { icon: <Boxes size={16} />, name: "Subflow" },
-      { icon: <Workflow size={16} />, name: "Custom prompt node" },
-      { icon: <Zap size={16} />, name: "Run Button" },
-      { icon: <Webhook size={16} />, name: "Webhook In" },
+      { icon: <Boxes size={16} />, name: "Subflow", desc: "A whole saved flow, used as a single node." },
+      { icon: <Workflow size={16} />, name: "Custom prompt node", desc: "Your reusable prompt template, with inputs." },
+      { icon: <Zap size={16} />, name: "Run Button", desc: "Starts its branch right on the canvas." },
+      { icon: <Webhook size={16} />, name: "Webhook In", desc: "A tokenized URL other systems can POST to." },
     ],
     tone: "audio",
   },
@@ -287,7 +639,7 @@ const NODE_GROUPS = [
 const PROVIDERS = [
   { name: "OpenAI", icon: "/images/openai-icon-text.svg" },
   { name: "Google Gemini", icon: "/images/gemini-icon.svg" },
-  { name: "Cloudflare Workers AI", icon: "/images/cloudflare-icon.svg" },
+  { name: "Cloudflare", icon: "/images/cloudflare-icon.svg" },
   { name: "DeepSeek", icon: "/images/deepseek-icon.svg" },
 ] as const;
 
@@ -308,19 +660,28 @@ function NodeCatalogue() {
               <h3 className="font-semibold text-[var(--muted-foreground)] uppercase tracking-wide text-[0.7rem]">
                 {group.label}
               </h3>
-              <ul className="mt-4 flex flex-col gap-2.5">
+              <ul className="mt-4 flex flex-col gap-1">
                 {group.nodes.map((n) => (
-                  <li key={n.name} className="flex items-center gap-2.5 text-sm">
-                    <span
-                      className="rounded-[8px] p-1.5 shrink-0"
-                      style={{
-                        backgroundColor: `rgba(var(--${group.tone}__background-rgb), 1)`,
-                        color: `rgba(var(--${group.tone}__font-rgb), 1)`,
-                      }}
-                    >
-                      {n.icon}
+                  <li key={n.name} className="group/node relative">
+                    <span className="flex items-center gap-2.5 text-sm rounded-[9px] px-1.5 py-1.5 -mx-1.5 transition-colors duration-200 group-hover/node:bg-[var(--muted)]">
+                      <span
+                        className="rounded-[8px] p-1.5 shrink-0"
+                        style={{
+                          backgroundColor: `rgba(var(--${group.tone}__background-rgb), 1)`,
+                          color: `rgba(var(--${group.tone}__font-rgb), 1)`,
+                        }}
+                      >
+                        {n.icon}
+                      </span>
+                      {n.name}
                     </span>
-                    {n.name}
+                    {/* Tooltip: fades and lifts in on hover, above the row. */}
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-0 bottom-[calc(100%+6px)] z-20 whitespace-nowrap rounded-[8px] bg-[#111827] px-2.5 py-1.5 text-[11px] font-medium text-white shadow-lg opacity-0 translate-y-1 transition-all duration-200 ease-out group-hover/node:opacity-100 group-hover/node:translate-y-0 group-hover/node:delay-150"
+                    >
+                      {n.desc}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -334,17 +695,19 @@ function NodeCatalogue() {
           <span className="text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
             Powered by
           </span>
-          <ul className="flex flex-wrap items-center justify-center gap-9 sm:gap-12">
+          <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 sm:gap-x-10">
             {PROVIDERS.map((p) => (
-              <li key={p.name}>
+              <li key={p.name} className="group flex items-center gap-2.5">
                 <Image
                   src={p.icon}
-                  alt={p.name}
-                  title={p.name}
-                  width={44}
-                  height={44}
-                  className="size-10 sm:size-11 opacity-60 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0 hover:scale-110"
+                  alt=""
+                  width={28}
+                  height={28}
+                  className="provider-mark size-6 sm:size-7 opacity-60 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-hover:scale-110"
                 />
+                <span className="text-sm font-medium text-[var(--muted-foreground)] transition-colors duration-300 group-hover:text-[var(--foreground)]">
+                  {p.name}
+                </span>
               </li>
             ))}
           </ul>
@@ -357,22 +720,22 @@ function NodeCatalogue() {
 /* ---------------------------------------------------------- transparency */
 
 const FACTS = [
-  "Bring your own provider keys — encrypted at rest, decrypted only at call time.",
+  "Bring your own provider keys, encrypted at rest and decrypted only at call time.",
   "Generated media lives in a private bucket behind expiring signed URLs.",
   "Incoming webhooks are HMAC-signed; outgoing callbacks are signed too.",
   "Your run data is scoped to your account by row-level security.",
-  "Rate limits are per account and per device — fair even on a shared campus network.",
+  "Rate limits are per account and per device, fair even on a shared campus network.",
 ] as const;
 
 const LIMITS = [
-  "The editor is built for desktop — there's no mobile canvas yet.",
+  "The editor is built for desktop; there's no mobile canvas yet.",
   "No team accounts or sharing between users at the moment.",
   "Self-hosting works, but you'll need Supabase and Redis of your own.",
 ] as const;
 
 function Transparency() {
   return (
-    <section className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)]">
+    <section id="data" className="mx-auto max-w-6xl px-5 sm:px-8 py-14 sm:py-20 border-t border-[var(--border)] scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="Your data, your rules"
@@ -438,7 +801,7 @@ const COST_FACTS = [
     icon: <KeyRound size={18} />,
     tone: "image",
     title: "Your keys, your bill",
-    body: "AI calls run against the provider keys you connect, so model usage is billed by your provider at their prices — nothing marked up.",
+    body: "AI calls run against the provider keys you connect, so model usage is billed by your provider at their prices, with nothing marked up.",
   },
   {
     icon: <CalendarClock size={18} />,
