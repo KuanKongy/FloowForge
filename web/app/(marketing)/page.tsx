@@ -546,10 +546,12 @@ function StepIcon({
   children: React.ReactNode;
 }) {
   return (
-    // Only the node itself reacts to hover, like a node on the canvas.
-    <span className="relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1 transition-all duration-300 hover:scale-110 hover:drop-shadow-[0_6px_14px_rgba(0,0,0,0.12)]">
+    // Only the node tile itself reacts to hover, like a node on the canvas.
+    // The outer plate stays static: it exists to mask the connector line and
+    // would read as a white square if it scaled or cast a shadow.
+    <span className="group relative z-10 inline-flex shrink-0 rounded-[16px] bg-[var(--background)] p-1">
       <span
-        className="inline-flex size-12 items-center justify-center rounded-[13px] border"
+        className="inline-flex size-12 items-center justify-center rounded-[13px] border transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_6px_14px_rgba(0,0,0,0.14)]"
         style={{
           backgroundColor: `rgba(var(--${tone}__background-rgb), 1)`,
           color: `rgba(var(--${tone}__font-rgb), 1)`,
@@ -730,7 +732,7 @@ const LIMITS = [
 
 function Transparency() {
   return (
-    <section id="privacy" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
+    <section id="ground-rules" className="mx-auto max-w-6xl px-5 sm:px-8 py-12 sm:py-16 scroll-mt-20">
       <Reveal>
         <SectionHeading
           eyebrow="Your data, your rules"
