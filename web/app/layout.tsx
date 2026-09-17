@@ -1,15 +1,27 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import logo from "@/public/images/floowforge.png";
+import logoApple from "@/public/images/floowforge-apple.png";
+import logoIco from "@/public/images/floowforge.ico";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "FloowForge",
   description: "Build, save, and trigger AI workflows with no code.",
+  // floowforge.png is the main logo. floowforge.ico (16/32/48 frames for tabs)
+  // and floowforge-apple.png (180, full-bleed because iOS applies its own
+  // rounded mask) are hand-drawn from it at each pixel size, so they do NOT
+  // update on their own: redraw both whenever floowforge.png changes.
+  // Imported rather than referenced by path so each URL carries a content hash,
+  // and a browser never reuses a favicon cached from another app on the same
+  // port.
   icons: {
-    icon: "/images/floowforge.png",
-    shortcut: "/images/floowforge.png",
-    apple: "/images/floowforge.png",
+    icon: [
+      { url: logoIco.src, sizes: "16x16 32x32 48x48" },
+      { url: logo.src, type: "image/png", sizes: "1254x1254" },
+    ],
+    apple: { url: logoApple.src, sizes: "180x180" },
   },
   openGraph: {
     title: "FloowForge · AI workflows you can watch running",
