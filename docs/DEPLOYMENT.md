@@ -162,6 +162,24 @@ Before public launch:
 - Create a schedule trigger and confirm it appears in upcoming triggers.
 - Check Runs filters, run detail timeline, and delete run.
 
+## Keeping Supabase Awake
+
+Supabase pauses free-tier projects after about a week without traffic.
+`.github/workflows/keep-alive.yml` runs daily at 04:17 UTC and can also be run
+by hand from the Actions tab. It needs three repository secrets:
+
+- `KEEPALIVE_API_URL` - the production API base URL, e.g.
+  `https://floowforge-api.up.railway.app`. The workflow appends `/health`.
+- `SUPABASE_URL` - the project URL, same value the API uses.
+- `SUPABASE_ANON_KEY` - the public anon key.
+
+The API ping alone is not enough: `/health` answers from the API process and
+never opens a database connection. The second step reads one row through
+PostgREST so Postgres itself sees the request.
+
+GitHub disables scheduled workflows on repos with no commits for 60 days. If
+that happens, re-enable the workflow from the Actions tab.
+
 ## Deployment Choice I Need From You
 
 Pick one backend host:
@@ -193,3 +211,5 @@ web, Supabase for database/auth, and Upstash for Redis**.
 - Set `WEB_ORIGIN` to the production web URL.
 - Set `PUBLIC_API_URL` and `NEXT_PUBLIC_API_URL` to the production API URL.
 - Run the health-check list above before sharing the app.
+- Set `KEEPALIVE_API_URL`, `SUPABASE_URL`, and `SUPABASE_ANON_KEY` as
+  repository secrets so the keep-alive workflow can run.
