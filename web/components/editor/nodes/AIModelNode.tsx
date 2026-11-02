@@ -67,7 +67,9 @@ const MODEL_ICON: Record<string, string> = {
   DreamShaper: "/images/cloudflare-icon.svg",
   "Flux Schnell": "/images/cloudflare-icon.svg",
   "GPT-4o Mini TTS": "/images/openai-icon-audio.svg",
-  "Aura 2 (Cloudflare)": "/images/cloudflare-icon.svg",
+  // Blue variant so the audio node is distinguishable from the Cloudflare
+  // image models, which keep the teal cloud.
+  "Aura 2 (Cloudflare)": "/images/cloudflare-icon-blue.svg",
   PDF: "/images/pdf-icon.svg",
   // Legacy labels from saved flows.
   "GPT o3-mini": "/images/openai-icon-text.svg",

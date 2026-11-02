@@ -111,12 +111,16 @@ export function EditorTopBar({
             <>
               <span className="font-medium text-sm">{flowName}</span>
               {unsavedChanges && (
-                <span
-                  className="size-[7px] rounded-full bg-[var(--primary)]"
-                  title="Unsaved changes"
-                  aria-label="Unsaved changes"
-                  role="status"
-                />
+                <span className="relative flex items-center group/unsaved">
+                  <span
+                    className="size-[7px] rounded-full bg-[var(--primary)]"
+                    aria-label="Unsaved changes"
+                    role="status"
+                  />
+                  <span className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[var(--foreground)] px-2 py-1 text-xs text-[var(--background)] opacity-0 transition-opacity group-hover/unsaved:opacity-100">
+                    Unsaved
+                  </span>
+                </span>
               )}
               <button
                 onClick={() => setEditing(true)}
