@@ -92,7 +92,7 @@ export const FAQ_SECTIONS: FaqSectionData[] = [
       },
       {
         q: "Which AI models can I use?",
-        a: "Text: GPT o3-mini, GPT-4o-mini, Gemini 2.5 Flash, Gemini 2.5 Flash Lite, Llama 3.1 (Cloudflare), and DeepSeek. Images: GPT Image 1, DreamShaper, and Flux Schnell. Audio: TTS-1 and Aura 2. Files: PDF text extraction. The list grows as providers ship models.",
+        a: "Text: GPT-6 Luna, Gemini 3.1 Flash Lite, Llama 3.1 (Cloudflare), and DeepSeek V4.1 Flash. Images: GPT Image 2.5 Flare, GPT Image 2.5 Sunburst, DreamShaper, and Flux Schnell. Audio: GPT-4o Mini TTS and Aura 2. Files: PDF text extraction. The list grows as providers ship models.",
       },
       {
         q: "How do AI nodes get their inputs?",

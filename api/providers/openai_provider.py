@@ -1,4 +1,4 @@
-"""OpenAI provider: chat for text, TTS for audio, DALL-E for images."""
+"""OpenAI provider: chat for text, TTS for audio, GPT Image for images."""
 from __future__ import annotations
 
 import base64
@@ -10,24 +10,32 @@ from openai import AsyncOpenAI
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
-# Friendly UI labels -> actual OpenAI model ids.
+# Friendly UI labels -> actual OpenAI model ids. Only labels the FloowForge
+# UI ships (or shipped) are accepted; unknown labels pass through verbatim.
 #
-# ``dall-e-3`` was retired from the Images API — it now answers
-# "The model 'dall-e-3' does not exist" — so every saved flow that still
-# carries the old label is remapped onto ``gpt-image-1``.
+# Retirements per the OpenAI deprecations page (checked 2026-11-02):
+# * ``gpt-image-1`` shut down 2026-10-23; it maps onto ``gpt-image-2.5-flare``.
+# * ``gpt-4o-mini`` shuts down 2027-01-14 with ``gpt-6-luna`` as the
+#   recommended replacement; ``o3-mini`` is already gone.
+# * ``tts-1`` shuts down 2027-01-06 together with the rest of the
+#   /audio/speech models; ``gpt-4o-mini-tts`` is the newest model that
+#   endpoint serves until TTS moves to the Realtime API.
 _MODEL_LABEL_TO_ID: dict[str, str] = {
-    "gpt o3-mini": "gpt-4o-mini",
-    "gpt-4o-mini": "gpt-4o-mini",
-    "gpt-4.1-mini": "gpt-4.1-mini",
-    "tts-1": "tts-1",
-    "dalle 3": "gpt-image-1",
-    "dall-e 3": "gpt-image-1",
-    "dall-e-3": "gpt-image-1",
-    "dalle 2": "gpt-image-1",
-    "dall-e-2": "gpt-image-1",
-    "gpt image 1": "gpt-image-1",
-    "gpt-image-1": "gpt-image-1",
-    "gpt-image-1-mini": "gpt-image-1-mini",
+    "gpt-6 luna": "gpt-6-luna",
+    "gpt-6-luna": "gpt-6-luna",
+    "gpt-4o mini tts": "gpt-4o-mini-tts",
+    "gpt-4o-mini-tts": "gpt-4o-mini-tts",
+    "gpt image 2.5 flare": "gpt-image-2.5-flare",
+    "gpt-image-2.5-flare": "gpt-image-2.5-flare",
+    "gpt image 2.5 sunburst": "gpt-image-2.5-sunburst",
+    "gpt-image-2.5-sunburst": "gpt-image-2.5-sunburst",
+    # Legacy labels from saved FloowForge graphs; the models behind them are
+    # retired or dying upstream.
+    "gpt o3-mini": "gpt-6-luna",
+    "gpt-4o-mini": "gpt-6-luna",
+    "tts-1": "gpt-4o-mini-tts",
+    "gpt image 1": "gpt-image-2.5-flare",
+    "gpt-image-1": "gpt-image-2.5-flare",
 }
 
 # The only sizes ``gpt-image-*`` accepts. DALL-E-era sizes (512x512,
@@ -136,12 +144,17 @@ class OpenAIProvider(BaseProvider):
             ]
 
         params: dict[str, Any] = {
-            "model": _normalize_model(options.get("model"), "gpt-4o-mini"),
+            "model": _normalize_model(options.get("model"), "gpt-6-luna"),
             "messages": messages,
         }
         if isinstance(max_tokens, (int, float)) and max_tokens > 0:
             params["max_completion_tokens"] = math.floor(max_tokens)
-        if isinstance(temperature, (int, float)):
+        # Reasoning-era models (gpt-5/gpt-6/o-series) reject the temperature
+        # param with a 400, so it is only sent to models that accept it.
+        supports_temperature = not params["model"].startswith(
+            ("gpt-5", "gpt-6", "o1", "o3", "o4")
+        )
+        if isinstance(temperature, (int, float)) and supports_temperature:
             # UI scale 0..1 -> OpenAI 0..2.
             params["temperature"] = max(0.0, min(2.0, float(temperature) * 2.0))
 
@@ -154,7 +167,7 @@ class OpenAIProvider(BaseProvider):
         if (text_input is None or text_input == "") and options.get("prompt"):
             text_input = options["prompt"]
         params: dict[str, Any] = {
-            "model": _normalize_model(options.get("model"), "tts-1"),
+            "model": _normalize_model(options.get("model"), "gpt-4o-mini-tts"),
             "input": str(text_input or ""),
             "voice": options.get("voice") or "alloy",
         }
@@ -168,7 +181,7 @@ class OpenAIProvider(BaseProvider):
 
     async def _image(self, input: Any, options: dict[str, Any]) -> ProviderResult:
         prompt = input if isinstance(input, str) and input.strip() else (options.get("prompt") or "")
-        model = _normalize_model(options.get("model"), "gpt-image-1")
+        model = _normalize_model(options.get("model"), "gpt-image-2.5-flare")
         params: dict[str, Any] = {
             "model": model,
             "prompt": str(prompt or ""),

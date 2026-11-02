@@ -72,7 +72,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         or data.get("inputs")
         or []
     )
-    model_label: str = body.get("model") or data.get("model") or "GPT o3-mini"
+    model_label: str = body.get("model") or data.get("model") or "GPT-6 Luna"
     params: dict[str, Any] = body.get("params") or data.get("params") or {}
     params = await apply_integration_options(data, ctx, params)
 

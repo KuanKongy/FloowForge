@@ -608,7 +608,7 @@ const NODE_GROUPS = [
     nodes: [
       { icon: <BotMessageSquare size={16} />, name: "Text AI", desc: "GPT, Gemini, Llama, or DeepSeek writes for you." },
       { icon: <Palette size={16} />, name: "Image AI", desc: "GPT Image, DreamShaper, or Flux paints for you." },
-      { icon: <MessagesSquare size={16} />, name: "Audio AI", desc: "TTS-1 or Aura 2 turns text into speech." },
+      { icon: <MessagesSquare size={16} />, name: "Audio AI", desc: "OpenAI TTS or Aura 2 turns text into speech." },
       { icon: <FileText size={16} />, name: "File Parser", desc: "Extracts the text out of an uploaded PDF." },
     ],
     tone: "image",

@@ -17,29 +17,15 @@ log = logging.getLogger(__name__)
 # model ids. Keep old saved labels mapped to current equivalents so existing
 # workflows do not call deprecated model ids.
 _LABEL_TO_ID: dict[str, str] = {
-    "gemini": "gemini-flash-latest",
-    "gemini 2.5": "gemini-2.5-flash",
-    "gemini 2.5 flash": "gemini-2.5-flash",
-    "gemini 2.5 flash lite": "gemini-2.5-flash-lite",
-    "gemini 2.5 flash-lite": "gemini-2.5-flash-lite",
-    # ``gemini-2.5-pro`` answers "no longer available to new users"; the
-    # rolling ``-latest`` alias is the accessible Pro tier.
-    "gemini 2.5 pro": "gemini-pro-latest",
-    "gemini-2.5-pro": "gemini-pro-latest",
-    "gemini pro": "gemini-pro-latest",
-    "gemini-pro-latest": "gemini-pro-latest",
-    # 2.0 and 1.5 are retired ("no longer available" / 404 on v1beta), so the
-    # old labels now resolve to their closest live 2.5 equivalent.
-    "gemini 2.0": "gemini-2.5-flash",
-    "gemini 2.0 flash": "gemini-2.5-flash",
-    "gemini 1.5 flash": "gemini-2.5-flash-lite",
-    "gemini 1.5 pro": "gemini-pro-latest",
-    "gemini-flash-latest": "gemini-flash-latest",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-    "gemini-2.5-flash": "gemini-2.5-flash",
-    "gemini-2.0-flash": "gemini-2.5-flash",
-    "gemini-1.5-flash": "gemini-2.5-flash-lite",
-    "gemini-1.5-pro": "gemini-pro-latest",
+    "gemini 3.1 flash lite": "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
+    # Legacy labels from saved FloowForge graphs. 2.5 Flash is deprecated
+    # upstream (Google auto-routes it from 2026-12-01 and it already 404s for
+    # some accounts); both old labels resolve to the one model we use now.
+    "gemini 2.5 flash": "gemini-3.1-flash-lite",
+    "gemini-2.5-flash": "gemini-3.1-flash-lite",
+    "gemini 2.5 flash lite": "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite": "gemini-3.1-flash-lite",
 }
 
 # Gemini answers 503 UNAVAILABLE ("experiencing high demand") often enough that
@@ -57,7 +43,7 @@ def _is_transient(exc: Exception) -> bool:
     return any(marker in text for marker in ("503", "UNAVAILABLE", "RESOURCE_EXHAUSTED", "429"))
 
 
-def _normalize_model(label: str | None, default: str = "gemini-flash-latest") -> str:
+def _normalize_model(label: str | None, default: str = "gemini-3.1-flash-lite") -> str:
     if not label:
         return default
     key = str(label).strip().lower()

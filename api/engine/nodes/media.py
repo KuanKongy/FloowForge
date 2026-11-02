@@ -25,18 +25,19 @@ _INLINE_FALLBACK_MAX_BYTES = 180_000
 
 # Image / audio model label maps.
 IMAGE_MODEL_TO_PROVIDER: dict[str, str] = {
-    "GPT Image 1": "openai",
-    # DALL-E is retired upstream; the provider remaps these onto gpt-image-1 so
-    # flows saved with the old dropdown label keep running.
-    "DALLE 3": "openai",
-    "DALL-E 3": "openai",
+    "GPT Image 2.5 Flare": "openai",
+    "GPT Image 2.5 Sunburst": "openai",
     "DreamShaper": "cloudflare",
     "Flux Schnell": "cloudflare",
-    "Midjourney": "cloudflare",
+    # Legacy label; gpt-image-1 is retired upstream and the provider remaps it
+    # onto gpt-image-2.5-flare so saved flows keep running.
+    "GPT Image 1": "openai",
 }
 AUDIO_MODEL_TO_PROVIDER: dict[str, str] = {
-    "TTS-1": "openai",
+    "GPT-4o Mini TTS": "openai",
     "Aura 2 (Cloudflare)": "cloudflare",
+    # Legacy label; the provider remaps it onto gpt-4o-mini-tts.
+    "TTS-1": "openai",
 }
 
 
@@ -59,7 +60,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
     options = await apply_integration_options(data, ctx, options)
 
     node_type = node.get("type")
-    label = data.get("model") or ("GPT Image 1" if node_type == "imagegen" else "TTS-1")
+    label = data.get("model") or ("GPT Image 2.5 Flare" if node_type == "imagegen" else "GPT-4o Mini TTS")
     # An unknown label used to silently route to a different vendor (Cloudflare
     # for images, OpenAI for audio), producing a confusing upstream error.
     if node_type == "imagegen":

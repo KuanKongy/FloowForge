@@ -8,20 +8,20 @@ from openai import AsyncOpenAI
 from ..config import get_settings
 from .base import BaseProvider, ProviderResult
 
+# ``deepseek-v4-flash`` was retired on 2026-09-10; ``deepseek-flash`` is the
+# only id DeepSeek sanctions for this tier (currently served by V4.1-Flash).
 _MODEL_LABEL_TO_ID: dict[str, str] = {
-    "deepseek": "deepseek-v4-flash",
-    "deepseek v4 flash": "deepseek-v4-flash",
-    "deepseek-v4-flash": "deepseek-v4-flash",
-    "deepseek chat": "deepseek-v4-flash",
-    "deepseek-chat": "deepseek-v4-flash",
-    "deepseek reasoner": "deepseek-reasoner",
-    "deepseek-reasoner": "deepseek-reasoner",
+    "deepseek v4.1 flash": "deepseek-flash",
+    "deepseek-flash": "deepseek-flash",
+    # Legacy label from saved FloowForge graphs.
+    "deepseek v4 flash": "deepseek-flash",
+    "deepseek-v4-flash": "deepseek-flash",
 }
 
 
 def _normalize_model(label: str | None) -> str:
     if not label:
-        return "deepseek-v4-flash"
+        return "deepseek-flash"
     return _MODEL_LABEL_TO_ID.get(str(label).strip().lower(), str(label))
 
 

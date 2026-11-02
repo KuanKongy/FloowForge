@@ -317,27 +317,21 @@ def _read_request_body(req: httpx.Request) -> dict[str, Any]:
 
 
 def test_gemini_normalizes_ui_label():
-    """The UI dropdown ships a friendly label ``"Gemini"``; the provider
-    must rewrite it to a canonical SDK model id, otherwise the API replies
-    with ``GenerateContentRequest.model: unexpected model name format``.
+    """The UI dropdown ships a friendly label; the provider must rewrite it
+    to a canonical SDK model id, otherwise the API replies with
+    ``GenerateContentRequest.model: unexpected model name format``.
     """
     from api.providers.gemini_provider import _normalize_model
 
-    assert _normalize_model("Gemini") == "gemini-flash-latest"
-    assert _normalize_model("Gemini 2.5 Flash") == "gemini-2.5-flash"
-    assert _normalize_model("Gemini 2.5 Flash Lite") == "gemini-2.5-flash-lite"
-    assert _normalize_model("Gemini 1.5 Flash") == "gemini-2.5-flash-lite"
-    # 2.0 and 1.5 were retired upstream (404 on v1beta), so saved labels must
-    # resolve forward to a live model rather than failing the run.
-    assert _normalize_model("gemini-2.0-flash") == "gemini-2.5-flash"
-    # gemini-2.5-pro answers "no longer available to new users", so both the
-    # 1.5 and 2.5 Pro labels resolve to the rolling -latest alias.
-    assert _normalize_model("Gemini 1.5 Pro") == "gemini-pro-latest"
-    assert _normalize_model("Gemini 2.5 Pro") == "gemini-pro-latest"
+    assert _normalize_model("Gemini 3.1 Flash Lite") == "gemini-3.1-flash-lite"
+    # 2.5 is deprecated upstream, so saved labels must resolve forward to the
+    # one live model we use rather than failing the run.
+    assert _normalize_model("Gemini 2.5 Flash") == "gemini-3.1-flash-lite"
+    assert _normalize_model("Gemini 2.5 Flash Lite") == "gemini-3.1-flash-lite"
     # Unknown labels are passed through verbatim so users can opt into
     # newer model ids without needing a code change.
-    assert _normalize_model("gemini-3.0-flash") == "gemini-3.0-flash"
-    assert _normalize_model(None) == "gemini-flash-latest"
+    assert _normalize_model("gemini-4-argon") == "gemini-4-argon"
+    assert _normalize_model(None) == "gemini-3.1-flash-lite"
 
 
 def test_gemini_string_input_becomes_user_message():
@@ -413,8 +407,11 @@ async def test_openai_uses_options_prompt_when_input_empty():
         )
     assert result.text == "ok"
     assert captured["messages"][-1]["content"] == "Write a haiku"
-    # 0.5 (UI) -> 1.0 (OpenAI scale 0..2).
-    assert captured["temperature"] == 1.0
+    # The default model is now gpt-6-luna, which (like the rest of the
+    # gpt-5/gpt-6/o-series) rejects the temperature param with a 400, so it
+    # must not be sent.
+    assert captured["model"] == "gpt-6-luna"
+    assert "temperature" not in captured
 
 
 def _stub_openai_images(provider, captured: dict):
@@ -441,9 +438,9 @@ def _stub_openai_images(provider, captured: dict):
 async def test_openai_image_omits_response_format_and_retires_dalle():
     """Every image run failed with ``Unknown parameter: 'response_format'``.
 
-    The Images API dropped that parameter and retired ``dall-e-3`` entirely
-    ("The model 'dall-e-3' does not exist"), so the saved ``DALLE 3`` label has
-    to resolve to ``gpt-image-1`` and the parameter must not be sent.
+    The Images API dropped that parameter and retired ``gpt-image-1``
+    entirely, so the saved ``GPT Image 1`` label has to resolve to
+    ``gpt-image-2.5-flare`` and the parameter must not be sent.
     """
     from api.providers.openai_provider import OpenAIProvider
 
@@ -456,17 +453,17 @@ async def test_openai_image_omits_response_format_and_retires_dalle():
             input="a red cube",
             input_type="text",
             output_type="image",
-            options={"model": "DALLE 3"},
+            options={"model": "GPT Image 1"},
         )
 
     assert "response_format" not in captured
-    assert captured["model"] == "gpt-image-1"
+    assert captured["model"] == "gpt-image-2.5-flare"
     assert result.blob == b"hello"
 
 
 @pytest.mark.asyncio
 async def test_openai_image_coerces_legacy_dalle_sizes():
-    """``gpt-image-1`` rejects DALL-E-era sizes; map them by aspect ratio."""
+    """gpt-image models reject DALL-E-era sizes; map them by aspect ratio."""
     from api.providers.openai_provider import OpenAIProvider
 
     provider = OpenAIProvider()
@@ -478,7 +475,7 @@ async def test_openai_image_coerces_legacy_dalle_sizes():
             input="a red cube",
             input_type="text",
             output_type="image",
-            options={"model": "DALLE 3", "size": "1792x1024"},
+            options={"model": "GPT Image 1", "size": "1792x1024"},
         )
     assert captured["size"] == "1536x1024"
 

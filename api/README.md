@@ -44,14 +44,14 @@ as of latest manual smoke test:
 
 | AI type | Label                  | Status          | Notes                                                                                  |
 | ------- | ---------------------- | --------------- | -------------------------------------------------------------------------------------- |
-| Text    | `GPT o3-mini`          | Working         | Mapped to `gpt-4o-mini` on the OpenAI side.                                            |
-| Text    | `GPT-4o-mini`          | Working         |                                                                                        |
-| Text    | `Gemini 2.5 Flash`     | Working         | Normalized to `gemini-2.5-flash`. 2.0 / 1.5 ids are retired upstream and remap forward. |
-| Text    | `Llama 3.1 (Cloudflare)` | Account-gated | `llama-3-8b` was deprecated 2026-05-30 (HTTP 410); all Llama labels map to `@cf/meta/llama-3.1-8b-instruct-fp8`. Needs Workers AI: Read+Edit on the token. |
-| Image   | `GPT Image 1`          | Working         | `dall-e-3` was retired upstream, so the old `DALLE 3` label maps to `gpt-image-1`.      |
+| Text    | `GPT-6 Luna`           | Working         | Mapped to `gpt-6-luna`. Legacy `GPT o3-mini` / `GPT-4o-mini` labels remap here (gpt-4o-mini shuts down 2027-01-14; o3-mini is already gone). gpt-6 rejects `temperature`, so the provider drops it. |
+| Text    | `Gemini 3.1 Flash Lite` | Working        | Normalized to `gemini-3.1-flash-lite` ($0.25/$1.50 per 1M tokens; chosen over the pricier 3.5-lite and 3.x-flash tiers). Deprecated `Gemini 2.5 Flash` / `Gemini 2.5 Flash Lite` labels remap here. |
+| Text    | `DeepSeek V4.1 Flash`  | Working         | Mapped to `deepseek-flash`, the only id DeepSeek sanctions for this tier; `deepseek-v4-flash` was retired 2026-09-10. |
+| Text    | `Llama 3.1 (Cloudflare)` | Account-gated | `llama-3-8b` was deprecated 2026-05-30 (HTTP 410); the Llama labels map to `@cf/meta/llama-3.1-8b-instruct-fp8`. Needs Workers AI: Read+Edit on the token. |
+| Image   | `GPT Image 2.5 Flare`  | Working         | Mapped to `gpt-image-2.5-flare` (fast default). `gpt-image-1` shut down 2026-10-23; the `GPT Image 1` label remaps here. |
+| Image   | `GPT Image 2.5 Sunburst` | Working       | Mapped to `gpt-image-2.5-sunburst`: premium precision tier, slower, same price as Flare. |
 | Image   | `DreamShaper`          | Account-gated   | 401 from Cloudflare unless `@cf/lykon/dreamshaper-8-lcm` is enabled on the account.    |
-| Image   | `Midjourney`           | No CF Workers AI mapping — falls back to Stable Diffusion XL. Manual configuration needed. |
-| Audio   | `TTS-1`                | Working         | OpenAI text-to-speech.                                                                 |
+| Audio   | `GPT-4o Mini TTS`      | Working         | Mapped to `gpt-4o-mini-tts`; the `TTS-1` label remaps here. Heads-up: OpenAI retires the whole `/v1/audio/speech` endpoint 2027-01-06 in favor of the Realtime API (`gpt-realtime-2.1-mini`), which needs a code migration, not a model-id swap. |
 | File    | `PDF`                  | Working         | Uses PyMuPDF server-side.                                                           |
 
 Generated images and audio are uploaded to the public `run-media` Supabase
@@ -70,13 +70,12 @@ provider message gets surfaced in the editor's run sidebar:
 1. **Token scope missing**: API token doesn't have *Workers AI: Read* + *Workers
    AI: Edit*. Open Cloudflare Dashboard -> My Profile -> API Tokens, edit the
    token, add both Workers AI scopes for the account, save.
-2. **Model not enabled for the account**: a few image models (Stable Diffusion,
-   Midjourney-equivalent SDXL Lightning, DreamShaper LCM) are gated. Visit
-   Cloudflare Dashboard -> Workers AI -> Models, click the model, accept the
-   terms / enable it for the account. If the model is deprecated, switch to
-   `@cf/black-forest-labs/flux-1-schnell` (image) or
-   `@cf/meta/llama-3-8b-instruct` (text), both of which are enabled by default
-   for new accounts.
+2. **Model not enabled for the account**: a few image models (e.g. DreamShaper
+   LCM) are gated. Visit Cloudflare Dashboard -> Workers AI -> Models, click
+   the model, accept the terms / enable it for the account. If the model is
+   deprecated, switch to `@cf/black-forest-labs/flux-1-schnell` (image) or
+   `@cf/meta/llama-3.1-8b-instruct-fp8` (text), both of which are enabled by
+   default for new accounts.
 
 To override the default model id without code changes, save your own
 Cloudflare API key on the **Integrations** page; the run engine uses your key

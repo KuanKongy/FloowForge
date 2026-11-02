@@ -15,22 +15,18 @@ from .base import BaseProvider, ProviderResult
 _LLAMA_DEFAULT = "@cf/meta/llama-3.1-8b-instruct-fp8"
 
 _TEXT_LABEL_TO_ID: dict[str, str] = {
-    "llama 3 (cloudflare)": _LLAMA_DEFAULT,
     "llama 3.1 (cloudflare)": _LLAMA_DEFAULT,
-    "ollama": _LLAMA_DEFAULT,  # legacy label
-    "llama 3": _LLAMA_DEFAULT,
-    "llama 3.1": _LLAMA_DEFAULT,
+    _LLAMA_DEFAULT: _LLAMA_DEFAULT,
+    # Legacy label / raw ids from saved FloowForge graphs.
+    "llama 3 (cloudflare)": _LLAMA_DEFAULT,
     "@cf/meta/llama-3-8b-instruct": _LLAMA_DEFAULT,
     "@cf/meta/llama-3.1-8b-instruct": _LLAMA_DEFAULT,
-    _LLAMA_DEFAULT: _LLAMA_DEFAULT,
 }
 
 _AUDIO_LABEL_TO_ID: dict[str, str] = {
     "aura 2 (cloudflare)": "@cf/deepgram/aura-2-en",
     "aura-2-en": "@cf/deepgram/aura-2-en",
     "@cf/deepgram/aura-2-en": "@cf/deepgram/aura-2-en",
-    "aura 1 (cloudflare)": "@cf/deepgram/aura-1",
-    "@cf/deepgram/aura-1": "@cf/deepgram/aura-1",
 }
 
 # Aspect token -> (width, height) for the diffusion models. Dimensions are
@@ -90,10 +86,6 @@ def _cf_image_dims(options: dict[str, Any]) -> tuple[int, int]:
 _IMAGE_LABEL_TO_ID: dict[str, str] = {
     "dreamshaper": "@cf/lykon/dreamshaper-8-lcm",
     "@cf/lykon/dreamshaper-8-lcm": "@cf/lykon/dreamshaper-8-lcm",
-    # Cloudflare doesn't ship Midjourney; pick the closest SDXL-quality model
-    # so the run still completes instead of hard-erroring on label.
-    "midjourney": "@cf/bytedance/stable-diffusion-xl-lightning",
-    "stable diffusion": "@cf/bytedance/stable-diffusion-xl-lightning",
     "flux schnell": "@cf/black-forest-labs/flux-1-schnell",
     "@cf/black-forest-labs/flux-1-schnell": "@cf/black-forest-labs/flux-1-schnell",
 }

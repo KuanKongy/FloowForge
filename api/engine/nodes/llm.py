@@ -10,20 +10,18 @@ from .integrations import apply_integration_options
 
 # Display labels (kept compatible with the existing UI dropdowns) -> backend providers.
 MODEL_TO_PROVIDER: dict[str, str] = {
+    "GPT-6 Luna": "openai",
+    "Gemini 3.1 Flash Lite": "gemini",
+    "Llama 3.1 (Cloudflare)": "cloudflare",
+    "DeepSeek V4.1 Flash": "deepseek",
+    # Legacy labels from saved FloowForge graphs; each provider remaps them
+    # onto a live model id.
     "GPT o3-mini": "openai",
     "GPT-4o-mini": "openai",
-    "GPT-4.1-mini": "openai",
-    "Ollama": "cloudflare",
-    "Llama 3 (Cloudflare)": "cloudflare",
-    "Llama 3.1 (Cloudflare)": "cloudflare",
-    "Gemini": "gemini",
     "Gemini 2.5 Flash": "gemini",
     "Gemini 2.5 Flash Lite": "gemini",
-    "Gemini 1.5 Flash": "gemini",
-    "Gemini 1.5 Pro": "gemini",
+    "Llama 3 (Cloudflare)": "cloudflare",
     "DeepSeek V4 Flash": "deepseek",
-    "DeepSeek": "deepseek",
-    "Deepseek": "deepseek",
 }
 
 
@@ -46,7 +44,7 @@ async def execute(node: dict, inputs: list[Any], ctx: ExecutionContext) -> str:
         options.setdefault("model", data.get("model"))
     options = await apply_integration_options(data, ctx, options)
 
-    label = data.get("model") or "GPT o3-mini"
+    label = data.get("model") or "GPT-6 Luna"
     provider_name = MODEL_TO_PROVIDER.get(label)
     if provider_name is None:
         # Falling back to OpenAI for an unrecognised label sent Gemini and

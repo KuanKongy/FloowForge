@@ -37,12 +37,12 @@ normalized payload to the executor.
 
 - `providers/base.py`: common provider result shape.
 - `providers/openai_provider.py`: OpenAI text, image, and audio.
-- `providers/gemini_provider.py`: Gemini text. Legacy `Gemini 1.5 Flash`
-  labels map to `gemini-2.5-flash-lite`.
+- `providers/gemini_provider.py`: Gemini text. Legacy 2.5 labels map to
+  `gemini-3.1-flash-lite`.
 - `providers/cloudflare_provider.py`: direct Cloudflare Workers AI text,
   image, and audio. Requires account id plus API token.
 - `providers/deepseek_provider.py`: DeepSeek chat using the OpenAI-compatible
-  API. Defaults to `deepseek-v4-flash`.
+  API. Defaults to `deepseek-flash`.
 - `providers/__init__.py`: provider registry used by nodes.
 
 ## Background Work
